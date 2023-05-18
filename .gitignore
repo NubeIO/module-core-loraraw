@@ -1,0 +1,16 @@
+vendor/
+.idea/
+builds/
+certs/
+licenses/
+coverage.txt
+*/node_modules/
+**/*-packr.go
+config.yml
+data/
+images/
+src/client/ws.conf
+*.so
+*.zip
+secret.txt
+lora
