@@ -13,7 +13,16 @@ var module *Module
 type Module struct {
 	dbHelper       shared.DBHelper
 	grpcMarshaller marshal.Marshaller
-	value          int64
+	config         *Config
+	// enabled        bool
+	// running        bool
+	// fault          bool
+	// basePath       string
+	// store          cachestore.Handler
+	// bus            eventbus.BusService
+	pluginUUID    string
+	networkUUID   string
+	interruptChan chan struct{}
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper) error {

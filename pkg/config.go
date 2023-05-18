@@ -5,17 +5,17 @@ type Config struct {
 }
 
 // DefaultConfig implements plugin.Configurer
-func (inst *Instance) DefaultConfig() interface{} {
+func (m *Module) DefaultConfig() interface{} {
 	return &Config{}
 }
 
-func (inst *Instance) GetConfig() interface{} {
-	return inst.config
+func (m *Module) GetConfig() interface{} {
+	return m.config
 }
 
 // ValidateAndSetConfig implements plugin.Configurer
-func (inst *Instance) ValidateAndSetConfig(config interface{}) error {
+func (m *Module) ValidateAndSetConfig(config interface{}) error {
 	newConfig := config.(*Config)
-	inst.config = newConfig
+	m.config = newConfig
 	return nil
 }
