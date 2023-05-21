@@ -42,13 +42,16 @@ func (m *Module) Get(path string) ([]byte, error) {
 
 func (m *Module) Post(path string, body []byte) ([]byte, error) {
 	if path == common.NetworksURL {
-		var networks []*model.Network
-		err := json.Unmarshal(body, &networks)
+		var network *model.Network
+		err := json.Unmarshal(body, &network)
 		if err != nil {
 			return nil, err
 		}
-		// network, err := inst.addNetwork(body)
-		// api.ResponseHandler(network, err, ctx)
+		net, err := m.addNetwork(network)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(net)
 	}
 	return nil, errors.New("not found")
 }

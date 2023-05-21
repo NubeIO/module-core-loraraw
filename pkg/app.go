@@ -3,12 +3,12 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/NubeIO/data-processing-module/utils"
 	"github.com/NubeIO/flow-framework/api"
 	"github.com/NubeIO/flow-framework/plugin/nube/protocals/lora/decoder"
 	"github.com/NubeIO/flow-framework/utils/boolean"
 	"github.com/NubeIO/flow-framework/utils/float"
 	"github.com/NubeIO/flow-framework/utils/integer"
+	"github.com/NubeIO/lora-module/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
@@ -23,6 +23,7 @@ import (
 
 var argType = api.ArgsType
 var name = "lora"
+var urlPrefix = "lora"
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
 	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginPath, "")
@@ -223,9 +224,10 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 		log.Errorln("loraraw: addDevicePoints(), get network", err)
 		return err
 	}
-	if network.PluginPath != "lora" {
-		log.Errorln("loraraw: incorrect network plugin type, must be lora, network was:", network.PluginPath)
-		return errors.New("loraraw: incorrect network plugin type, must be lora")
+	if network.PluginPath != m.moduleName {
+		errMsg := fmt.Sprintf("loraraw: incorrect network plugin type, must be %s", m.moduleName)
+		log.Errorln(errMsg)
+		return errors.New(errMsg)
 	}
 
 	points := decoder.GetDevicePointsStruct(deviceBody)
@@ -335,7 +337,7 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	args := fmt.Sprintf("%s=%s&&%s=%s", argType.AddressUUID, *body.AddressUUID, argType.IoNumber, body.IoNumber)
 	pnt, err := m.grpcMarshaller.GetOnePointByArgs(args)
 	if err != nil {
-		log.Errorf("loraraw: issue on failed to find point: %v name: %s IO-ID:%s\n", err, *body.AddressUUID, body.IoNumber)
+		log.Errorf("loraraw: issue on failed to find point: %v address_uuid: %s IO-ID:%s\n", err, *body.AddressUUID, body.IoNumber)
 		return err
 	}
 

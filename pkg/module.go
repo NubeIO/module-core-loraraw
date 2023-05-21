@@ -2,8 +2,9 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/NubeIO/data-processing-module/marshal"
 	"github.com/NubeIO/flow-framework/module/shared"
+	"github.com/NubeIO/flow-framework/utils/nstring"
+	"github.com/NubeIO/lora-module/marshal"
 	"github.com/hashicorp/go-hclog"
 	"time"
 )
@@ -12,6 +13,7 @@ var module *Module
 
 type Module struct {
 	dbHelper       shared.DBHelper
+	moduleName     string
 	grpcMarshaller marshal.Marshaller
 	config         *Config
 	// enabled        bool
@@ -25,16 +27,27 @@ type Module struct {
 	interruptChan chan struct{}
 }
 
-func (m *Module) Init(dbHelper shared.DBHelper) error {
+func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
 	grpcMarshaller := marshal.GrpcMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper
+	m.moduleName = moduleName
 	m.grpcMarshaller = &grpcMarshaller
-	module = &Module{dbHelper: m.dbHelper, grpcMarshaller: &grpcMarshaller}
+	module = m
 	return nil
 }
 
-func (m *Module) GetUrlPrefix() (string, error) {
-	return "lora", nil
+func (m *Module) GetInfo() (*shared.Info, error) {
+	return &shared.Info{
+		Name:       name,
+		Author:     "RaiBnod",
+		Website:    "https://nube-io.com",
+		License:    "N/A",
+		HasNetwork: true,
+	}, nil
+}
+
+func (m *Module) GetUrlPrefix() (*string, error) {
+	return nstring.New(urlPrefix), nil
 }
 
 func Test() {

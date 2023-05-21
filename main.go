@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/NubeIO/data-processing-module/logger"
-	"github.com/NubeIO/data-processing-module/pkg"
 	"github.com/NubeIO/flow-framework/module/shared"
+	"github.com/NubeIO/lora-module/logger"
+	"github.com/NubeIO/lora-module/pkg"
 	"github.com/hashicorp/go-plugin"
 )
 
