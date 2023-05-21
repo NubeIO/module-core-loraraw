@@ -32,7 +32,7 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 	}
 	for _, net := range nets {
 		if net != nil {
-			errMsg := "loraraw: only max one network is allowed with lora"
+			errMsg := fmt.Sprintf("loraraw: only max one network is allowed with %s", m.moduleName)
 			log.Errorf(errMsg)
 			return nil, errors.New(errMsg)
 		}
