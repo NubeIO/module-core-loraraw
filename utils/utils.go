@@ -1,9 +1,7 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 )
 
@@ -38,13 +36,4 @@ func GetReflectFieldJSONName(field reflect.StructField) string {
 		}
 		return name
 	}
-}
-
-func ExtractEntityAndValueFromURL(url string) (string, string, bool) {
-	re := regexp.MustCompile(`^/([^/]+)/([^/]+)/?$`)
-	matches := re.FindStringSubmatch(url)
-	if len(matches) > 2 {
-		return fmt.Sprintf("/%s", matches[1]), matches[2], true
-	}
-	return "", "", false
 }

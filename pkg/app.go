@@ -47,7 +47,7 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 	}
 	m.networkUUID = network.UUID
 	go m.run()
-	return body, nil
+	return network, nil
 }
 
 func (m *Module) addDevice(body *model.Device) (device *model.Device, err error) {

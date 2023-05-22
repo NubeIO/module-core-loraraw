@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/NubeIO/flow-framework/module/common"
 	"github.com/NubeIO/lib-schema/loraschema"
-	"github.com/NubeIO/lora-module/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
 )
 
@@ -23,9 +22,7 @@ const (
 )
 
 func (m *Module) Get(path string) ([]byte, error) {
-	if path == common.NetworksURL {
-
-	} else if path == jsonSchemaNetwork {
+	if path == jsonSchemaNetwork {
 		fns, err := m.grpcMarshaller.GetFlowNetworks("")
 		if err != nil {
 			return nil, err
@@ -79,16 +76,12 @@ func (m *Module) Post(path string, body []byte) ([]byte, error) {
 	return nil, errors.New("not found")
 }
 
-func (m *Module) Put(path string, body []byte) ([]byte, error) {
+func (m *Module) Put(path, uuid string, body []byte) ([]byte, error) {
 	return nil, errors.New("not found")
 }
-func (m *Module) Patch(path string, body []byte) ([]byte, error) {
-	url, uuid, valid := utils.ExtractEntityAndValueFromURL(path)
-	if !valid {
-		return nil, errors.New("not found")
-	}
 
-	if url == common.NetworksURL {
+func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
+	if path == common.NetworksURL {
 		var network *model.Network
 		err := json.Unmarshal(body, &network)
 		if err != nil {
@@ -99,7 +92,7 @@ func (m *Module) Patch(path string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(net)
-	} else if url == common.DevicesURL {
+	} else if path == common.DevicesURL {
 		var device *model.Device
 		err := json.Unmarshal(body, &device)
 		if err != nil {
@@ -110,7 +103,7 @@ func (m *Module) Patch(path string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(dev)
-	} else if url == common.PointsURL {
+	} else if path == common.PointsURL {
 		var point *model.Point
 		err := json.Unmarshal(body, &point)
 		if err != nil {
@@ -121,22 +114,28 @@ func (m *Module) Patch(path string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(pnt)
+	} else if path == common.PointsWriteURL {
+		var pw *model.PointWriter
+		err := json.Unmarshal(body, &pw)
+		if err != nil {
+			return nil, err
+		}
+		pnt, err := m.grpcMarshaller.PointWrite(uuid, pw)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(pnt.Point)
 	}
 	return nil, errors.New("not found")
 }
-func (m *Module) Delete(path string) ([]byte, error) {
-	url, uuid, valid := utils.ExtractEntityAndValueFromURL(path)
-	if !valid {
-		return nil, errors.New("not found")
-	}
-
-	if url == common.NetworksURL {
+func (m *Module) Delete(path, uuid string) ([]byte, error) {
+	if path == common.NetworksURL {
 		err := m.grpcMarshaller.DeleteNetwork(uuid)
 		return nil, err
-	} else if url == common.DevicesURL {
+	} else if path == common.DevicesURL {
 		err := m.grpcMarshaller.DeleteDevice(uuid)
 		return nil, err
-	} else if url == common.PointsURL {
+	} else if path == common.PointsURL {
 		err := m.grpcMarshaller.DeletePoint(uuid)
 		return nil, err
 	}
