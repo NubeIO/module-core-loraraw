@@ -3,7 +3,7 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/NubeIO/lora-module/utils"
+	"github.com/NubeIO/module-core-lora/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"

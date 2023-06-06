@@ -6,7 +6,7 @@ import (
 
 func SetLogger(logLevel string) {
 	hclog.SetDefault(hclog.New(&hclog.LoggerOptions{
-		Name:  "lora-module",
+		Name:  "module-core-lora",
 		Level: hclog.LevelFromString(logLevel),
 	}))
 }

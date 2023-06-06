@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/NubeIO/lora-module/marshal"
+	"github.com/NubeIO/module-core-lora/marshal"
 	"github.com/NubeIO/rubix-os/module/shared"
 	"github.com/NubeIO/rubix-os/utils/nstring"
 	"github.com/hashicorp/go-hclog"
