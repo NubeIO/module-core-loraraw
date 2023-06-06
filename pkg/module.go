@@ -1,17 +1,14 @@
 package pkg
 
 import (
-	"github.com/NubeIO/module-core-lora/marshal"
 	"github.com/NubeIO/rubix-os/module/shared"
 	"github.com/NubeIO/rubix-os/utils/nstring"
 )
 
-var module *Module
-
 type Module struct {
 	dbHelper       shared.DBHelper
 	moduleName     string
-	grpcMarshaller marshal.Marshaller
+	grpcMarshaller shared.Marshaller
 	config         *Config
 	// enabled        bool
 	// running        bool
@@ -25,11 +22,10 @@ type Module struct {
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
-	grpcMarshaller := marshal.GrpcMarshaller{DbHelper: dbHelper}
+	grpcMarshaller := shared.GRPCMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper
 	m.moduleName = moduleName
 	m.grpcMarshaller = &grpcMarshaller
-	module = m
 	return nil
 }
 
