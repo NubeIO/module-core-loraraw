@@ -2,9 +2,9 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/NubeIO/flow-framework/module/shared"
-	"github.com/NubeIO/flow-framework/utils/nstring"
 	"github.com/NubeIO/lora-module/marshal"
+	"github.com/NubeIO/rubix-os/module/shared"
+	"github.com/NubeIO/rubix-os/utils/nstring"
 	"github.com/hashicorp/go-hclog"
 	"time"
 )

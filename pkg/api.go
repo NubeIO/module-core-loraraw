@@ -3,9 +3,9 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
-	"github.com/NubeIO/flow-framework/module/common"
 	"github.com/NubeIO/lib-schema/loraschema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
+	"github.com/NubeIO/rubix-os/module/common"
 )
 
 const (

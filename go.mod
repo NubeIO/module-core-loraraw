@@ -2,16 +2,16 @@ module github.com/NubeIO/lora-module
 
 go 1.18
 
-replace github.com/NubeIO/flow-framework => /Users/raibnod/Enviro/flow-framework
+replace github.com/NubeIO/rubix-os => /Users/raibnod/Enviro/rubix-os
 
 require (
-	github.com/NubeIO/flow-framework v0.13.0
-	github.com/NubeIO/lib-schema v0.2.14
+	github.com/NubeIO/lib-schema v0.2.15
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7
-	github.com/NubeIO/nubeio-rubix-lib-models-go v1.4.26
+	github.com/NubeIO/nubeio-rubix-lib-models-go v1.6.0
+	github.com/NubeIO/rubix-os v0.0.1
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.4.9
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.0
 	go.bug.st/serial v1.3.2
 	golang.org/x/text v0.8.0
 )
@@ -20,13 +20,22 @@ require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/NubeDev/location v0.0.2 // indirect
 	github.com/NubeIO/configor v0.0.3 // indirect
-	github.com/NubeIO/nubeio-rubix-lib-auth-go v1.0.3 // indirect
+	github.com/NubeIO/lib-date v0.0.6 // indirect
+	github.com/NubeIO/lib-dhcpd v0.0.2 // indirect
+	github.com/NubeIO/lib-files v1.0.0 // indirect
+	github.com/NubeIO/lib-networking v0.1.0 // indirect
+	github.com/NubeIO/lib-system v0.0.1 // indirect
+	github.com/NubeIO/lib-systemctl-go v0.3.1 // indirect
+	github.com/NubeIO/lib-ufw v0.0.3 // indirect
+	github.com/NubeIO/nubeio-rubix-lib-auth-go v1.2.0 // indirect
+	github.com/NubeIO/rubix-registry-go v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d // indirect
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/eclipse/paho.mqtt.golang v1.3.5 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/gin-gonic/gin v1.7.4 // indirect
+	github.com/go-co-op/gocron v1.7.0 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
@@ -37,6 +46,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
+	github.com/jackpal/gateway v1.0.7 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.4 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -51,14 +61,20 @@ require (
 	github.com/mustafaturan/monoton/v2 v2.0.2 // indirect
 	github.com/oklog/run v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
+	github.com/rvflash/elapsed v0.3.0 // indirect
+	github.com/sergeymakinen/go-systemdconf/v2 v2.0.2 // indirect
+	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e // indirect
 	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.6.0 // indirect
 	google.golang.org/genproto v0.0.0-20230110181048-76db0878b65f // indirect
 	google.golang.org/grpc v1.54.1 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	gorm.io/datatypes v1.0.6 // indirect
 	gorm.io/driver/mysql v1.3.2 // indirect
 	gorm.io/gorm v1.23.2 // indirect
