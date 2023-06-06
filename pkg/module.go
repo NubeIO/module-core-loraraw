@@ -1,12 +1,9 @@
 package pkg
 
 import (
-	"fmt"
 	"github.com/NubeIO/module-core-lora/marshal"
 	"github.com/NubeIO/rubix-os/module/shared"
 	"github.com/NubeIO/rubix-os/utils/nstring"
-	"github.com/hashicorp/go-hclog"
-	"time"
 )
 
 var module *Module
@@ -48,14 +45,4 @@ func (m *Module) GetInfo() (*shared.Info, error) {
 
 func (m *Module) GetUrlPrefix() (*string, error) {
 	return nstring.New(urlPrefix), nil
-}
-
-func Test() {
-	hclog.Default().Info(fmt.Sprintf("module %v", module))
-	if module != nil {
-
-	} else {
-		time.Sleep(1 * time.Second)
-		Test()
-	}
 }

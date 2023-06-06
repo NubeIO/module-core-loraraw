@@ -19,6 +19,5 @@ func ServePlugin() {
 
 func main() {
 	logger.SetLogger("INFO")
-	go pkg.Test()
 	ServePlugin()
 }
