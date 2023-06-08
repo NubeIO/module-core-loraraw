@@ -11,16 +11,9 @@ type Module struct {
 	moduleName     string
 	grpcMarshaller shared.Marshaller
 	config         *Config
-	// enabled        bool
-	// running        bool
-	// fault          bool
-	// basePath       string
-	// store          cachestore.Handler
-	// bus            eventbus.BusService
-	// pluginUUID    string
-	networkUUID   string
-	interruptChan chan struct{}
-	mutex         *sync.RWMutex
+	networkUUID    string
+	interruptChan  chan struct{}
+	mutex          *sync.RWMutex
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {

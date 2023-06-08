@@ -31,7 +31,7 @@ func (m *Module) Disable() error {
 	defer m.mutex.Unlock()
 	log.Info("plugin is disabling...")
 	m.interruptChan <- struct{}{}
-	time.Sleep(time.Duration(reIterationTime+1) * time.Second) // we need to do this because, before disable it could possibly be restarted
+	time.Sleep(m.config.ReIterationTime + 1*time.Second) // we need to do this because, before disable it could possibly be restarted
 	log.Info("plugin is disabled")
 	return nil
 }
