@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var reIterationTime = 5
+
 // LoRa plugin loop
 func (m *Module) run() {
 	defer m.SerialClose()
@@ -18,7 +20,7 @@ func (m *Module) run() {
 		default:
 			if err != nil {
 				log.Error("loraraw: error opening serial ", err)
-				time.Sleep(5 * time.Second)
+				time.Sleep(time.Duration(reIterationTime) * time.Second)
 				continue
 			}
 		}

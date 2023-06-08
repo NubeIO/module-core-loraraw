@@ -3,6 +3,7 @@ package pkg
 import (
 	"github.com/NubeIO/rubix-os/module/shared"
 	"github.com/NubeIO/rubix-os/utils/nstring"
+	"sync"
 )
 
 type Module struct {
@@ -16,12 +17,14 @@ type Module struct {
 	// basePath       string
 	// store          cachestore.Handler
 	// bus            eventbus.BusService
-	pluginUUID    string
+	// pluginUUID    string
 	networkUUID   string
 	interruptChan chan struct{}
+	mutex         *sync.RWMutex
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
+	m.mutex = &sync.RWMutex{}
 	grpcMarshaller := shared.GRPCMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper
 	m.moduleName = moduleName
