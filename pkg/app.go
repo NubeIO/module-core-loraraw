@@ -22,8 +22,6 @@ import (
 )
 
 var argType = api.ArgsType
-var name = "lora"
-var urlPrefix = "lora"
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
 	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginPath, "")
@@ -102,7 +100,7 @@ func (m *Module) networkUpdateSuccess(uuid string) error {
 	network.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(name, m.networkUpdateSuccess, err))
+		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateSuccess, err))
 	}
 	return err
 }
@@ -116,7 +114,7 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	network.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(name, m.networkUpdateErr, err))
+		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateErr, err))
 	}
 	return err
 }

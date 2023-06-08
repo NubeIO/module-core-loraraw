@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/NubeIO/rubix-os/module/shared"
-	"github.com/NubeIO/rubix-os/utils/nstring"
 	"sync"
 )
 
@@ -27,14 +26,10 @@ func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
 
 func (m *Module) GetInfo() (*shared.Info, error) {
 	return &shared.Info{
-		Name:       name,
+		Name:       pluginName,
 		Author:     "RaiBnod",
 		Website:    "https://nube-io.com",
 		License:    "N/A",
 		HasNetwork: true,
 	}, nil
-}
-
-func (m *Module) GetUrlPrefix() (*string, error) {
-	return nstring.New(urlPrefix), nil
 }
