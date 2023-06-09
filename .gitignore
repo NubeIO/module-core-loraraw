@@ -13,4 +13,4 @@ src/client/ws.conf
 *.so
 *.zip
 secret.txt
-lora
+module-core-lora

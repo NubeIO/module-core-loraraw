@@ -3,15 +3,15 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/NubeIO/flow-framework/api"
-	"github.com/NubeIO/flow-framework/plugin/nube/protocals/lora/decoder"
-	"github.com/NubeIO/flow-framework/utils/boolean"
-	"github.com/NubeIO/flow-framework/utils/float"
-	"github.com/NubeIO/flow-framework/utils/integer"
-	"github.com/NubeIO/lora-module/utils"
+	"github.com/NubeIO/module-core-lora/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
+	"github.com/NubeIO/rubix-os/api"
+	"github.com/NubeIO/rubix-os/plugin/nube/protocals/lora/decoder"
+	"github.com/NubeIO/rubix-os/utils/boolean"
+	"github.com/NubeIO/rubix-os/utils/float"
+	"github.com/NubeIO/rubix-os/utils/integer"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -22,8 +22,6 @@ import (
 )
 
 var argType = api.ArgsType
-var name = "lora"
-var urlPrefix = "lora"
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
 	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginPath, "")
@@ -102,7 +100,7 @@ func (m *Module) networkUpdateSuccess(uuid string) error {
 	network.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(name, m.networkUpdateSuccess, err))
+		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateSuccess, err))
 	}
 	return err
 }
@@ -116,7 +114,7 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	network.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(name, m.networkUpdateErr, err))
+		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateErr, err))
 	}
 	return err
 }

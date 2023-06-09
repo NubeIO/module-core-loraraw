@@ -1,61 +1,35 @@
 package pkg
 
 import (
-	"fmt"
-	"github.com/NubeIO/flow-framework/module/shared"
-	"github.com/NubeIO/flow-framework/utils/nstring"
-	"github.com/NubeIO/lora-module/marshal"
-	"github.com/hashicorp/go-hclog"
-	"time"
+	"github.com/NubeIO/rubix-os/module/shared"
+	"sync"
 )
-
-var module *Module
 
 type Module struct {
 	dbHelper       shared.DBHelper
 	moduleName     string
-	grpcMarshaller marshal.Marshaller
+	grpcMarshaller shared.Marshaller
 	config         *Config
-	// enabled        bool
-	// running        bool
-	// fault          bool
-	// basePath       string
-	// store          cachestore.Handler
-	// bus            eventbus.BusService
-	pluginUUID    string
-	networkUUID   string
-	interruptChan chan struct{}
+	networkUUID    string
+	interruptChan  chan struct{}
+	mutex          *sync.RWMutex
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
-	grpcMarshaller := marshal.GrpcMarshaller{DbHelper: dbHelper}
+	m.mutex = &sync.RWMutex{}
+	grpcMarshaller := shared.GRPCMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper
 	m.moduleName = moduleName
 	m.grpcMarshaller = &grpcMarshaller
-	module = m
 	return nil
 }
 
 func (m *Module) GetInfo() (*shared.Info, error) {
 	return &shared.Info{
-		Name:       name,
+		Name:       pluginName,
 		Author:     "RaiBnod",
 		Website:    "https://nube-io.com",
 		License:    "N/A",
 		HasNetwork: true,
 	}, nil
-}
-
-func (m *Module) GetUrlPrefix() (*string, error) {
-	return nstring.New(urlPrefix), nil
-}
-
-func Test() {
-	hclog.Default().Info(fmt.Sprintf("module %v", module))
-	if module != nil {
-
-	} else {
-		time.Sleep(1 * time.Second)
-		Test()
-	}
 }

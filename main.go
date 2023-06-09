@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/NubeIO/flow-framework/module/shared"
-	"github.com/NubeIO/lora-module/logger"
-	"github.com/NubeIO/lora-module/pkg"
+	"github.com/NubeIO/module-core-lora/logger"
+	"github.com/NubeIO/module-core-lora/pkg"
+	"github.com/NubeIO/rubix-os/module/shared"
 	"github.com/hashicorp/go-plugin"
 )
 
@@ -19,6 +19,5 @@ func ServePlugin() {
 
 func main() {
 	logger.SetLogger("INFO")
-	go pkg.Test()
 	ServePlugin()
 }
