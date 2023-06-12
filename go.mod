@@ -2,13 +2,15 @@ module github.com/NubeIO/module-core-lora
 
 go 1.18
 
-replace github.com/NubeIO/rubix-os => /Users/raibnod/Enviro/rubix-os
+//replace github.com/NubeIO/rubix-os => /Users/raibnod/Enviro/rubix-os
+//replace github.com/NubeIO/nubeio-rubix-lib-models-go => /Users/raibnod/Enviro/nubeio-rubix-lib-models-go
 
 require (
 	github.com/NubeIO/lib-schema v0.2.15
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7
-	github.com/NubeIO/nubeio-rubix-lib-models-go v1.6.0
+	github.com/NubeIO/nubeio-rubix-lib-models-go v1.6.3
 	github.com/NubeIO/rubix-os v0.0.1
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.4.9
 	github.com/sirupsen/logrus v1.9.0
@@ -41,7 +43,6 @@ require (
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/go-resty/resty/v2 v2.7.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
-	github.com/go-yaml/yaml v2.1.0+incompatible // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
