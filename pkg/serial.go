@@ -29,10 +29,14 @@ func (m *Module) SerialOpen() (*SerialSetting, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(networks) != 1 {
-		return nil, errors.New(fmt.Sprintf("Network should be just 1 for type %s", m.moduleName))
+	totalNetworks := len(networks)
+	if totalNetworks == 0 {
+		return nil, errors.New(fmt.Sprintf("we don't have network of module %s", m.moduleName))
+	} else if totalNetworks >= 1 {
+		return nil, errors.New(fmt.Sprintf("we have %d networks of module %s", totalNetworks, m.moduleName))
 	}
 	net := networks[0]
+	m.networkUUID = net.UUID
 	if net.SerialPort == nil || net.SerialBaudRate == nil {
 		return s, errors.New("lora-serial: serial_port & serial_baud_rate required to open")
 	}

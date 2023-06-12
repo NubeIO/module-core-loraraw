@@ -18,8 +18,6 @@ func (m *Module) Enable() error {
 	if len(networks) == 0 {
 		log.Warn("we don't have networks")
 	}
-	network := networks[0]
-	m.networkUUID = network.UUID
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()
 	log.Info("plugin is enabled")
