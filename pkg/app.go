@@ -3,7 +3,7 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/NubeIO/module-core-lora/utils"
+	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
@@ -174,7 +174,7 @@ func (m *Module) handleSerialPayload(data string) {
 	if device == nil {
 		id := decoder.DecodeAddress(data) // show user messages from lora
 		rssi := decoder.DecodeRSSI(data)
-		log.Infof("lora-raw: message from sensor id: %s rssi: %d", id, rssi)
+		log.Infof("loraraw: message from sensor id: %s rssi: %d", id, rssi)
 		return
 	}
 	devDesc := decoder.GetDeviceDescription(device)
@@ -197,7 +197,7 @@ func (m *Module) handleSerialPayload(data string) {
 			return
 		}
 		if dev != nil {
-			log.Infof("lora-raw: sensor found id: %s rssi: %d type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
+			log.Infof("loraraw: sensor found id: %s rssi: %d type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
 			_ = m.deviceUpdateSuccess(dev.UUID)
 		}
 	}
@@ -347,7 +347,7 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	pointWriter := model.PointWriter{Priority: &priority}
 	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
 	if err != nil {
-		log.Error("lora-raw: UpdatePointValue()", err)
+		log.Error("loraraw: UpdatePointValue()", err)
 		return err
 	}
 	err = m.pointUpdateSuccess(&pwr.Point)

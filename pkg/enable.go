@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-var pluginName = "module-core-lora"
+var pluginName = "module-core-loraraw"
 
 func (m *Module) Enable() error {
 	m.mutex.Lock()

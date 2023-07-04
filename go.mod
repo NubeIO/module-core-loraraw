@@ -1,4 +1,4 @@
-module github.com/NubeIO/module-core-lora
+module github.com/NubeIO/module-core-loraraw
 
 go 1.18
 

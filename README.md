@@ -1,5 +1,5 @@
 ### How to build
 
 ```bash
-go build -o module-core-lora
+go build -o module-core-loraraw
 ```

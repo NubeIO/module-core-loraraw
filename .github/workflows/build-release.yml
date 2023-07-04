@@ -14,8 +14,8 @@ on:
       - 'v*'
 
 env:
-  APP_NAME: module-core-lora
-  GHCR_IMAGE: ghcr.io/nubeio/module-core-lora
+  APP_NAME: module-core-loraraw
+  GHCR_IMAGE: ghcr.io/nubeio/module-core-loraraw
   PLATFORMS: linux/amd64,linux/arm/v7
 
 jobs:
@@ -90,25 +90,25 @@ jobs:
       - name: Build amd64
         run: |
           go mod tidy
-          go build -o module-core-lora-amd64
+          go build -o module-core-loraraw-amd64
 
       - name: Build armv7
         if: ${{ needs.context.outputs.isRelease == 'true' }}
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-          env GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc  CXX=arm-linux-gnueabihf-g++ go build -o module-core-lora-armv7
+          env GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc  CXX=arm-linux-gnueabihf-g++ go build -o module-core-loraraw-armv7
 
       - name: Zip artifacts
         if: ${{ needs.context.outputs.isRelease == 'true' }}
         run: |
           mkdir -p /tmp/zip
           artifact=${{ needs.context.outputs.fqn }}.armv7
-          cp ./module-core-lora-armv7 ./module-core-lora
-          zip -r /tmp/zip/$artifact.zip ./module-core-lora
+          cp ./module-core-loraraw-armv7 ./module-core-loraraw
+          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw
           artifact=${{ needs.context.outputs.fqn }}.amd64
-          cp ./module-core-lora-amd64 ./module-core-lora
-          zip -r /tmp/zip/$artifact.zip ./module-core-lora
+          cp ./module-core-loraraw-amd64 ./module-core-loraraw
+          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw
 
       - name: Create Release
         if: ${{ needs.context.outputs.isRelease == 'true' }}
