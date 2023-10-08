@@ -1,25 +1,24 @@
 package pkg
 
 import (
+	"github.com/NubeIO/rubix-os/args"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
 
-var pluginName = "module-core-lora"
+var pluginName = "module-core-loraraw"
 
 func (m *Module) Enable() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	log.Info("plugin is enabling...")
-	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, "")
+	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, args.Args{})
 	if err != nil {
 		log.Error(err)
 	}
 	if len(networks) == 0 {
 		log.Warn("we don't have networks")
 	}
-	network := networks[0]
-	m.networkUUID = network.UUID
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()
 	log.Info("plugin is enabled")
