@@ -7,8 +7,8 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
-	"github.com/NubeIO/rubix-os/api"
-	"github.com/NubeIO/rubix-os/plugin/nube/protocals/lora/decoder"
+	"github.com/NubeIO/rubix-os/args"
+	"github.com/NubeIO/rubix-os/plugin/nube/protocols/lora/decoder"
 	"github.com/NubeIO/rubix-os/utils/boolean"
 	"github.com/NubeIO/rubix-os/utils/float"
 	"github.com/NubeIO/rubix-os/utils/integer"
@@ -21,10 +21,10 @@ import (
 	"time"
 )
 
-var argType = api.ArgsType
+var argType = args.ArgsType
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
-	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginPath, "")
+	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginPath, args.Args{})
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 
 func (m *Module) addDevice(body *model.Device) (device *model.Device, err error) {
 	*body.AddressUUID = strings.ToUpper(*body.AddressUUID)
-	device, _ = m.grpcMarshaller.GetOneDeviceByArgs(fmt.Sprintf("%s=%s", argType.AddressUUID, *body.AddressUUID))
+	device, _ = m.grpcMarshaller.GetOneDeviceByArgs(args.Args{AddressUUID: body.AddressUUID})
 	if device != nil {
 		errMsg := fmt.Sprintf("loraraw: the lora ID (address_uuid) must be unique: %s", *body.AddressUUID)
 		log.Errorf(errMsg)
@@ -187,7 +187,7 @@ func (m *Module) handleSerialPayload(data string) {
 	}
 	deviceId := commonData.ID
 	if deviceId != "" {
-		dev, err := m.grpcMarshaller.GetOneDeviceByArgs(fmt.Sprintf("device_uuid=%s", deviceId))
+		dev, err := m.grpcMarshaller.GetOneDeviceByArgs(args.Args{DeviceUUID: &deviceId})
 		if err != nil {
 			errMsg := fmt.Sprintf("lora-raw: issue on failed to find device: %v id: %s\n", err.Error(), deviceId)
 			log.Errorf(errMsg)
@@ -207,7 +207,7 @@ func (m *Module) handleSerialPayload(data string) {
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
-	device, err := m.grpcMarshaller.GetOneDeviceByArgs(fmt.Sprintf("%s=%s", argType.AddressUUID, address))
+	device, err := m.grpcMarshaller.GetOneDeviceByArgs(args.Args{AddressUUID: &address})
 	if err != nil {
 		return nil
 	}
@@ -217,7 +217,7 @@ func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
 // TODO: need better way to add/update CommonValues points instead of adding/updating the rssi point manually in each func
 // addDevicePoints add all points related to a device
 func (m *Module) addDevicePoints(deviceBody *model.Device) error {
-	network, err := m.grpcMarshaller.GetNetwork(deviceBody.NetworkUUID, "")
+	network, err := m.grpcMarshaller.GetNetwork(deviceBody.NetworkUUID, args.Args{})
 	if err != nil {
 		log.Errorln("loraraw: addDevicePoints(), get network", err)
 		return err
@@ -302,8 +302,6 @@ func (m *Module) setNewPointFields(deviceBody *model.Device, pointBody *model.Po
 	pointBody.Enable = boolean.NewTrue()
 	pointBody.DeviceUUID = deviceBody.UUID
 	pointBody.AddressUUID = deviceBody.AddressUUID
-	pointBody.IsProducer = boolean.NewFalse()
-	pointBody.IsConsumer = boolean.NewFalse()
 	pointBody.IsOutput = boolean.NewFalse()
 	pointBody.Name = cases.Title(language.English).String(name)
 	pointBody.IoNumber = name
@@ -313,7 +311,7 @@ func (m *Module) setNewPointFields(deviceBody *model.Device, pointBody *model.Po
 
 // updateDevicePointsAddress by its lora id and type as in temp or lux
 func (m *Module) updateDevicePointsAddress(body *model.Device) error {
-	dev, err := m.grpcMarshaller.GetDevice(body.UUID, fmt.Sprintf("%s=true", argType.WithPoints))
+	dev, err := m.grpcMarshaller.GetDevice(body.UUID, args.Args{WithPoints: true})
 	if err != nil {
 		return err
 	}
@@ -332,8 +330,7 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 // TODO: update to make more efficient for updating just the value (incl fault etc.)
 func (m *Module) updatePointValue(body *model.Point, value float64, device *model.Device) error {
 	// TODO: fix this so don't need to request the point for the UUID before hand
-	args := fmt.Sprintf("%s=%s&&%s=%s", argType.AddressUUID, *body.AddressUUID, argType.IoNumber, body.IoNumber)
-	pnt, err := m.grpcMarshaller.GetOnePointByArgs(args)
+	pnt, err := m.grpcMarshaller.GetOnePointByArgs(args.Args{AddressUUID: body.AddressUUID, IoNumber: &body.IoNumber})
 	if err != nil {
 		log.Errorf("loraraw: issue on failed to find point: %v address_uuid: %s IO-ID:%s\n", err, *body.AddressUUID, body.IoNumber)
 		return err

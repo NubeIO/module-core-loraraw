@@ -23,13 +23,7 @@ const (
 
 func (m *Module) Get(path string) ([]byte, error) {
 	if path == jsonSchemaNetwork {
-		fns, err := m.grpcMarshaller.GetFlowNetworks("")
-		if err != nil {
-			return nil, err
-		}
-		networkSchema := loraschema.GetNetworkSchema()
-		networkSchema.AutoMappingFlowNetworkName.Options = common.GetFlowNetworkNames(fns)
-		return json.Marshal(networkSchema)
+		return json.Marshal(loraschema.GetNetworkSchema())
 	} else if path == jsonSchemaDevice {
 		return json.Marshal(loraschema.GetDeviceSchema())
 	} else if path == jsonSchemaPoint {

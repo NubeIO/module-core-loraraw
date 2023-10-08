@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"github.com/NubeIO/rubix-os/args"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -11,7 +12,7 @@ func (m *Module) Enable() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	log.Info("plugin is enabling...")
-	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, "")
+	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, args.Args{})
 	if err != nil {
 		log.Error(err)
 	}
