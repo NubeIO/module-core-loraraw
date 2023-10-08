@@ -59,6 +59,8 @@ jobs:
     runs-on: ubuntu-20.04
     needs: context
     if: needs.context.outputs.shouldBuild == 'true'
+    env:
+      GITHUB_TOKEN: ${{ secrets.NUBEIO_CI_GITHUBPROJECT_TOKEN }}
     services:
       registry:
         image: zero88/gh-registry:latest
@@ -89,6 +91,7 @@ jobs:
 
       - name: Build amd64
         run: |
+          git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/NubeIO".insteadOf "https://github.com/NubeIO"
           go mod tidy
           go build -o module-core-loraraw-amd64
 
@@ -104,11 +107,9 @@ jobs:
         run: |
           mkdir -p /tmp/zip
           artifact=${{ needs.context.outputs.fqn }}.armv7
-          cp ./module-core-loraraw-armv7 ./module-core-loraraw
-          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw
+          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw-armv7
           artifact=${{ needs.context.outputs.fqn }}.amd64
-          cp ./module-core-loraraw-amd64 ./module-core-loraraw
-          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw
+          zip -r /tmp/zip/$artifact.zip ./module-core-loraraw-amd64
 
       - name: Create Release
         if: ${{ needs.context.outputs.isRelease == 'true' }}
