@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/NubeIO/rubix-os/args"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
 	"go.bug.st/serial"
 )
@@ -26,7 +26,7 @@ var Port serial.Port
 
 func (m *Module) SerialOpen() (*SerialSetting, error) {
 	s := &SerialSetting{}
-	networks, err := m.grpcMarshaller.GetNetworksByPluginName(m.moduleName, args.Args{})
+	networks, err := m.grpcMarshaller.GetNetworksByPluginName(m.moduleName, nargs.Args{})
 	if err != nil {
 		return nil, err
 	}

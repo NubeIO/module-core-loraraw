@@ -3,9 +3,9 @@ package pkg
 import (
 	"encoding/json"
 	"errors"
-	"github.com/NubeIO/lib-schema/loraschema"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/pkg/v1/model"
-	"github.com/NubeIO/rubix-os/module/common"
+	"github.com/NubeIO/lib-module-go/shared"
+	"github.com/NubeIO/module-core-loraraw/schema"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
 
 const (
@@ -23,17 +23,17 @@ const (
 
 func (m *Module) Get(path string) ([]byte, error) {
 	if path == jsonSchemaNetwork {
-		return json.Marshal(loraschema.GetNetworkSchema())
+		return json.Marshal(schema.GetNetworkSchema())
 	} else if path == jsonSchemaDevice {
-		return json.Marshal(loraschema.GetDeviceSchema())
+		return json.Marshal(schema.GetDeviceSchema())
 	} else if path == jsonSchemaPoint {
-		return json.Marshal(loraschema.GetPointSchema())
+		return json.Marshal(schema.GetPointSchema())
 	}
 	return nil, errors.New("not found")
 }
 
 func (m *Module) Post(path string, body []byte) ([]byte, error) {
-	if path == common.NetworksURL {
+	if path == shared.NetworksURL {
 		var network *model.Network
 		err := json.Unmarshal(body, &network)
 		if err != nil {
@@ -44,7 +44,7 @@ func (m *Module) Post(path string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(net)
-	} else if path == common.DevicesURL {
+	} else if path == shared.DevicesURL {
 		var device *model.Device
 		err := json.Unmarshal(body, &device)
 		if err != nil {
@@ -55,7 +55,7 @@ func (m *Module) Post(path string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(dev)
-	} else if path == common.PointsURL {
+	} else if path == shared.PointsURL {
 		var point *model.Point
 		err := json.Unmarshal(body, &point)
 		if err != nil {
@@ -75,7 +75,7 @@ func (m *Module) Put(path, uuid string, body []byte) ([]byte, error) {
 }
 
 func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
-	if path == common.NetworksURL {
+	if path == shared.NetworksURL {
 		var network *model.Network
 		err := json.Unmarshal(body, &network)
 		if err != nil {
@@ -86,7 +86,7 @@ func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(net)
-	} else if path == common.DevicesURL {
+	} else if path == shared.DevicesURL {
 		var device *model.Device
 		err := json.Unmarshal(body, &device)
 		if err != nil {
@@ -97,7 +97,7 @@ func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(dev)
-	} else if path == common.PointsURL {
+	} else if path == shared.PointsURL {
 		var point *model.Point
 		err := json.Unmarshal(body, &point)
 		if err != nil {
@@ -108,7 +108,7 @@ func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(pnt)
-	} else if path == common.PointsWriteURL {
+	} else if path == shared.PointsWriteURL {
 		var pw *model.PointWriter
 		err := json.Unmarshal(body, &pw)
 		if err != nil {
@@ -123,13 +123,13 @@ func (m *Module) Patch(path, uuid string, body []byte) ([]byte, error) {
 	return nil, errors.New("not found")
 }
 func (m *Module) Delete(path, uuid string) ([]byte, error) {
-	if path == common.NetworksURL {
+	if path == shared.NetworksURL {
 		err := m.grpcMarshaller.DeleteNetwork(uuid)
 		return nil, err
-	} else if path == common.DevicesURL {
+	} else if path == shared.DevicesURL {
 		err := m.grpcMarshaller.DeleteDevice(uuid)
 		return nil, err
-	} else if path == common.PointsURL {
+	} else if path == shared.PointsURL {
 		err := m.grpcMarshaller.DeletePoint(uuid)
 		return nil, err
 	}

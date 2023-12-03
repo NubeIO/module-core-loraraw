@@ -1,7 +1,7 @@
 package pkg
 
 import (
-	"github.com/NubeIO/rubix-os/module/shared"
+	"github.com/NubeIO/lib-module-go/shared"
 	"sync"
 )
 
