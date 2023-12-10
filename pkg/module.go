@@ -16,6 +16,7 @@ type Module struct {
 }
 
 func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
+	InitRouter()
 	m.mutex = &sync.RWMutex{}
 	grpcMarshaller := shared.GRPCMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper

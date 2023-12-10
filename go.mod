@@ -2,20 +2,15 @@ module github.com/NubeIO/module-core-loraraw
 
 go 1.18
 
-replace github.com/NubeIO/nubeio-rubix-lib-models-go => /Users/raibnod/Enviro/nubeio-rubix-lib-models-go
-
-replace github.com/NubeIO/lib-module-go => /Users/raibnod/Enviro/lib-module-go
-
-replace github.com/NubeIO/lib-utils-go => /Users/raibnod/Enviro/lib-utils-go
-
-replace github.com/NubeIO/lib-schema-go => /Users/raibnod/Enviro/lib-schema-go
+//replace github.com/NubeIO/nubeio-rubix-lib-models-go => /Users/raibnod/Enviro/nubeio-rubix-lib-models-go
+//replace github.com/NubeIO/lib-module-go => /Users/raibnod/Enviro/lib-module-go
 
 require (
 	github.com/NubeIO/lib-module-go v0.0.1
-	github.com/NubeIO/lib-schema-go v0.0.0-00010101000000-000000000000
+	github.com/NubeIO/lib-schema-go v0.0.1
 	github.com/NubeIO/lib-utils-go v0.0.1
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7
-	github.com/NubeIO/nubeio-rubix-lib-models-go v1.10.0
+	github.com/NubeIO/nubeio-rubix-lib-models-go v1.11.0
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-plugin v1.4.9

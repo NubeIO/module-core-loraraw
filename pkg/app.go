@@ -316,7 +316,7 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 	for _, pt := range dev.Points {
 		pt.AddressUUID = body.AddressUUID
 		pt.EnableWriteable = boolean.NewFalse()
-		_, err = m.grpcMarshaller.UpdatePoint(pt.UUID, pt)
+		_, err = m.grpcMarshaller.UpdatePoint(pt.UUID, pt, nargs.Args{})
 		if err != nil {
 			log.Errorf("loraraw: issue on UpdatePoint updateDevicePointsAddress(): %v\n", err)
 			return err
