@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
 	"time"
@@ -15,9 +16,12 @@ func (m *Module) Enable() error {
 	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, nargs.Args{})
 	if err != nil {
 		log.Error(err)
+		_ = m.updatePluginMessage(model.MessageLevel.Fail, err.Error())
 	}
 	if len(networks) == 0 {
-		log.Warn("we don't have networks")
+		warnMsg := "we don't have networks"
+		log.Warn(warnMsg)
+		_ = m.updatePluginMessage(model.MessageLevel.Warning, warnMsg)
 	}
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()

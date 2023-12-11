@@ -411,3 +411,14 @@ func (m *Module) updateDevicePointValuesStruct(deviceID string, sensorStruct int
 		}
 	}
 }
+
+func (m *Module) updatePluginMessage(messageLevel, message string) error {
+	var plugin model.Plugin
+	plugin.MessageLevel = messageLevel
+	plugin.Message = message
+	err := m.grpcMarshaller.UpdatePluginMessage(pluginName, &plugin)
+	if err != nil {
+		log.Error(bugs.DebugPrint(pluginName, m.updatePluginMessage, err))
+	}
+	return err
+}
