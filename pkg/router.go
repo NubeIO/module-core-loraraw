@@ -3,8 +3,8 @@ package pkg
 import (
 	"encoding/json"
 	"github.com/NubeIO/lib-module-go/http"
+	"github.com/NubeIO/lib-module-go/module"
 	"github.com/NubeIO/lib-module-go/router"
-	"github.com/NubeIO/lib-module-go/shared"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
@@ -34,25 +34,25 @@ func InitRouter() {
 }
 
 func (m *Module) CallModule(method http.Method, api string, args nargs.Args, body []byte) ([]byte, error) {
-	module := (shared.Module)(m)
-	return route.CallHandler(&module, method, api, args, body)
+	mo := (module.Module)(m)
+	return route.CallHandler(&mo, method, api, args, body)
 }
 
-func GetNetworkSchema(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func GetNetworkSchema(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetNetworkSchema())
 }
 
-func GetDeviceSchema(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func GetDeviceSchema(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetDeviceSchema())
 }
 
-func GetPointSchema(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func GetPointSchema(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetPointSchema())
 }
 
-func CreateNetwork(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func CreateNetwork(m *module.Module, r *router.Request) ([]byte, error) {
 	var network *model.Network
-	err := json.Unmarshal(body, &network)
+	err := json.Unmarshal(r.Body, &network)
 	if err != nil {
 		return nil, err
 	}
@@ -63,27 +63,27 @@ func CreateNetwork(m *shared.Module, params map[string]string, args nargs.Args, 
 	return json.Marshal(net)
 }
 
-func UpdateNetwork(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func UpdateNetwork(m *module.Module, r *router.Request) ([]byte, error) {
 	var network *model.Network
-	err := json.Unmarshal(body, &network)
+	err := json.Unmarshal(r.Body, &network)
 	if err != nil {
 		return nil, err
 	}
-	net, err := (*m).(*Module).grpcMarshaller.UpdateNetwork(params["uuid"], network)
+	net, err := (*m).(*Module).grpcMarshaller.UpdateNetwork(r.Params["uuid"], network)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(net)
 }
 
-func DeleteNetwork(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeleteNetwork(params["uuid"])
+func DeleteNetwork(m *module.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeleteNetwork(r.Params["uuid"])
 	return nil, err
 }
 
-func CreateDevice(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func CreateDevice(m *module.Module, r *router.Request) ([]byte, error) {
 	var device *model.Device
-	err := json.Unmarshal(body, &device)
+	err := json.Unmarshal(r.Body, &device)
 	if err != nil {
 		return nil, err
 	}
@@ -94,27 +94,27 @@ func CreateDevice(m *shared.Module, params map[string]string, args nargs.Args, b
 	return json.Marshal(dev)
 }
 
-func UpdateDevice(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func UpdateDevice(m *module.Module, r *router.Request) ([]byte, error) {
 	var device *model.Device
-	err := json.Unmarshal(body, &device)
+	err := json.Unmarshal(r.Body, &device)
 	if err != nil {
 		return nil, err
 	}
-	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(params["uuid"], device)
+	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(r.Params["uuid"], device)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(dev)
 }
 
-func DeleteDevice(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeleteDevice(params["uuid"])
+func DeleteDevice(m *module.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeleteDevice(r.Params["uuid"])
 	return nil, err
 }
 
-func CreatePoint(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func CreatePoint(m *module.Module, r *router.Request) ([]byte, error) {
 	var point *model.Point
-	err := json.Unmarshal(body, &point)
+	err := json.Unmarshal(r.Body, &point)
 	if err != nil {
 		return nil, err
 	}
@@ -125,33 +125,33 @@ func CreatePoint(m *shared.Module, params map[string]string, args nargs.Args, bo
 	return json.Marshal(pnt)
 }
 
-func UpdatePoint(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func UpdatePoint(m *module.Module, r *router.Request) ([]byte, error) {
 	var point *model.Point
-	err := json.Unmarshal(body, &point)
+	err := json.Unmarshal(r.Body, &point)
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(params["uuid"], point, nargs.Args{})
+	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(r.Params["uuid"], point, nargs.Args{})
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(pnt)
 }
 
-func PointWrite(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
+func PointWrite(m *module.Module, r *router.Request) ([]byte, error) {
 	var pw *model.PointWriter
-	err := json.Unmarshal(body, &pw)
+	err := json.Unmarshal(r.Body, &pw)
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(params["uuid"], pw)
+	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.Params["uuid"], pw)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(pnt.Point)
 }
 
-func DeletePoint(m *shared.Module, params map[string]string, args nargs.Args, body []byte) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeletePoint(params["uuid"])
+func DeletePoint(m *module.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeletePoint(r.Params["uuid"])
 	return nil, err
 }

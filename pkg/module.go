@@ -1,32 +1,32 @@
 package pkg
 
 import (
-	"github.com/NubeIO/lib-module-go/shared"
+	"github.com/NubeIO/lib-module-go/module"
 	"sync"
 )
 
 type Module struct {
-	dbHelper       shared.DBHelper
+	dbHelper       module.DBHelper
 	moduleName     string
-	grpcMarshaller shared.Marshaller
+	grpcMarshaller module.Marshaller
 	config         *Config
 	networkUUID    string
 	interruptChan  chan struct{}
 	mutex          *sync.RWMutex
 }
 
-func (m *Module) Init(dbHelper shared.DBHelper, moduleName string) error {
+func (m *Module) Init(dbHelper module.DBHelper, moduleName string) error {
 	InitRouter()
 	m.mutex = &sync.RWMutex{}
-	grpcMarshaller := shared.GRPCMarshaller{DbHelper: dbHelper}
+	grpcMarshaller := module.GRPCMarshaller{DbHelper: dbHelper}
 	m.dbHelper = dbHelper
 	m.moduleName = moduleName
 	m.grpcMarshaller = &grpcMarshaller
 	return nil
 }
 
-func (m *Module) GetInfo() (*shared.Info, error) {
-	return &shared.Info{
+func (m *Module) GetInfo() (*module.Info, error) {
+	return &module.Info{
 		Name:       pluginName,
 		Author:     "RaiBnod",
 		Website:    "https://nube-io.com",

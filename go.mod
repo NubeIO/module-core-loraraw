@@ -6,7 +6,7 @@ go 1.18
 //replace github.com/NubeIO/lib-module-go => /Users/raibnod/Enviro/lib-module-go
 
 require (
-	github.com/NubeIO/lib-module-go v0.0.1
+	github.com/NubeIO/lib-module-go v0.0.2
 	github.com/NubeIO/lib-schema-go v0.0.1
 	github.com/NubeIO/lib-utils-go v0.0.1
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7

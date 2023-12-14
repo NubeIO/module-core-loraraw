@@ -3,8 +3,8 @@ github.com/Azure/azure-sdk-for-go/sdk/azidentity v0.11.0/go.mod h1:HcM1YX14R7CJc
 github.com/Azure/azure-sdk-for-go/sdk/internal v0.7.0/go.mod h1:yqy467j36fJxcRV2TzfVZ1pCb5vxm4BtZPUdYWe/Xo8=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
-github.com/NubeIO/lib-module-go v0.0.1 h1:n4eO1+wFmqKQc8QVbmJhD9sy1zORQ1P6bNk50rFUqWY=
-github.com/NubeIO/lib-module-go v0.0.1/go.mod h1:ECJDHRm5mlp5Jqs861YbVoeWn8M+Dud72vCi+nEuNkU=
+github.com/NubeIO/lib-module-go v0.0.2 h1:v3mTSzoGTHUg7QBSSROF0+Wfs8kdvUPmIedvaC4Eydc=
+github.com/NubeIO/lib-module-go v0.0.2/go.mod h1:qB3Ia2VGFKJuKWGZVFtLZ571FtKptOvy7pURBnUXo4U=
 github.com/NubeIO/lib-schema-go v0.0.1 h1:K66B8FMC4RfWqFyU0cRCgMDKsO7H6TE933V5l7QdlnU=
 github.com/NubeIO/lib-schema-go v0.0.1/go.mod h1:oonTOa/Ilj2PrWIT+oOViwIXV3XFp84WzOc4C+kSz+A=
 github.com/NubeIO/lib-utils-go v0.0.1 h1:4Aaw8lo14sSMTa0XXI//NaCquAc1a9tu/vPR/deDEz0=
