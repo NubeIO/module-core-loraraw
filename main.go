@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/NubeIO/lib-module-go/module"
+	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/module-core-loraraw/logger"
 	"github.com/NubeIO/module-core-loraraw/pkg"
 	"github.com/hashicorp/go-plugin"
@@ -9,9 +9,9 @@ import (
 
 func ServePlugin() {
 	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: module.HandshakeConfig,
+		HandshakeConfig: nmodule.HandshakeConfig,
 		Plugins: plugin.PluginSet{
-			"nube-module": &module.NubeModule{Impl: &pkg.Module{}},
+			"nube-module": &nmodule.NubeModule{Impl: &pkg.Module{}},
 		},
 		GRPCServer: plugin.DefaultGRPCServer,
 	})

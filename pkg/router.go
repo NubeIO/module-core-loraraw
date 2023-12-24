@@ -2,12 +2,12 @@ package pkg
 
 import (
 	"encoding/json"
-	"github.com/NubeIO/lib-module-go/http"
-	"github.com/NubeIO/lib-module-go/module"
+	"github.com/NubeIO/lib-module-go/nhttp"
+	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
+	"net/http"
 )
 
 var route *router.Router
@@ -15,42 +15,42 @@ var route *router.Router
 func InitRouter() {
 	route = router.NewRouter()
 
-	route.Handle(http.GET, "/api/networks/schema", GetNetworkSchema)
-	route.Handle(http.GET, "/api/devices/schema", GetDeviceSchema)
-	route.Handle(http.GET, "/api/points/schema", GetPointSchema)
+	route.Handle(nhttp.GET, "/api/networks/schema", GetNetworkSchema)
+	route.Handle(nhttp.GET, "/api/devices/schema", GetDeviceSchema)
+	route.Handle(nhttp.GET, "/api/points/schema", GetPointSchema)
 
-	route.Handle(http.POST, "/api/networks", CreateNetwork)
-	route.Handle(http.PATCH, "/api/networks/:uuid", UpdateNetwork)
-	route.Handle(http.DELETE, "/api/networks/:uuid", DeleteNetwork)
+	route.Handle(nhttp.POST, "/api/networks", CreateNetwork)
+	route.Handle(nhttp.PATCH, "/api/networks/:uuid", UpdateNetwork)
+	route.Handle(nhttp.DELETE, "/api/networks/:uuid", DeleteNetwork)
 
-	route.Handle(http.POST, "/api/devices", CreateDevice)
-	route.Handle(http.PATCH, "/api/devices/:uuid", UpdateDevice)
-	route.Handle(http.DELETE, "/api/devices/:uuid", DeleteDevice)
+	route.Handle(nhttp.POST, "/api/devices", CreateDevice)
+	route.Handle(nhttp.PATCH, "/api/devices/:uuid", UpdateDevice)
+	route.Handle(nhttp.DELETE, "/api/devices/:uuid", DeleteDevice)
 
-	route.Handle(http.POST, "/api/points", CreatePoint)
-	route.Handle(http.PATCH, "/api/points/:uuid", UpdatePoint)
-	route.Handle(http.PATCH, "/api/points/:uuid/write", PointWrite)
-	route.Handle(http.DELETE, "/api/points/:uuid", DeletePoint)
+	route.Handle(nhttp.POST, "/api/points", CreatePoint)
+	route.Handle(nhttp.PATCH, "/api/points/:uuid", UpdatePoint)
+	route.Handle(nhttp.PATCH, "/api/points/:uuid/write", PointWrite)
+	route.Handle(nhttp.DELETE, "/api/points/:uuid", DeletePoint)
 }
 
-func (m *Module) CallModule(method http.Method, api string, args nargs.Args, body []byte) ([]byte, error) {
-	mo := (module.Module)(m)
-	return route.CallHandler(&mo, method, api, args, body)
+func (m *Module) CallModule(method nhttp.Method, urlString string, headers http.Header, body []byte) ([]byte, error) {
+	mo := (nmodule.Module)(m)
+	return route.CallHandler(&mo, method, urlString, headers, body)
 }
 
-func GetNetworkSchema(m *module.Module, r *router.Request) ([]byte, error) {
+func GetNetworkSchema(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetNetworkSchema())
 }
 
-func GetDeviceSchema(m *module.Module, r *router.Request) ([]byte, error) {
+func GetDeviceSchema(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetDeviceSchema())
 }
 
-func GetPointSchema(m *module.Module, r *router.Request) ([]byte, error) {
+func GetPointSchema(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(schema.GetPointSchema())
 }
 
-func CreateNetwork(m *module.Module, r *router.Request) ([]byte, error) {
+func CreateNetwork(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var network *model.Network
 	err := json.Unmarshal(r.Body, &network)
 	if err != nil {
@@ -63,25 +63,25 @@ func CreateNetwork(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(net)
 }
 
-func UpdateNetwork(m *module.Module, r *router.Request) ([]byte, error) {
+func UpdateNetwork(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var network *model.Network
 	err := json.Unmarshal(r.Body, &network)
 	if err != nil {
 		return nil, err
 	}
-	net, err := (*m).(*Module).grpcMarshaller.UpdateNetwork(r.Params["uuid"], network)
+	net, err := (*m).(*Module).grpcMarshaller.UpdateNetwork(r.PathParams["uuid"], network)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(net)
 }
 
-func DeleteNetwork(m *module.Module, r *router.Request) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeleteNetwork(r.Params["uuid"])
+func DeleteNetwork(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeleteNetwork(r.PathParams["uuid"])
 	return nil, err
 }
 
-func CreateDevice(m *module.Module, r *router.Request) ([]byte, error) {
+func CreateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var device *model.Device
 	err := json.Unmarshal(r.Body, &device)
 	if err != nil {
@@ -94,25 +94,25 @@ func CreateDevice(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(dev)
 }
 
-func UpdateDevice(m *module.Module, r *router.Request) ([]byte, error) {
+func UpdateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var device *model.Device
 	err := json.Unmarshal(r.Body, &device)
 	if err != nil {
 		return nil, err
 	}
-	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(r.Params["uuid"], device)
+	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(r.PathParams["uuid"], device)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(dev)
 }
 
-func DeleteDevice(m *module.Module, r *router.Request) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeleteDevice(r.Params["uuid"])
+func DeleteDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeleteDevice(r.PathParams["uuid"])
 	return nil, err
 }
 
-func CreatePoint(m *module.Module, r *router.Request) ([]byte, error) {
+func CreatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var point *model.Point
 	err := json.Unmarshal(r.Body, &point)
 	if err != nil {
@@ -125,33 +125,33 @@ func CreatePoint(m *module.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(pnt)
 }
 
-func UpdatePoint(m *module.Module, r *router.Request) ([]byte, error) {
+func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var point *model.Point
 	err := json.Unmarshal(r.Body, &point)
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(r.Params["uuid"], point, nargs.Args{})
+	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(r.PathParams["uuid"], point)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(pnt)
 }
 
-func PointWrite(m *module.Module, r *router.Request) ([]byte, error) {
+func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var pw *model.PointWriter
 	err := json.Unmarshal(r.Body, &pw)
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.Params["uuid"], pw)
+	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(pnt.Point)
 }
 
-func DeletePoint(m *module.Module, r *router.Request) ([]byte, error) {
-	err := (*m).(*Module).grpcMarshaller.DeletePoint(r.Params["uuid"])
+func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	err := (*m).(*Module).grpcMarshaller.DeletePoint(r.PathParams["uuid"])
 	return nil, err
 }
