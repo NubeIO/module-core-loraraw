@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -13,7 +12,7 @@ func (m *Module) Enable() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	log.Info("plugin is enabling...")
-	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName, nargs.Args{})
+	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName)
 	if err != nil {
 		log.Error(err)
 		_ = m.updatePluginMessage(model.MessageLevel.Fail, err.Error())
