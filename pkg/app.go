@@ -9,7 +9,6 @@ import (
 	"github.com/NubeIO/lib-utils-go/integer"
 	"github.com/NubeIO/module-core-loraraw/decoder"
 	"github.com/NubeIO/module-core-loraraw/utils"
-	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/bugs"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
@@ -29,7 +28,7 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 	}
 	for _, net := range nets {
 		if net != nil {
-			errMsg := fmt.Sprintf("loraraw: only max one network is allowed with %s", m.moduleName)
+			errMsg := fmt.Sprintf("only max one network is allowed with %s", m.moduleName)
 			log.Errorf(errMsg)
 			return nil, errors.New(errMsg)
 		}
@@ -51,7 +50,7 @@ func (m *Module) addDevice(body *model.Device) (device *model.Device, err error)
 	*body.AddressUUID = strings.ToUpper(*body.AddressUUID)
 	device, _ = m.grpcMarshaller.GetOneDeviceByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: body.AddressUUID}})
 	if device != nil {
-		errMsg := fmt.Sprintf("loraraw: the lora ID (address_uuid) must be unique: %s", *body.AddressUUID)
+		errMsg := fmt.Sprintf("the lora ID (address_uuid) must be unique: %s", *body.AddressUUID)
 		log.Errorf(errMsg)
 		return nil, errors.New(errMsg)
 	}
@@ -99,7 +98,7 @@ func (m *Module) networkUpdateSuccess(uuid string) error {
 	network.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateSuccess, err))
+		log.Errorf("UpdateNetworkErrors() err: %s", err)
 	}
 	return err
 }
@@ -113,7 +112,7 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	network.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
-		log.Error(bugs.DebugPrint(pluginName, m.networkUpdateErr, err))
+		log.Errorf("UpdateNetworkErrors() err: %s", err)
 	}
 	return err
 }
@@ -127,7 +126,7 @@ func (m *Module) deviceUpdateSuccess(uuid string) error {
 	device.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
 	if err != nil {
-		log.Error("lora-app deviceUpdateErr()", err)
+		log.Error(err)
 	}
 	return err
 }
@@ -141,7 +140,7 @@ func (m *Module) deviceUpdateErr(uuid string, err error) error {
 	device.LastFail = time.Now().UTC()
 	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
 	if err != nil {
-		log.Error("lora-app deviceUpdateErr()", err)
+		log.Error(err)
 	}
 	return err
 }
@@ -156,7 +155,7 @@ func (m *Module) pointUpdateSuccess(point *model.Point) error {
 	point.Message = fmt.Sprintf("lastMessage: %s", utilstime.TimeStamp())
 	err := m.grpcMarshaller.UpdatePointSuccess(point.UUID, point)
 	if err != nil {
-		log.Error("lora-app UpdatePointSuccess()", err)
+		log.Error(err)
 	}
 	return err
 }
@@ -168,12 +167,12 @@ func (m *Module) handleSerialPayload(data string) {
 	if !decoder.ValidPayload(data) {
 		return
 	}
-	log.Debug("loraraw: Uplink: ", data)
+	log.Debugf("uplink: %s", data)
 	device := m.getDeviceByLoRaAddress(decoder.DecodeAddress(data))
 	if device == nil {
 		id := decoder.DecodeAddress(data) // show user messages from lora
 		rssi := decoder.DecodeRSSI(data)
-		log.Infof("loraraw: message from sensor id: %s rssi: %d", id, rssi)
+		log.Infof("message from sensor id: %s rssi: %d", id, rssi)
 		return
 	}
 	devDesc := decoder.GetDeviceDescription(device)
@@ -196,7 +195,7 @@ func (m *Module) handleSerialPayload(data string) {
 			return
 		}
 		if dev != nil {
-			log.Infof("loraraw: sensor found id: %s rssi: %d type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
+			log.Infof("sensor found id: %s rssi: %d type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
 			_ = m.deviceUpdateSuccess(dev.UUID)
 		}
 	}
@@ -218,11 +217,11 @@ func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
 func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 	network, err := m.grpcMarshaller.GetNetwork(deviceBody.NetworkUUID)
 	if err != nil {
-		log.Errorln("loraraw: addDevicePoints(), get network", err)
+		log.Errorf("addDevicePoints() err: %s", err)
 		return err
 	}
 	if network.PluginName != m.moduleName {
-		errMsg := fmt.Sprintf("loraraw: incorrect network plugin type, must be %s", m.moduleName)
+		errMsg := fmt.Sprintf("incorrect network plugin type, must be %s", m.moduleName)
 		log.Errorln(errMsg)
 		return errors.New(errMsg)
 	}
@@ -230,8 +229,8 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 	points := decoder.GetDevicePointsStruct(deviceBody)
 	// TODO: should check this before the device is even added in the wizard
 	if points == struct{}{} {
-		log.Errorln("loraraw: addDevicePoints() incorrect device model, try THLM", err)
-		return errors.New("loraraw: addDevicePoints() no device description or points found for this device")
+		log.Errorf("addDevicePoints() incorrect device model, try THLM %s", err)
+		return errors.New("addDevicePoints() no device description or points found for this device")
 	}
 	pointsRefl := reflect.ValueOf(points)
 	m.addPointsFromName(deviceBody, "Rssi", "Snr")
@@ -290,7 +289,7 @@ func (m *Module) savePoints(points []*model.Point) {
 			point.EnableWriteable = boolean.NewFalse()
 			_, err := m.addPoint(point)
 			if err != nil {
-				log.Errorf("loraraw: issue on addPoint: %v\n", err)
+				log.Errorf("issue on addPoint: %s", err)
 			}
 		}()
 	}
@@ -319,7 +318,7 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 		pt.EnableWriteable = boolean.NewFalse()
 		_, err = m.grpcMarshaller.UpdatePoint(pt.UUID, pt)
 		if err != nil {
-			log.Errorf("loraraw: issue on UpdatePoint updateDevicePointsAddress(): %v\n", err)
+			log.Errorf("issue on UpdatePoint updateDevicePointsAddress(): %s", err)
 			return err
 		}
 	}
@@ -331,7 +330,7 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	// TODO: fix this so don't need to request the point for the UUID before hand
 	pnt, err := m.grpcMarshaller.GetOnePointByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: body.AddressUUID, IoNumber: &body.IoNumber}})
 	if err != nil {
-		log.Errorf("loraraw: issue on failed to find point: %v address_uuid: %s IO-ID:%s\n", err, *body.AddressUUID, body.IoNumber)
+		log.Errorf("issue on failed to find point: %v address_uuid: %s IO-ID: %s", err, *body.AddressUUID, body.IoNumber)
 		return err
 	}
 
@@ -343,7 +342,7 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	pointWriter := model.PointWriter{Priority: &priority}
 	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
 	if err != nil {
-		log.Error("loraraw: UpdatePointValue()", err)
+		log.Error(err)
 		return err
 	}
 	err = m.pointUpdateSuccess(&pwr.Point)
@@ -419,7 +418,7 @@ func (m *Module) updatePluginMessage(messageLevel, message string) error {
 	plugin.Message = message
 	err := m.grpcMarshaller.UpdatePluginMessage(pluginName, &plugin)
 	if err != nil {
-		log.Error(bugs.DebugPrint(pluginName, m.updatePluginMessage, err))
+		log.Errorf("updatePluginMessage() err: %s", err)
 	}
 	return err
 }

@@ -1,12 +1,10 @@
 package logger
 
-import (
-	"github.com/hashicorp/go-hclog"
-)
+import "github.com/sirupsen/logrus"
 
-func SetLogger(logLevel string) {
-	hclog.SetDefault(hclog.New(&hclog.LoggerOptions{
-		Name:  "module-core-loraraw",
-		Level: hclog.LevelFromString(logLevel),
-	}))
+func SetLogger(logLevel logrus.Level) {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		DisableTimestamp: true,
+	})
+	logrus.SetLevel(logLevel)
 }
