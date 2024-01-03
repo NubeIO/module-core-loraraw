@@ -15,11 +15,11 @@ func (m *Module) run() {
 		sc, err := m.SerialOpen()
 		select {
 		case <-m.interruptChan:
-			log.Info("loraraw: interrupt received on run")
+			log.Info("interrupt received on run")
 			return
 		default:
 			if err != nil {
-				errMsg := fmt.Sprintf("loraraw: error opening serial: %v", err.Error())
+				errMsg := fmt.Sprintf("error opening serial: %v", err.Error())
 				log.Error(errMsg)
 				_ = m.updatePluginMessage(model.MessageLevel.Fail, errMsg)
 				time.Sleep(m.config.ReIterationTime)
@@ -33,13 +33,13 @@ func (m *Module) run() {
 		for {
 			select {
 			case <-m.interruptChan:
-				log.Info("loraraw: interrupt received on run")
+				log.Info("interrupt received on run")
 				return
 			case err := <-serialCloseChan:
-				errMsg := fmt.Sprintf("loraraw: serial connection error: %v", err.Error())
+				errMsg := fmt.Sprintf("serial connection error: %v", err.Error())
 				log.Error(errMsg)
 				_ = m.updatePluginMessage(model.MessageLevel.Fail, errMsg)
-				log.Info("loraraw: serial connection attempting to reconnect...")
+				log.Info("serial connection attempting to reconnect...")
 				continue
 			case data := <-serialPayloadChan:
 				m.handleSerialPayload(data)

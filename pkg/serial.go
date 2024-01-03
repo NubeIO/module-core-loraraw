@@ -71,7 +71,7 @@ func (s *SerialSetting) open() (connected bool, err error) {
 	stopBits := s.StopBits
 	dataBits := s.DataBits
 	if s.Connected {
-		log.Info("Existing serial port connection by this app is open So! close existing connection")
+		log.Info("existing serial port connection by this app is open, so close the existing connection")
 		err := disconnect()
 		if err != nil {
 			log.Info(err)
@@ -79,7 +79,7 @@ func (s *SerialSetting) open() (connected bool, err error) {
 			return false, err
 		}
 	}
-	log.Info("lora-serial: connecting to port: ", portName)
+	log.Infof("connecting to port: %s", portName)
 	m := &serial.Mode{
 		BaudRate: baudRate,
 		Parity:   parity,
@@ -97,7 +97,7 @@ func (s *SerialSetting) open() (connected bool, err error) {
 	}
 	Port = port
 	s.Connected = true
-	log.Info("lora-serial: Connected to serial port: ", " ", portName, " ", "connected: ", " ", s.Connected)
+	log.Infof("connected to serial port: %s connected: %t", portName, s.Connected)
 	return s.Connected, nil
 }
 
@@ -105,7 +105,7 @@ func disconnect() error {
 	if Port != nil {
 		err := Port.Close()
 		if err != nil {
-			log.Error("lora-serial: err on trying to close the port")
+			log.Error("err on trying to close the port")
 			return err
 		}
 	}
