@@ -6,6 +6,7 @@ import (
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
 	"github.com/NubeIO/module-core-loraraw/schema"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"net/http"
 )
@@ -139,7 +140,7 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 }
 
 func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
-	var pw *model.PointWriter
+	var pw *dto.PointWriter
 	err := json.Unmarshal(r.Body, &pw)
 	if err != nil {
 		return nil, err
