@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"fmt"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -21,7 +21,7 @@ func (m *Module) run() {
 			if err != nil {
 				errMsg := fmt.Sprintf("error opening serial: %v", err.Error())
 				log.Error(errMsg)
-				_ = m.updatePluginMessage(model.MessageLevel.Fail, errMsg)
+				_ = m.updatePluginMessage(dto.MessageLevel.Fail, errMsg)
 				time.Sleep(m.config.ReIterationTime)
 				continue
 			}
@@ -38,7 +38,7 @@ func (m *Module) run() {
 			case err := <-serialCloseChan:
 				errMsg := fmt.Sprintf("serial connection error: %v", err.Error())
 				log.Error(errMsg)
-				_ = m.updatePluginMessage(model.MessageLevel.Fail, errMsg)
+				_ = m.updatePluginMessage(dto.MessageLevel.Fail, errMsg)
 				log.Info("serial connection attempting to reconnect...")
 				continue
 			case data := <-serialPayloadChan:

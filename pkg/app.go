@@ -10,6 +10,8 @@ import (
 	"github.com/NubeIO/module-core-loraraw/decoder"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
@@ -68,7 +70,7 @@ func (m *Module) addDevice(body *model.Device) (device *model.Device, err error)
 
 func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
 	body.ObjectType = "analog_input"
-	body.IoType = string(model.IOTypeRAW)
+	body.IoType = string(datatype.IOTypeRAW)
 	body.Name = strings.ToLower(body.Name)
 	body.EnableWriteable = boolean.NewFalse()
 	point, err = m.grpcMarshaller.CreatePoint(body) // TODO: in older one after creating there is an update operation
@@ -92,9 +94,9 @@ func (m *Module) deletePoint(body *model.Point) (success bool, err error) {
 func (m *Module) networkUpdateSuccess(uuid string) error {
 	var network model.Network
 	network.InFault = false
-	network.MessageLevel = model.MessageLevel.Info
-	network.MessageCode = model.CommonFaultCode.Ok
-	network.Message = model.CommonFaultMessage.NetworkMessage
+	network.MessageLevel = dto.MessageLevel.Info
+	network.MessageCode = dto.CommonFaultCode.Ok
+	network.Message = dto.CommonFaultMessage.NetworkMessage
 	network.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
@@ -106,8 +108,8 @@ func (m *Module) networkUpdateSuccess(uuid string) error {
 func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	var network model.Network
 	network.InFault = true
-	network.MessageLevel = model.MessageLevel.Fail
-	network.MessageCode = model.CommonFaultCode.NetworkError
+	network.MessageLevel = dto.MessageLevel.Fail
+	network.MessageCode = dto.CommonFaultCode.NetworkError
 	network.Message = fmt.Sprintf(" port: %s message: %s", port, e.Error())
 	network.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
@@ -120,8 +122,8 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 func (m *Module) deviceUpdateSuccess(uuid string) error {
 	var device model.Device
 	device.InFault = false
-	device.MessageLevel = model.MessageLevel.Info
-	device.MessageCode = model.CommonFaultCode.Ok
+	device.MessageLevel = dto.MessageLevel.Info
+	device.MessageCode = dto.CommonFaultCode.Ok
 	device.Message = fmt.Sprintf("lastMessage: %s", utilstime.TimeStamp())
 	device.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
@@ -134,8 +136,8 @@ func (m *Module) deviceUpdateSuccess(uuid string) error {
 func (m *Module) deviceUpdateErr(uuid string, err error) error {
 	var device model.Device
 	device.InFault = true
-	device.MessageLevel = model.MessageLevel.Fail
-	device.MessageCode = model.CommonFaultCode.DeviceError
+	device.MessageLevel = dto.MessageLevel.Fail
+	device.MessageCode = dto.CommonFaultCode.DeviceError
 	device.Message = fmt.Sprintf(" error: %s", err.Error())
 	device.LastFail = time.Now().UTC()
 	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
@@ -150,8 +152,8 @@ func (m *Module) pointUpdateSuccess(point *model.Point) error {
 		return errors.New("lora-plugin: nil point to pointUpdateSuccess()")
 	}
 	point.InFault = false
-	point.MessageLevel = model.MessageLevel.Info
-	point.MessageCode = model.CommonFaultCode.Ok
+	point.MessageLevel = dto.MessageLevel.Info
+	point.MessageCode = dto.CommonFaultCode.Ok
 	point.Message = fmt.Sprintf("lastMessage: %s", utilstime.TimeStamp())
 	err := m.grpcMarshaller.UpdatePointSuccess(point.UUID, point)
 	if err != nil {
@@ -304,7 +306,7 @@ func (m *Module) setNewPointFields(deviceBody *model.Device, pointBody *model.Po
 	pointBody.Name = cases.Title(language.English).String(name)
 	pointBody.IoNumber = name
 	pointBody.ThingType = "point"
-	pointBody.WriteMode = model.ReadOnly
+	pointBody.WriteMode = datatype.ReadOnly
 }
 
 // updateDevicePointsAddress by its lora id and type as in temp or lux
@@ -335,11 +337,11 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	}
 
 	priority := map[string]*float64{"_16": &value}
-	if pnt.IoType != "" && pnt.IoType != string(model.IOTypeRAW) {
+	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		priority["_16"] = float.New(decoder.MicroEdgePointType(pnt.IoType, value, device.Model))
 
 	}
-	pointWriter := model.PointWriter{Priority: &priority}
+	pointWriter := dto.PointWriter{Priority: &priority}
 	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
 	if err != nil {
 		log.Error(err)
