@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [v0.0.4](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.4) (2024-02-05)
+
+- fix run bug (#12)
+- Prerequisites:
+  - ROS >= 0.3.0
+
 ## [v0.0.3](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.3) (2024-01-03)
 
 - Upgrade lib-module-go & models
