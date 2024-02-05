@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 	"go.bug.st/serial"
 )
@@ -32,7 +33,7 @@ func (m *Module) SerialOpen() (*SerialSetting, error) {
 	totalNetworks := len(networks)
 	if totalNetworks == 0 {
 		return nil, errors.New(fmt.Sprintf("we don't have network of module %s", m.moduleName))
-	} else if totalNetworks >= 1 {
+	} else if totalNetworks > 1 {
 		return nil, errors.New(fmt.Sprintf("we have %d networks of module %s", totalNetworks, m.moduleName))
 	}
 	net := networks[0]
