@@ -1,6 +1,9 @@
 package schema
 
-import "github.com/NubeIO/lib-schema-go/schema"
+import (
+	"github.com/NubeIO/lib-schema-go/schema"
+	"github.com/NubeIO/lib-units/units"
+)
 
 type PointSchema struct {
 	UUID        schema.UUID        `json:"uuid"`
@@ -20,6 +23,8 @@ type PointSchema struct {
 	Decimal              schema.Decimal              `json:"decimal"`
 	Fallback             schema.Fallback             `json:"fallback"`
 
+	Unit schema.MeasurementUnit `json:"unit"`
+
 	HistoryEnable       schema.HistoryEnableDefaultTrue `json:"history_enable"`
 	HistoryType         schema.HistoryType              `json:"history_type"`
 	HistoryInterval     schema.HistoryInterval          `json:"history_interval"`
@@ -28,6 +33,7 @@ type PointSchema struct {
 
 func GetPointSchema() *PointSchema {
 	m := &PointSchema{}
+	m.Unit.EnumName, m.Unit.Options = units.SupportedUnitsNames()
 	schema.Set(m)
 	return m
 }
