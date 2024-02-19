@@ -18,7 +18,7 @@ func (m *Module) Enable() error {
 		_ = m.updatePluginMessage(dto.MessageLevel.Fail, err.Error())
 	}
 	if len(networks) == 0 {
-		warnMsg := "we don't have networks"
+		warnMsg := "no LoRaRAW networks exist"
 		log.Warn(warnMsg)
 		_ = m.updatePluginMessage(dto.MessageLevel.Warning, warnMsg)
 	}

@@ -3,24 +3,24 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"github.com/NubeIO/lib-module-go/nmodule"
-	"github.com/NubeIO/lib-utils-go/boolean"
-	"github.com/NubeIO/lib-utils-go/float"
-	"github.com/NubeIO/lib-utils-go/integer"
-	"github.com/NubeIO/module-core-loraraw/decoder"
-	"github.com/NubeIO/module-core-loraraw/utils"
-	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/times/utilstime"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/NubeIO/lib-module-go/nmodule"
+	"github.com/NubeIO/lib-utils-go/boolean"
+	"github.com/NubeIO/lib-utils-go/float"
+	"github.com/NubeIO/lib-utils-go/integer"
+	"github.com/NubeIO/module-core-loraraw/decoder"
+	"github.com/NubeIO/module-core-loraraw/utils"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
+	log "github.com/sirupsen/logrus"
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -96,7 +96,7 @@ func (m *Module) networkUpdateSuccess(uuid string) error {
 	network.InFault = false
 	network.MessageLevel = dto.MessageLevel.Info
 	network.MessageCode = dto.CommonFaultCode.Ok
-	network.Message = dto.CommonFaultMessage.NetworkMessage
+	network.Message = ""
 	network.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
@@ -110,7 +110,7 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	network.InFault = true
 	network.MessageLevel = dto.MessageLevel.Fail
 	network.MessageCode = dto.CommonFaultCode.NetworkError
-	network.Message = fmt.Sprintf(" port: %s message: %s", port, e.Error())
+	network.Message = fmt.Sprintf("port: %s, message: %s", port, e.Error())
 	network.LastFail = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
 	if err != nil {
@@ -124,8 +124,8 @@ func (m *Module) deviceUpdateSuccess(uuid string) error {
 	device.InFault = false
 	device.MessageLevel = dto.MessageLevel.Info
 	device.MessageCode = dto.CommonFaultCode.Ok
-	device.Message = fmt.Sprintf("lastMessage: %s", utilstime.TimeStamp())
-	device.LastFail = time.Now().UTC()
+	device.Message = ""
+	device.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
 	if err != nil {
 		log.Error(err)
@@ -138,7 +138,7 @@ func (m *Module) deviceUpdateErr(uuid string, err error) error {
 	device.InFault = true
 	device.MessageLevel = dto.MessageLevel.Fail
 	device.MessageCode = dto.CommonFaultCode.DeviceError
-	device.Message = fmt.Sprintf(" error: %s", err.Error())
+	device.Message = fmt.Sprintf("Error: %s", err.Error())
 	device.LastFail = time.Now().UTC()
 	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
 	if err != nil {
@@ -154,7 +154,8 @@ func (m *Module) pointUpdateSuccess(point *model.Point) error {
 	point.InFault = false
 	point.MessageLevel = dto.MessageLevel.Info
 	point.MessageCode = dto.CommonFaultCode.Ok
-	point.Message = fmt.Sprintf("lastMessage: %s", utilstime.TimeStamp())
+	point.Message = ""
+	point.LastOk = time.Now().UTC()
 	err := m.grpcMarshaller.UpdatePointSuccess(point.UUID, point)
 	if err != nil {
 		log.Error(err)
@@ -174,7 +175,7 @@ func (m *Module) handleSerialPayload(data string) {
 	if device == nil {
 		id := decoder.DecodeAddress(data) // show user messages from lora
 		rssi := decoder.DecodeRSSI(data)
-		log.Infof("message from sensor id: %s rssi: %d", id, rssi)
+		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
 	devDesc := decoder.GetDeviceDescription(device)
@@ -185,22 +186,8 @@ func (m *Module) handleSerialPayload(data string) {
 	if commonData == nil {
 		return
 	}
-	deviceId := commonData.ID
-	if deviceId != "" {
-		dev, err := m.grpcMarshaller.GetOneDeviceByArgs(&nmodule.Opts{Args: &nargs.Args{DeviceUUID: &deviceId}})
-		if err != nil {
-			errMsg := fmt.Sprintf("lora-raw: issue on failed to find device: %v id: %s\n", err.Error(), deviceId)
-			log.Errorf(errMsg)
-			if dev != nil {
-				_ = m.deviceUpdateErr(dev.UUID, errors.New(errMsg))
-			}
-			return
-		}
-		if dev != nil {
-			log.Infof("sensor found id: %s rssi: %d type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-			_ = m.deviceUpdateSuccess(dev.UUID)
-		}
-	}
+	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
+	_ = m.deviceUpdateSuccess(device.UUID)
 	if fullData != nil {
 		m.updateDevicePointValues(commonData, fullData, device)
 	}
