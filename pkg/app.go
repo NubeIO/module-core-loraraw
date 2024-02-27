@@ -48,7 +48,7 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 	return network, nil
 }
 
-func (m *Module) addDevice(body *model.Device) (device *model.Device, err error) {
+func (m *Module) addDevice(body *model.Device, withPoints bool) (device *model.Device, err error) {
 	*body.AddressUUID = strings.ToUpper(*body.AddressUUID)
 	device, _ = m.grpcMarshaller.GetOneDeviceByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: body.AddressUUID}})
 	if device != nil {
@@ -60,10 +60,12 @@ func (m *Module) addDevice(body *model.Device) (device *model.Device, err error)
 	if err != nil {
 		return nil, err
 	}
-	err = m.addDevicePoints(device)
-	if err != nil {
-		_ = m.grpcMarshaller.DeleteDevice(device.UUID)
-		return nil, err
+	if withPoints {
+		err = m.addDevicePoints(device)
+		if err != nil {
+			_ = m.grpcMarshaller.DeleteDevice(device.UUID)
+			return nil, err
+		}
 	}
 	return device, nil
 }
