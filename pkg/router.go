@@ -89,7 +89,7 @@ func CreateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := r.PathParams[nargs.WithPoints]
+	v := r.QueryParams.Get(nargs.WithPoints)
 	dev, err := (*m).(*Module).addDevice(device, v == "true")
 	if err != nil {
 		return nil, err
