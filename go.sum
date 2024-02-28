@@ -5,8 +5,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/Masterminds/semver/v3 v3.1.1/go.mod h1:VPu/7SZ7ePZ3QOrcuXROw5FAcLl4a0cBrbBpGY/8hQs=
 github.com/NubeIO/lib-date v0.0.6 h1:88Ki7UIOvDEKyd3vKJ7r4fiUeX25Q5iyMO5d0125wrA=
 github.com/NubeIO/lib-date v0.0.6/go.mod h1:VvpSwdwcVCaOgTN+Ad96nHBkFDWTt3VekG933QCtGtc=
-github.com/NubeIO/lib-module-go v0.0.6 h1:HA0OqNOiSv3Nt6M1hOYI5NtOStXeIa+5PNJHgkCuSQs=
-github.com/NubeIO/lib-module-go v0.0.6/go.mod h1:7xej5FjC9ty1JJvS8kq+fUJCcpsMhmbBk07wBfNVBj0=
+github.com/NubeIO/lib-module-go v0.0.9 h1:+JRvC5t3LBHpGrsOyiXkjQlBEVZZ7mo4y8o5J65a5lU=
+github.com/NubeIO/lib-module-go v0.0.9/go.mod h1:jPPDVFFRg2cTpIyCOO0fYKVss2uunqDpSidLjjL3suE=
 github.com/NubeIO/lib-networking v0.1.0 h1:XhhG8lTGjsULgcI8ZuJ/R3xyXIQlVQ3Tspig/7f0ce8=
 github.com/NubeIO/lib-networking v0.1.0/go.mod h1:WVj1zTKJ4qYijtzNvu7N5w8+cXFlCjy+HxjnIvSFgNA=
 github.com/NubeIO/lib-schema-go v0.0.2 h1:/m3vwgzt/fFacQN5SdypiQClAYx1cq6Vtzw0wp31JhI=
@@ -22,8 +22,8 @@ github.com/NubeIO/lib-utils-go v0.0.1/go.mod h1:KYE8yYY3KhdN/+s/QfdLFLqkJsM44ftL
 github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7 h1:QKgcOjDkVujyAXWK+OysVFnQKzpZx335vGPG95UNXuI=
 github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7/go.mod h1:oLI6n9wuko0KIEzrLc8saOquiQvtMUUBrUjXf0TLDVQ=
 github.com/NubeIO/nubeio-rubix-lib-models-go v1.0.4/go.mod h1:A1BPuc3UpE1EF3ugdf+8QIIKTT8s3eK+pfUcheJX2JM=
-github.com/NubeIO/nubeio-rubix-lib-models-go v1.12.0 h1:PRtBNSuWFcxHtb14Gs5T+3npvyyd5Oyare+JI5xxSzM=
-github.com/NubeIO/nubeio-rubix-lib-models-go v1.12.0/go.mod h1:tTdOPP0bMUe6FR/zYu3B/TXkG7j1z8Pz+ViNh9dTNl4=
+github.com/NubeIO/nubeio-rubix-lib-models-go v1.14.0 h1:5qD2BXAIr8nRaWREO3Hm/0I6HFZyRZAnh+3fmTubdGU=
+github.com/NubeIO/nubeio-rubix-lib-models-go v1.14.0/go.mod h1:tTdOPP0bMUe6FR/zYu3B/TXkG7j1z8Pz+ViNh9dTNl4=
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/THREATINT/go-net v1.2.10/go.mod h1:4n3ITWyUUfaEp8JNAompTT+PuPANXL9i9TyOUijGnwk=
