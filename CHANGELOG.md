@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## [v1.0.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.1) (2024-03-01)
+
+- Prerequisites:
+  - ROS >= 1.0.0
+
 ## [v0.0.4](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.4) (2024-02-05)
 
 - fix run bug (#12)
