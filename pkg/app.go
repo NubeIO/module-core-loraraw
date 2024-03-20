@@ -12,7 +12,6 @@ import (
 
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
-	"github.com/NubeIO/lib-utils-go/float"
 	"github.com/NubeIO/lib-utils-go/integer"
 	"github.com/NubeIO/module-core-loraraw/decoder"
 	"github.com/NubeIO/module-core-loraraw/utils"
@@ -324,13 +323,14 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 		log.Errorf("issue on failed to find point: %v address_uuid: %s IO-ID: %s", err, *body.AddressUUID, body.IoNumber)
 		return err
 	}
-
-	priority := map[string]*float64{"_16": &value}
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
-		priority["_16"] = float.New(decoder.MicroEdgePointType(pnt.IoType, value, device.Model))
-
+		value = decoder.MicroEdgePointType(pnt.IoType, value, device.Model)
 	}
-	pointWriter := dto.PointWriter{Priority: &priority}
+	priority := map[string]*float64{"_16": &value}
+	pointWriter := dto.PointWriter{
+		OriginalValue: &value,
+		Priority:      &priority,
+	}
 	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
 	if err != nil {
 		log.Error(err)
