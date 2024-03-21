@@ -326,10 +326,8 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		value = decoder.MicroEdgePointType(pnt.IoType, value, device.Model)
 	}
-	priority := map[string]*float64{"_16": &value}
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
-		Priority:      &priority,
 	}
 	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
 	if err != nil {
