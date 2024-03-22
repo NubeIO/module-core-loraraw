@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [v1.0.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.2) (2024-03-22)
+
+- improve point value (#19)
+- Prerequisites:
+  - ROS >= 1.0.0
+
 ## [v1.0.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.1) (2024-03-01)
 
 - Prerequisites:
