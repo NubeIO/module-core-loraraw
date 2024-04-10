@@ -195,7 +195,8 @@ func (m *Module) handleSerialPayload(data string) {
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
-	device, err := m.grpcMarshaller.GetOneDeviceByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: &address}})
+	opts := &nmodule.Opts{Args: &nargs.Args{AddressUUID: &address, WithPoints: true}}
+	device, err := m.grpcMarshaller.GetOneDeviceByArgs(opts)
 	if err != nil {
 		return nil
 	}
@@ -316,15 +317,9 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 }
 
 // TODO: update to make more efficient for updating just the value (incl fault etc.)
-func (m *Module) updatePointValue(body *model.Point, value float64, device *model.Device) error {
-	// TODO: fix this so don't need to request the point for the UUID before hand
-	pnt, err := m.grpcMarshaller.GetOnePointByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: body.AddressUUID, IoNumber: &body.IoNumber}})
-	if err != nil {
-		log.Errorf("issue on failed to find point: %v address_uuid: %s IO-ID: %s", err, *body.AddressUUID, body.IoNumber)
-		return err
-	}
+func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
-		value = decoder.MicroEdgePointType(pnt.IoType, value, device.Model)
+		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
 	}
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
@@ -341,30 +336,29 @@ func (m *Module) updatePointValue(body *model.Point, value float64, device *mode
 // updateDevicePointValues update all points under a device within commonSensorData and sensorStruct
 func (m *Module) updateDevicePointValues(commonValues *decoder.CommonValues, sensorStruct interface{}, device *model.Device) {
 	// manually update rssi + any other CommonValues
-	pnt := new(model.Point)
-	pnt.AddressUUID = &commonValues.ID
-	pnt.IoNumber = utils.GetStructFieldJSONNameByName(sensorStruct, "Rssi")
-	err := m.updatePointValue(pnt, float64(commonValues.Rssi), device)
-	if err != nil {
-		return
+	for _, pnt := range device.Points {
+		if pnt.IoNumber == utils.GetStructFieldJSONNameByName(sensorStruct, "Rssi") {
+			err := m.updatePointValue(pnt, float64(commonValues.Rssi), device.Model)
+			if err != nil {
+				return
+			}
+		} else if pnt.IoNumber == utils.GetStructFieldJSONNameByName(sensorStruct, "Snr") {
+			err := m.updatePointValue(pnt, float64(commonValues.Snr), device.Model)
+			if err != nil {
+				return
+			}
+		}
 	}
-	pnt.IoNumber = utils.GetStructFieldJSONNameByName(sensorStruct, "Snr")
-	err = m.updatePointValue(pnt, float64(commonValues.Snr), device)
-	if err != nil {
-		return
-	}
+
 	// update all other fields in sensorStruct
-	m.updateDevicePointValuesStruct(commonValues.ID, sensorStruct, "", device)
+	m.updateDevicePointValuesStruct(sensorStruct, "", device)
 }
 
-func (m *Module) updateDevicePointValuesStruct(deviceID string, sensorStruct interface{}, postfix string, device *model.Device) {
-	pnt := new(model.Point)
-	pnt.AddressUUID = &deviceID
+func (m *Module) updateDevicePointValuesStruct(sensorStruct interface{}, postfix string, device *model.Device) {
 	sensorRefl := reflect.ValueOf(sensorStruct)
 
 	for i := 0; i < sensorRefl.NumField(); i++ {
 		value := 0.0
-		pnt.IoNumber = fmt.Sprintf("%s%s", utils.GetReflectFieldJSONName(sensorRefl.Type().Field(i)), postfix)
 		field := sensorRefl.Field(i)
 
 		switch field.Kind() {
@@ -378,7 +372,7 @@ func (m *Module) updateDevicePointValuesStruct(deviceID string, sensorStruct int
 			value = float64(field.Uint())
 		case reflect.Struct:
 			if _, ok := field.Interface().(decoder.CommonValues); !ok {
-				m.updateDevicePointValuesStruct(deviceID, field.Interface(), postfix, device)
+				m.updateDevicePointValuesStruct(field.Interface(), postfix, device)
 			}
 			continue
 		case reflect.Array:
@@ -387,14 +381,20 @@ func (m *Module) updateDevicePointValuesStruct(deviceID string, sensorStruct int
 			for j := 0; j < field.Len(); j++ {
 				pf := fmt.Sprintf("%s_%d", postfix, j+1)
 				v := field.Index(j).Interface()
-				m.updateDevicePointValuesStruct(deviceID, v, pf, device)
+				m.updateDevicePointValuesStruct(v, pf, device)
 			}
 			continue
 		default:
 			continue
 		}
 
-		err := m.updatePointValue(pnt, value, device)
+		ioNumber := fmt.Sprintf("%s%s", utils.GetReflectFieldJSONName(sensorRefl.Type().Field(i)), postfix)
+		pnt := m.selectPointByIoNumber(ioNumber, device)
+		if pnt == nil {
+			log.Warnf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, ioNumber)
+			continue
+		}
+		err := m.updatePointValue(pnt, value, device.Model)
 		if err != nil {
 			return
 		}
@@ -410,4 +410,13 @@ func (m *Module) updatePluginMessage(messageLevel, message string) error {
 		log.Errorf("updatePluginMessage() err: %s", err)
 	}
 	return err
+}
+
+func (m *Module) selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
+	for _, pnt := range device.Points {
+		if pnt.IoNumber == ioNumber {
+			return pnt
+		}
+	}
+	return nil
 }

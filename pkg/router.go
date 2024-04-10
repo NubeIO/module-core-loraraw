@@ -107,6 +107,9 @@ func UpdateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	_ = (*m).(*Module).updateDevicePointsAddress(dev)
+
 	return json.Marshal(dev)
 }
 
