@@ -27,7 +27,7 @@ func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {
 
 func (m *Module) GetInfo() (*nmodule.Info, error) {
 	return &nmodule.Info{
-		Name:       pluginName,
+		Name:       m.moduleName,
 		Author:     "RaiBnod",
 		Website:    "https://nube-io.com",
 		License:    "N/A",

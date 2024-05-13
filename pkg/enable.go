@@ -6,13 +6,11 @@ import (
 	"time"
 )
 
-var pluginName = "module-core-loraraw"
-
 func (m *Module) Enable() error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	log.Info("plugin is enabling...")
-	networks, err := m.grpcMarshaller.GetNetworksByPluginName(pluginName)
+	networks, err := m.grpcMarshaller.GetNetworksByPluginName(m.moduleName)
 	if err != nil {
 		log.Error(err)
 		_ = m.updatePluginMessage(dto.MessageLevel.Fail, err.Error())

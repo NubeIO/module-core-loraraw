@@ -376,10 +376,10 @@ func (m *Module) updateDevicePointValuesStruct(sensorStruct interface{}, postfix
 }
 
 func (m *Module) updatePluginMessage(messageLevel, message string) error {
-	var plugin model.Plugin
-	plugin.MessageLevel = messageLevel
-	plugin.Message = message
-	err := m.grpcMarshaller.UpdatePluginMessage(pluginName, &plugin)
+	err := m.grpcMarshaller.UpdatePluginMessage(m.moduleName, &model.Plugin{
+		MessageLevel: messageLevel,
+		Message:      message,
+	})
 	if err != nil {
 		log.Errorf("updatePluginMessage() err: %s", err)
 	}
