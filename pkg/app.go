@@ -120,20 +120,6 @@ func (m *Module) networkUpdateErr(uuid, port string, e error) error {
 	return err
 }
 
-func (m *Module) deviceUpdateSuccess(uuid string) error {
-	var device model.Device
-	device.InFault = false
-	device.MessageLevel = dto.MessageLevel.Info
-	device.MessageCode = dto.CommonFaultCode.Ok
-	device.Message = ""
-	device.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
 func (m *Module) deviceUpdateErr(uuid string, err error) error {
 	var device model.Device
 	device.InFault = true
@@ -142,22 +128,6 @@ func (m *Module) deviceUpdateErr(uuid string, err error) error {
 	device.Message = fmt.Sprintf("Error: %s", err.Error())
 	device.LastFail = time.Now().UTC()
 	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
-func (m *Module) pointUpdateSuccess(point *model.Point) error {
-	if point == nil {
-		return errors.New("lora-plugin: nil point to pointUpdateSuccess()")
-	}
-	point.InFault = false
-	point.MessageLevel = dto.MessageLevel.Info
-	point.MessageCode = dto.CommonFaultCode.Ok
-	point.Message = ""
-	point.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdatePointSuccess(point.UUID, point)
 	if err != nil {
 		log.Error(err)
 	}
@@ -188,7 +158,13 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-	_ = m.deviceUpdateSuccess(device.UUID)
+	_ = m.grpcMarshaller.UpdateDeviceErrors(device.UUID, &model.Device{
+		CommonFault: model.CommonFault{
+			InFault:  false,
+			Message:  "",
+			LastFail: time.Now().UTC(),
+		},
+	})
 	if fullData != nil {
 		m.updateDevicePointValues(commonData, fullData, device)
 	}
@@ -316,7 +292,6 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 	return nil
 }
 
-// TODO: update to make more efficient for updating just the value (incl fault etc.)
 func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
@@ -324,12 +299,11 @@ func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel s
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
 	}
-	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
+	_, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	err = m.pointUpdateSuccess(&pwr.Point)
 	return err
 }
 

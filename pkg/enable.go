@@ -22,6 +22,7 @@ func (m *Module) Enable() error {
 		log.Warn(warnMsg)
 		_ = m.updatePluginMessage(dto.MessageLevel.Warning, warnMsg)
 	}
+	_ = m.updatePluginMessage(dto.MessageLevel.Info, "")
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()
 	log.Info("plugin is enabled")
