@@ -3,13 +3,6 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
@@ -20,6 +13,11 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"reflect"
+	"strings"
+	"sync"
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -119,7 +117,6 @@ func (m *Module) handleSerialPayload(data string) {
 	_ = m.grpcMarshaller.UpdateDeviceFault(device.UUID, &model.CommonFault{
 		InFault: false,
 		Message: "",
-		LastOk:  time.Now().UTC(),
 	})
 	if fullData != nil {
 		m.updateDevicePointValues(commonData, fullData, device)

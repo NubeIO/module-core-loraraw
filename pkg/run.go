@@ -22,9 +22,8 @@ func (m *Module) run() {
 				errMsg := fmt.Sprintf("error opening serial: %v", err.Error())
 				log.Error(errMsg)
 				_ = m.grpcMarshaller.UpdateNetworkFault(m.networkUUID, &model.CommonFault{
-					InFault:  true,
-					Message:  errMsg,
-					LastFail: time.Now().UTC(),
+					InFault: true,
+					Message: errMsg,
 				})
 				time.Sleep(m.config.ReIterationTime)
 				continue
@@ -32,7 +31,6 @@ func (m *Module) run() {
 				_ = m.grpcMarshaller.UpdateNetworkFault(m.networkUUID, &model.CommonFault{
 					InFault: false,
 					Message: "",
-					LastOk:  time.Now().UTC(),
 				})
 			}
 		}
@@ -49,9 +47,8 @@ func (m *Module) run() {
 				errMsg := fmt.Sprintf("serial connection error: %v", err.Error())
 				log.Error(errMsg)
 				_ = m.grpcMarshaller.UpdateNetworkFault(m.networkUUID, &model.CommonFault{
-					InFault:  true,
-					Message:  errMsg,
-					LastFail: time.Now().UTC(),
+					InFault: true,
+					Message: errMsg,
 				})
 				log.Info("serial connection attempting to reconnect...")
 				continue
