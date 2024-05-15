@@ -92,48 +92,6 @@ func (m *Module) deletePoint(body *model.Point) (success bool, err error) {
 	return success, nil
 }
 
-func (m *Module) networkUpdateSuccess(uuid string) error {
-	var network model.Network
-	network.InFault = false
-	network.MessageLevel = dto.MessageLevel.Info
-	network.MessageCode = dto.CommonFaultCode.Ok
-	network.Message = ""
-	network.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
-	if err != nil {
-		log.Errorf("UpdateNetworkErrors() err: %s", err)
-	}
-	return err
-}
-
-func (m *Module) networkUpdateErr(uuid, port string, e error) error {
-	var network model.Network
-	network.InFault = true
-	network.MessageLevel = dto.MessageLevel.Fail
-	network.MessageCode = dto.CommonFaultCode.NetworkError
-	network.Message = fmt.Sprintf("port: %s, message: %s", port, e.Error())
-	network.LastFail = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
-	if err != nil {
-		log.Errorf("UpdateNetworkErrors() err: %s", err)
-	}
-	return err
-}
-
-func (m *Module) deviceUpdateErr(uuid string, err error) error {
-	var device model.Device
-	device.InFault = true
-	device.MessageLevel = dto.MessageLevel.Fail
-	device.MessageCode = dto.CommonFaultCode.DeviceError
-	device.Message = fmt.Sprintf("Error: %s", err.Error())
-	device.LastFail = time.Now().UTC()
-	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
 func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
@@ -158,12 +116,10 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-	_ = m.grpcMarshaller.UpdateDeviceErrors(device.UUID, &model.Device{
-		CommonFault: model.CommonFault{
-			InFault: false,
-			Message: "",
-			LastOk:  time.Now().UTC(),
-		},
+	_ = m.grpcMarshaller.UpdateDeviceFault(device.UUID, &model.CommonFault{
+		InFault: false,
+		Message: "",
+		LastOk:  time.Now().UTC(),
 	})
 	if fullData != nil {
 		m.updateDevicePointValues(commonData, fullData, device)
