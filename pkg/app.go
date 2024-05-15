@@ -160,9 +160,9 @@ func (m *Module) handleSerialPayload(data string) {
 	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
 	_ = m.grpcMarshaller.UpdateDeviceErrors(device.UUID, &model.Device{
 		CommonFault: model.CommonFault{
-			InFault:  false,
-			Message:  "",
-			LastFail: time.Now().UTC(),
+			InFault: false,
+			Message: "",
+			LastOk:  time.Now().UTC(),
 		},
 	})
 	if fullData != nil {
