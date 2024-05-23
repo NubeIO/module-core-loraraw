@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 	"go.bug.st/serial"
 )
@@ -46,9 +46,15 @@ func (m *Module) SerialOpen() (*SerialSetting, error) {
 
 	_, err = s.open()
 	if err != nil {
-		_ = m.networkUpdateErr(net.UUID, s.SerialPort, err)
+		_ = m.grpcMarshaller.UpdateNetworkFault(net.UUID, &model.CommonFault{
+			InFault: true,
+			Message: fmt.Sprintf("port: %s, message: %s", s.SerialPort, err.Error()),
+		})
 	} else {
-		_ = m.networkUpdateSuccess(net.UUID)
+		_ = m.grpcMarshaller.UpdateNetworkFault(net.UUID, &model.CommonFault{
+			InFault: false,
+			Message: "",
+		})
 	}
 	return s, err
 }

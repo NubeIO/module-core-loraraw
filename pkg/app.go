@@ -3,13 +3,6 @@ package pkg
 import (
 	"errors"
 	"fmt"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-	"reflect"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
@@ -20,6 +13,11 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+	"reflect"
+	"strings"
+	"sync"
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -92,78 +90,6 @@ func (m *Module) deletePoint(body *model.Point) (success bool, err error) {
 	return success, nil
 }
 
-func (m *Module) networkUpdateSuccess(uuid string) error {
-	var network model.Network
-	network.InFault = false
-	network.MessageLevel = dto.MessageLevel.Info
-	network.MessageCode = dto.CommonFaultCode.Ok
-	network.Message = ""
-	network.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
-	if err != nil {
-		log.Errorf("UpdateNetworkErrors() err: %s", err)
-	}
-	return err
-}
-
-func (m *Module) networkUpdateErr(uuid, port string, e error) error {
-	var network model.Network
-	network.InFault = true
-	network.MessageLevel = dto.MessageLevel.Fail
-	network.MessageCode = dto.CommonFaultCode.NetworkError
-	network.Message = fmt.Sprintf("port: %s, message: %s", port, e.Error())
-	network.LastFail = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateNetworkErrors(uuid, &network)
-	if err != nil {
-		log.Errorf("UpdateNetworkErrors() err: %s", err)
-	}
-	return err
-}
-
-func (m *Module) deviceUpdateSuccess(uuid string) error {
-	var device model.Device
-	device.InFault = false
-	device.MessageLevel = dto.MessageLevel.Info
-	device.MessageCode = dto.CommonFaultCode.Ok
-	device.Message = ""
-	device.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
-func (m *Module) deviceUpdateErr(uuid string, err error) error {
-	var device model.Device
-	device.InFault = true
-	device.MessageLevel = dto.MessageLevel.Fail
-	device.MessageCode = dto.CommonFaultCode.DeviceError
-	device.Message = fmt.Sprintf("Error: %s", err.Error())
-	device.LastFail = time.Now().UTC()
-	err = m.grpcMarshaller.UpdateDeviceErrors(uuid, &device)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
-func (m *Module) pointUpdateSuccess(point *model.Point) error {
-	if point == nil {
-		return errors.New("lora-plugin: nil point to pointUpdateSuccess()")
-	}
-	point.InFault = false
-	point.MessageLevel = dto.MessageLevel.Info
-	point.MessageCode = dto.CommonFaultCode.Ok
-	point.Message = ""
-	point.LastOk = time.Now().UTC()
-	err := m.grpcMarshaller.UpdatePointSuccess(point.UUID, point)
-	if err != nil {
-		log.Error(err)
-	}
-	return err
-}
-
 func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
@@ -188,7 +114,10 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-	_ = m.deviceUpdateSuccess(device.UUID)
+	_ = m.grpcMarshaller.UpdateDeviceFault(device.UUID, &model.CommonFault{
+		InFault: false,
+		Message: "",
+	})
 	if fullData != nil {
 		m.updateDevicePointValues(commonData, fullData, device)
 	}
@@ -316,7 +245,6 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 	return nil
 }
 
-// TODO: update to make more efficient for updating just the value (incl fault etc.)
 func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
@@ -324,12 +252,11 @@ func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel s
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
 	}
-	pwr, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter) // TODO: look on it, faults messages were cleared out
+	_, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
 	if err != nil {
 		log.Error(err)
 		return err
 	}
-	err = m.pointUpdateSuccess(&pwr.Point)
 	return err
 }
 
@@ -402,10 +329,10 @@ func (m *Module) updateDevicePointValuesStruct(sensorStruct interface{}, postfix
 }
 
 func (m *Module) updatePluginMessage(messageLevel, message string) error {
-	var plugin model.Plugin
-	plugin.MessageLevel = messageLevel
-	plugin.Message = message
-	err := m.grpcMarshaller.UpdatePluginMessage(pluginName, &plugin)
+	err := m.grpcMarshaller.UpdatePluginMessage(m.moduleName, &model.Plugin{
+		MessageLevel: messageLevel,
+		Message:      message,
+	})
 	if err != nil {
 		log.Errorf("updatePluginMessage() err: %s", err)
 	}
