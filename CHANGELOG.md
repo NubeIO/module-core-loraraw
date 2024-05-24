@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.0.0-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.4) (2024-05-24)
+
+- Improvements on proper error messages write (#24)
+
 ## [v1.0.0-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.3) (2024-04-10)
 
 - Update device points address on update device (#21)
