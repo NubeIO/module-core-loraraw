@@ -3,6 +3,7 @@ package decoder
 import (
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
+
 	"strings"
 )
 
@@ -78,6 +79,13 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:     CheckPayloadLengthZHT,
 		Decode:          DecodeZHT,
 		GetPointsStruct: GetPointsStructZHT,
+	},
+	{
+		DeviceName:      "Rubix",
+		Model:           schema.DeviceModelRubix,
+		CheckLength:     CheckPayloadLengthRubix,
+		Decode:          DecodeRubix,
+		GetPointsStruct: GetPointsStructRubix,
 	},
 }
 
