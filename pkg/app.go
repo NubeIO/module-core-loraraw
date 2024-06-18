@@ -3,6 +3,10 @@ package pkg
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
@@ -15,9 +19,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"reflect"
-	"strings"
-	"sync"
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -107,10 +108,12 @@ func (m *Module) handleSerialPayload(data string) {
 	}
 	devDesc := decoder.GetDeviceDescription(device)
 	if devDesc == &decoder.NilLoRaDeviceDescription {
+		log.Errorln("nil device description found")
 		return
 	}
 	commonData, fullData := decoder.DecodePayload(data, devDesc)
 	if commonData == nil {
+		log.Errorln("nil common data returned")
 		return
 	}
 	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
@@ -318,8 +321,7 @@ func (m *Module) updateDevicePointValuesStruct(sensorStruct interface{}, postfix
 		ioNumber := fmt.Sprintf("%s%s", utils.GetReflectFieldJSONName(sensorRefl.Type().Field(i)), postfix)
 		pnt := m.selectPointByIoNumber(ioNumber, device)
 		if pnt == nil {
-			log.Warnf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, ioNumber)
-			continue
+			m.addPointsFromStruct(device, sensorRefl, "")
 		}
 		err := m.updatePointValue(pnt, value, device.Model)
 		if err != nil {
