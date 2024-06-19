@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"unsafe"
 )
 
@@ -372,7 +373,6 @@ func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interfac
 		fmt.Println("Error decoding hex string:", err)
 		return nil, nil
 	}
-
 	payloadLength := len(dataBytes) - (4 + 1 + 1 + 4)
 	payload := dataBytes[6 : 6+payloadLength]
 
@@ -529,5 +529,9 @@ func GetPointsStructRubix() interface{} {
 }
 
 func CheckPayloadLengthRubix(data string) bool {
-	return true
+	payloadLength := len(data) - 10
+	payloadLength /= 2
+	dataLength, _ := strconv.ParseInt(data[10:12], 16, 0)
+
+	return payloadLength == int(dataLength)
 }
