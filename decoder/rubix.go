@@ -529,7 +529,8 @@ func GetPointsStructRubix() interface{} {
 }
 
 func CheckPayloadLengthRubix(data string) bool {
-	payloadLength := len(data) - 10
+	// 4 bytes address | 1 byte nonce | 1 byte length | 2 byte rssi | 2 byte snr
+	payloadLength := len(data) - 20
 	payloadLength /= 2
 	dataLength, _ := strconv.ParseInt(data[10:12], 16, 0)
 
