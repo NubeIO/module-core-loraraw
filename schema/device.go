@@ -9,6 +9,7 @@ const (
 	DeviceModelMicroEdgeV1  = "MicroEdgeV1"
 	DeviceModelMicroEdgeV2  = "MicroEdgeV2"
 	DeviceModelZiptHydroTap = "ZipHydroTap"
+	DeviceModelRubix        = "Rubix"
 )
 
 type DeviceSchema struct {
@@ -22,7 +23,7 @@ type DeviceSchema struct {
 }
 
 func GetDeviceSchema() *DeviceSchema {
-	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap}
+	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap, DeviceModelRubix}
 	m := &DeviceSchema{}
 	m.AddressUUID.Min = 8
 	m.AddressUUID.Max = 8
