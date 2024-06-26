@@ -354,16 +354,17 @@ var serialMap = map[int]MetaData{
 func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
 	/*
 	 * Data Structure:
-	 * -------------------------------------------------------------------------------------------------------------------------------------
-	 * | 4 bytes address | 1 byte nonce | 1 byte length |            Payload           | 2 bytes RSSI | 2 bytes SNR |
-	 * -----------------------------------------------------------------------------------------------------
-	 * | data[0:4]       | data[4]      | data[5]       |       data[6:dataLen-4]      | data[dataLen-4:dataLen-2] | data[dataLen-2:dataLen]
-	 * -------------------------------------------------------------------------------------------------------------------------------------
+	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
+	 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length |            Payload           | 2 bytes RSSI              |   2 bytes SNR         |
+	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
+	 * | data[0:3]       | data[4]      | data[5]       | data[6]       |     data[7:dataLen-4]        | data[dataLen-4:dataLen-2] | data[dataLen-2:dataLen]
+	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
 	 *
-	 * - 4 bytes address:              data[0:4]
-	 * - 1 byte nonce:                 data[4]
-	 * - 1 byte length field:          data[5]
-	 * - Payload:                      data[6:dataLen-4]
+	 * - 4 bytes address:              data[0:3]
+	 * - 1 byte opts:                  data[4]
+	 * - 1 byte nonce:                 data[5]
+	 * - 1 byte length field:          data[6]
+	 * - Payload:                      data[7:dataLen-4]
 	 * - 2 bytes RSSI:                 data[dataLen-4:dataLen-2]
 	 * - 2 bytes SNR:                  data[dataLen-2:dataLen]
 	 */
@@ -373,8 +374,8 @@ func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interfac
 		fmt.Println("Error decoding hex string:", err)
 		return nil, nil
 	}
-	payloadLength := len(dataBytes) - (4 + 1 + 1 + 4)
-	payload := dataBytes[6 : 6+payloadLength]
+	payloadLength := len(dataBytes) - (4 + 1 + 1 + 1 + 4)
+	payload := dataBytes[7 : 7+payloadLength]
 
 	serialData := NewSerialDataWithBuffer(payload)
 
@@ -529,10 +530,10 @@ func GetPointsStructRubix() interface{} {
 }
 
 func CheckPayloadLengthRubix(data string) bool {
-	// 4 bytes address | 1 byte nonce | 1 byte length | 2 byte rssi | 2 byte snr
-	payloadLength := len(data) - 20
+	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 2 byte rssi | 2 byte snr
+	payloadLength := len(data) - 22
 	payloadLength /= 2
-	dataLength, _ := strconv.ParseInt(data[10:12], 16, 0)
+	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
 
 	return payloadLength == int(dataLength)
 }
