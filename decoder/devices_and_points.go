@@ -1,6 +1,7 @@
 package decoder
 
 import (
+	"errors"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strings"
@@ -11,7 +12,7 @@ type LoRaDeviceDescription struct {
 	Model           string
 	SensorCode      string
 	CheckLength     func(data string) bool
-	Decode          func(data string, devDesc *LoRaDeviceDescription) (*CommonValues, interface{})
+	Decode          func(data string, devDesc *LoRaDeviceDescription, device *model.Device) error
 	GetPointsStruct func() interface{}
 }
 
@@ -28,8 +29,8 @@ func NilLoRaDeviceDescriptionCheckLength(data string) bool {
 	return false
 }
 
-func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription) (*CommonValues, interface{}) {
-	return &CommonValues{}, struct{}{}
+func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	return errors.New("nil decode function called")
 }
 
 func NilLoRaDeviceDescriptionGetPointsStruct() interface{} {

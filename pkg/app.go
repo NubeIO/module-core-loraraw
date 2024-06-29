@@ -9,7 +9,6 @@ import (
 	"github.com/NubeIO/module-core-loraraw/decoder"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
@@ -109,17 +108,9 @@ func (m *Module) handleSerialPayload(data string) {
 	if devDesc == &decoder.NilLoRaDeviceDescription {
 		return
 	}
-	commonData, fullData := decoder.DecodePayload(data, devDesc)
-	if commonData == nil {
-		return
-	}
-	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-	_ = m.grpcMarshaller.UpdateDeviceFault(device.UUID, &model.CommonFault{
-		InFault: false,
-		Message: "",
-	})
-	if fullData != nil {
-		m.updateDevicePointValues(commonData, fullData, device)
+	err := decoder.DecodePayload(data, devDesc, device)
+	if err != nil {
+		log.Errorf(err.Error())
 	}
 }
 
@@ -156,6 +147,20 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 	m.addPointsFromName(deviceBody, "Rssi", "Snr")
 	m.addPointsFromStruct(deviceBody, pointsRefl, "")
 	return nil
+}
+
+func (m *Module) addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
+	point := new(model.Point)
+	m.setNewPointFields(deviceBody, point, name)
+	point.EnableWriteable = boolean.NewFalse()
+	pnt, err := m.savePoint(point)
+	return pnt, err
+}
+
+func (m *Module) savePoint(point *model.Point) (*model.Point, error) {
+	point.EnableWriteable = boolean.NewFalse()
+	pnt, err := m.addPoint(point)
+	return pnt, err
 }
 
 func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
@@ -243,89 +248,6 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 		}
 	}
 	return nil
-}
-
-func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
-	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
-		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
-	}
-	pointWriter := dto.PointWriter{
-		OriginalValue: &value,
-	}
-	_, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	return err
-}
-
-// updateDevicePointValues update all points under a device within commonSensorData and sensorStruct
-func (m *Module) updateDevicePointValues(commonValues *decoder.CommonValues, sensorStruct interface{}, device *model.Device) {
-	// manually update rssi + any other CommonValues
-	for _, pnt := range device.Points {
-		if pnt.IoNumber == utils.GetStructFieldJSONNameByName(sensorStruct, "Rssi") {
-			err := m.updatePointValue(pnt, float64(commonValues.Rssi), device.Model)
-			if err != nil {
-				return
-			}
-		} else if pnt.IoNumber == utils.GetStructFieldJSONNameByName(sensorStruct, "Snr") {
-			err := m.updatePointValue(pnt, float64(commonValues.Snr), device.Model)
-			if err != nil {
-				return
-			}
-		}
-	}
-
-	// update all other fields in sensorStruct
-	m.updateDevicePointValuesStruct(sensorStruct, "", device)
-}
-
-func (m *Module) updateDevicePointValuesStruct(sensorStruct interface{}, postfix string, device *model.Device) {
-	sensorRefl := reflect.ValueOf(sensorStruct)
-
-	for i := 0; i < sensorRefl.NumField(); i++ {
-		value := 0.0
-		field := sensorRefl.Field(i)
-
-		switch field.Kind() {
-		case reflect.Float32, reflect.Float64:
-			value = field.Float()
-		case reflect.Bool:
-			value = utils.BoolToFloat(field.Bool())
-		case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Int:
-			value = float64(field.Int())
-		case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uint:
-			value = float64(field.Uint())
-		case reflect.Struct:
-			if _, ok := field.Interface().(decoder.CommonValues); !ok {
-				m.updateDevicePointValuesStruct(field.Interface(), postfix, device)
-			}
-			continue
-		case reflect.Array:
-			fallthrough
-		case reflect.Slice:
-			for j := 0; j < field.Len(); j++ {
-				pf := fmt.Sprintf("%s_%d", postfix, j+1)
-				v := field.Index(j).Interface()
-				m.updateDevicePointValuesStruct(v, pf, device)
-			}
-			continue
-		default:
-			continue
-		}
-
-		ioNumber := fmt.Sprintf("%s%s", utils.GetReflectFieldJSONName(sensorRefl.Type().Field(i)), postfix)
-		pnt := m.selectPointByIoNumber(ioNumber, device)
-		if pnt == nil {
-			log.Warnf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, ioNumber)
-			continue
-		}
-		err := m.updatePointValue(pnt, value, device.Model)
-		if err != nil {
-			return
-		}
-	}
 }
 
 func (m *Module) updatePluginMessage(messageLevel, message string) error {

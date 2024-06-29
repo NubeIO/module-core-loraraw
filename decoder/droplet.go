@@ -1,6 +1,9 @@
 package decoder
 
 import (
+	"errors"
+	"github.com/NubeIO/module-core-loraraw/utils"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
 
@@ -39,38 +42,56 @@ func CheckPayloadLengthDroplet(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeDropletTH(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
+func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	commonValues := &CommonValues{}
+	decodeCommonValues(commonValues, data, devDesc.Model)
+	if commonValues == nil {
+		return errors.New("invalid common values")
+	}
+
+	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
+
+	err := updateDevicePoint("rssi", float64(commonValues.Rssi), device)
+	if err != nil {
+		return err
+	}
+
+	err = updateDevicePoint("snr", float64(commonValues.Snr), device)
+	if err != nil {
+		return err
+	}
+
 	temperature := dropletTemp(data)
+	_ = updateDevicePoint("temperature", temperature, device)
 	pressure := dropletPressure(data)
+	_ = updateDevicePoint("pressure", pressure, device)
 	humidity := dropletHumidity(data)
+	_ = updateDevicePoint("humidity", float64(humidity), device)
 	voltage := dropletVoltage(data)
-	v := TDropletTH{
-		Voltage:     voltage,
-		Temperature: temperature,
-		Pressure:    pressure,
-		Humidity:    humidity,
-	}
-	return &v.CommonValues, v
+	_ = updateDevicePoint("voltage", voltage, device)
+	return nil
 }
 
-func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription) (*CommonValues, interface{}) {
-	_, d := DecodeDropletTH(data, devDesc)
+func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	err := DecodeDropletTH(data, devDesc, device)
+	if err != nil {
+		return err
+	}
+
 	light := dropletLight(data)
-	v := TDropletTHL{
-		TDropletTH: d.(TDropletTH),
-		Light:      light,
-	}
-	return &v.CommonValues, v
+	_ = updateDevicePoint("light", float64(light), device)
+	return nil
 }
 
-func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription) (*CommonValues, interface{}) {
-	_, d := DecodeDropletTHL(data, devDesc)
-	motion := dropletMotion(data)
-	v := TDropletTHLM{
-		TDropletTHL: d.(TDropletTHL),
-		Motion:      motion,
+func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	err := DecodeDropletTHL(data, devDesc, device)
+	if err != nil {
+		return err
 	}
-	return &v.CommonValues, v
+
+	motion := dropletMotion(data)
+	_ = updateDevicePoint("motion", utils.BoolToFloat(motion), device)
+	return nil
 }
 
 func dropletTemp(data string) float64 {

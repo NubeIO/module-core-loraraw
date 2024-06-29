@@ -3,7 +3,10 @@ package decoder
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"github.com/NubeIO/module-core-loraraw/utils"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
 
@@ -152,7 +155,25 @@ const (
 	PollData
 )
 
-func DecodeZHT(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
+func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	commonValues := &CommonValues{}
+	decodeCommonValues(commonValues, data, devDesc.Model)
+	if commonValues == nil {
+		return errors.New("invalid common values")
+	}
+
+	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
+
+	err := updateDevicePoint("rssi", float64(commonValues.Rssi), device)
+	if err != nil {
+		return err
+	}
+
+	err = updateDevicePoint("snr", float64(commonValues.Snr), device)
+	if err != nil {
+		return err
+	}
+
 	bytes := getPayloadBytes(data)
 	switch pl := getPayloadType(data); pl {
 	// TODO: This should be meta data when it gets supported
@@ -161,16 +182,14 @@ func DecodeZHT(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{
 	//     payloadFull := TZipHydrotapStaticFull{TZipHydrotapStatic: payload}
 	//     return &payloadFull.CommonValues, payloadFull
 	case WriteData:
-		payload := writePayloadDecoder(bytes)
-		payloadFull := TZipHydrotapWriteFull{TZipHydrotapWrite: payload}
-		return &payloadFull.CommonValues, payloadFull
+		err := writePayloadDecoder(bytes, device)
+		return err
 	case PollData:
-		payload := pollPayloadDecoder(bytes)
-		payloadFull := TZipHydrotapPollFull{TZipHydrotapPoll: payload}
-		return &payloadFull.CommonValues, payloadFull
+		err := pollPayloadDecoder(bytes, device)
+		return err
 	}
 
-	return nil, nil
+	return nil
 }
 
 func getPayloadType(data string) TZHTPayloadType {
@@ -286,51 +305,89 @@ func staticPayloadDecoder(data []byte) TZipHydrotapStatic {
 	}
 }
 
-func writePayloadDecoder(data []byte) TZipHydrotapWrite {
+func writePayloadDecoder(data []byte, device *model.Device) error {
 	index := 1
 	time := int(binary.LittleEndian.Uint32(data[index : index+4]))
+	_ = updateDevicePoint("time", float64(time), device)
+
 	index += 4
 	dispB := int(data[index])
+	_ = updateDevicePoint("dispense_time_boiling", float64(dispB), device)
+
 	index += 1
 	dispC := int(data[index])
+	_ = updateDevicePoint("dispense_time_chilled", float64(dispC), device)
+
 	index += 1
 	dispS := int(data[index])
+	_ = updateDevicePoint("dispense_time_sparkling", float64(dispS), device)
+
 	index += 1
 	tempSpB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("temperature_sp_boiling", float64(tempSpB), device)
+
 	index += 2
 	tempSpC := float32(int(data[index]))
+	_ = updateDevicePoint("temperature_sp_chilled", float64(tempSpC), device)
+
 	index += 1
 	tempSpS := float32(int(data[index]))
+	_ = updateDevicePoint("temperature_sp_sparkling", float64(tempSpS), device)
+
 	index += 1
 	sm := int(data[index])
+	_ = updateDevicePoint("sleep_mode_setting", float64(sm), device)
+
 	index += 1
 	filLyfLtrInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_life_litres_internal", float64(filLyfLtrInt), device)
+
 	index += 2
 	filLyfMnthInt := int(data[index])
+	_ = updateDevicePoint("filter_info_life_months_internal", float64(filLyfMnthInt), device)
+
 	index += 1
 	filLyfLtrExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_life_litres_external", float64(filLyfLtrExt), device)
+
 	index += 2
 	filLyfMnthExt := int(data[index])
+	_ = updateDevicePoint("filter_info_life_months_external", float64(filLyfMnthExt), device)
+
 	index += 1
 	sfTap := (data[index]>>2)&1 == 1
+	_ = updateDevicePoint("safety_allow_tap_changes", utils.BoolToFloat(sfTap), device)
+
 	sfL := (data[index]>>1)&1 == 1
+	_ = updateDevicePoint("safety_lock", utils.BoolToFloat(sfL), device)
+
 	sfHi := (data[index]>>0)&1 == 1
+	_ = updateDevicePoint("safety_hot_isolation", utils.BoolToFloat(sfHi), device)
+
 	index += 1
 	secUI16 := binary.LittleEndian.Uint16(data[index : index+2])
 	secEn := secUI16 >= 10000
-	secPin := int(secUI16 % 10000)
-	index += 2
+	_ = updateDevicePoint("security_enable", utils.BoolToFloat(secEn), device)
 
-	var timers [ZipHTTimerLength]TZipHydrotapTimer
+	secPin := int(secUI16 % 10000)
+	_ = updateDevicePoint("security_pin", float64(secPin), device)
+
+	index += 2
 	var u16 uint16
 	for i := 0; i < ZipHTTimerLength; i++ {
 		u16 = binary.LittleEndian.Uint16(data[index : index+2])
-		timers[i].TimeStart = int(u16 % 10000)
-		timers[i].EnableStart = u16 >= 10000
+		timeStart := int(u16 % 10000)
+		_ = updateDevicePoint(fmt.Sprintf("time_start_%d", i), float64(timeStart), device)
+		enableStart := u16 >= 10000
+		_ = updateDevicePoint(fmt.Sprintf("enable_start_%d", i), utils.BoolToFloat(enableStart), device)
+
 		index += 2
 		u16 = binary.LittleEndian.Uint16(data[index : index+2])
-		timers[i].TimeStop = int(u16 % 10000)
-		timers[i].EnableStop = u16 >= 10000
+		timeStop := int(u16 % 10000)
+		_ = updateDevicePoint(fmt.Sprintf("time_stop_%d", i), float64(timeStop), device)
+		enableStop := u16 >= 10000
+		_ = updateDevicePoint(fmt.Sprintf("enable_stop_%d", i), utils.BoolToFloat(enableStop), device)
+
 		index += 2
 	}
 
@@ -363,87 +420,114 @@ func writePayloadDecoder(data []byte) TZipHydrotapWrite {
 		sparklFlushTime = int(binary.LittleEndian.Uint16(data[index : index+2]))
 		index += 2
 	}
+	_ = updateDevicePoint("filter_info_life_litres_uv", float64(filLyfLtrUV), device)
+	_ = updateDevicePoint("filter_info_life_months_uv", float64(filLyfMnthUV), device)
+	_ = updateDevicePoint("co2_life_grams", float64(cO2LyfGrams), device)
+	_ = updateDevicePoint("co2_life_months", float64(cO2LyfMnths), device)
+	_ = updateDevicePoint("co2_pressure", float64(cO2Pressure), device)
+	_ = updateDevicePoint("co2_tank_capacity", float64(cO2TankCap), device)
+	_ = updateDevicePoint("co2_absorption_rate", float64(cO2AbsorpRate), device)
+	_ = updateDevicePoint("sparkling_flow_rate", float64(sparklFlowRate), device)
+	_ = updateDevicePoint("sparkling_flush_time", float64(sparklFlushTime), device)
 
-	return TZipHydrotapWrite{
-		Time:                         time,
-		DispenseTimeBoiling:          dispB,
-		DispenseTimeChilled:          dispC,
-		DispenseTimeSparkling:        dispS,
-		TemperatureSPBoiling:         tempSpB,
-		TemperatureSPChilled:         tempSpC,
-		TemperatureSPSparkling:       tempSpS,
-		SleepModeSetting:             sm,
-		FilterInfoLifeLitresInternal: filLyfLtrInt,
-		FilterInfoLifeMonthsInternal: filLyfMnthInt,
-		FilterInfoLifeLitresExternal: filLyfLtrExt,
-		FilterInfoLifeMonthsExternal: filLyfMnthExt,
-		SafetyAllowTapChanges:        sfTap,
-		SafetyLock:                   sfL,
-		SafetyHotIsolation:           sfHi,
-		SecurityEnable:               secEn,
-		SecurityPin:                  secPin,
-		Timers:                       timers,
-		// Pkt V2
-		FilterInfoLifeLitresUV: filLyfLtrUV,
-		FilterInfoLifeMonthsUV: filLyfMnthUV,
-		CO2LifeGrams:           cO2LyfGrams,
-		CO2LifeMonths:          cO2LyfMnths,
-		CO2Pressure:            cO2Pressure,
-		CO2TankCapacity:        cO2TankCap,
-		CO2AbsorptionRate:      cO2AbsorpRate,
-		SparklingFlowRate:      sparklFlowRate,
-		SparklingFlushTime:     sparklFlushTime,
-	}
+	return nil
 }
 
-func pollPayloadDecoder(data []byte) TZipHydrotapPoll {
+func pollPayloadDecoder(data []byte, device *model.Device) error {
 	index := 1
 	rebooted := (data[index]>>5)&1 == 1
+	_ = updateDevicePoint("rebooted", utils.BoolToFloat(rebooted), device)
+
 	// sCov := (data[index]>>6)&1 == 1
 	// wCov := (data[index]>>7)&1 == 1
+
 	sms := int8((data[index]) & 0x3F)
+	_ = updateDevicePoint("sleep_mode_status", float64(sms), device)
+
 	index += 1
 	tempB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("temperature_ntc_boiling", float64(tempB), device)
+
 	index += 2
 	tempC := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("temperature_ntc_chilled", float64(tempC), device)
+
 	index += 2
 	tempS := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("temperature_ntc_stream", float64(tempS), device)
+
 	index += 2
 	tempCond := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("temperature_ntc_condensor", float64(tempCond), device)
+
 	index += 2
 	f1 := data[index]
+	_ = updateDevicePoint("fault_1", float64(f1), device)
+
 	index += 1
 	f2 := data[index]
+	_ = updateDevicePoint("fault_2", float64(f2), device)
+
 	index += 1
 	f3 := data[index]
+	_ = updateDevicePoint("fault_3", float64(f3), device)
+
 	index += 1
 	f4 := data[index]
+	_ = updateDevicePoint("fault_4", float64(f4), device)
+
 	index += 1
 	kwh := float32(binary.LittleEndian.Uint32(data[index:index+4])) * 0.1
+	_ = updateDevicePoint("usage_energy_kwh", float64(kwh), device)
+
 	index += 4
 	dltDispB := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("usage_water_delta_dispenses_boiling", float64(dltDispB), device)
+
 	index += 2
 	dltDispC := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("usage_water_delta_dispenses_chilled", float64(dltDispC), device)
+
 	index += 2
 	dltDispS := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("usage_water_delta_dispenses_sparkling", float64(dltDispS), device)
+
 	index += 2
 	dltLtrB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("usage_water_delta_litres_boiling", float64(dltLtrB), device)
+
 	index += 2
 	dltLtrC := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("usage_water_delta_litres_chilled", float64(dltLtrC), device)
+
 	index += 2
 	dltLtrS := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
+	_ = updateDevicePoint("usage_water_delta_litres_sparkling", float64(dltLtrS), device)
+
 	index += 2
 	warningIndex := index
 	fltrWrnInt := (data[index]>>0)&1 == 1
+	_ = updateDevicePoint("filter_warning_internal", utils.BoolToFloat(fltrWrnInt), device)
+
 	fltrWrnExt := (data[index]>>1)&1 == 1
+	_ = updateDevicePoint("filter_warning_external", utils.BoolToFloat(fltrWrnExt), device)
+
 	index += 1
 	fltrNfoUseLtrInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_usage_litres_internal", float64(fltrNfoUseLtrInt), device)
+
 	index += 2
 	fltrNfoUseDayInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_usage_days_internal", float64(fltrNfoUseDayInt), device)
+
 	index += 2
 	fltrNfoUseLtrExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_usage_litres_external", float64(fltrNfoUseLtrExt), device)
+
 	index += 2
 	fltrNfoUseDayExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	_ = updateDevicePoint("filter_info_usage_days_external", float64(fltrNfoUseDayExt), device)
+
 	index += 2
 
 	fltrNfoUseLtrUV := 0
@@ -465,37 +549,12 @@ func pollPayloadDecoder(data []byte) TZipHydrotapPoll {
 		cO2UsgDays = int(data[index])
 		index += 1
 	}
+	_ = updateDevicePoint("filter_info_usage_litres_uv", float64(fltrNfoUseLtrUV), device)
+	_ = updateDevicePoint("filter_info_usage_days_uv", float64(fltrNfoUseDayUV), device)
+	_ = updateDevicePoint("filter_warning_uv", utils.BoolToFloat(fltrWrnUV), device)
+	_ = updateDevicePoint("co2_low_gas_warning", utils.BoolToFloat(cO2GasPressureWrn), device)
+	_ = updateDevicePoint("co2_usage_grams", float64(cO2UsgGrams), device)
+	_ = updateDevicePoint("co2_usage_days", float64(cO2UsgDays), device)
 
-	return TZipHydrotapPoll{
-		Rebooted:                          rebooted,
-		SleepModeStatus:                   sms,
-		TemperatureNTCBoiling:             tempB,
-		TemperatureNTCChilled:             tempC,
-		TemperatureNTCStream:              tempS,
-		TemperatureNTCCondensor:           tempCond,
-		UsageEnergyKWh:                    kwh,
-		UsageWaterDeltaDispensesBoiling:   dltDispB,
-		UsageWaterDeltaDispensesChilled:   dltDispC,
-		UsageWaterDeltaDispensesSparkling: dltDispS,
-		UsageWaterDeltaLitresBoiling:      dltLtrB,
-		UsageWaterDeltaLitresChilled:      dltLtrC,
-		UsageWaterDeltaLitresSparkling:    dltLtrS,
-		Fault1:                            f1,
-		Fault2:                            f2,
-		Fault3:                            f3,
-		Fault4:                            f4,
-		FilterWarningInternal:             fltrWrnInt,
-		FilterWarningExternal:             fltrWrnExt,
-		FilterInfoUsageLitresInternal:     fltrNfoUseLtrInt,
-		FilterInfoUsageDaysInternal:       fltrNfoUseDayInt,
-		FilterInfoUsageLitresExternal:     fltrNfoUseLtrExt,
-		FilterInfoUsageDaysExternal:       fltrNfoUseDayExt,
-		// Pkt V2
-		FilterInfoUsageLitresUV: fltrNfoUseLtrUV,
-		FilterInfoUsageDaysUV:   fltrNfoUseDayUV,
-		FilterWarningUV:         fltrWrnUV,
-		CO2LowGasWarning:        cO2GasPressureWrn,
-		CO2UsageGrams:           cO2UsgGrams,
-		CO2UsageDays:            cO2UsgDays,
-	}
+	return nil
 }

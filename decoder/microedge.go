@@ -1,15 +1,13 @@
 package decoder
 
 import (
+	"errors"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
-
-const MEDeviceName = "MicroEdge"
-const MEModel = "MicroEdge"
-const MESensorCode = "AA"
 
 type TMicroEdge struct {
 	CommonValues
@@ -29,20 +27,36 @@ func CheckPayloadLengthME(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeME(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
-	p := pulse(data)
-	a1 := ai1(data)
-	a2 := ai2(data)
-	a3 := ai3(data)
-	vol := voltage(data)
-	v := TMicroEdge{
-		Voltage: vol,
-		Pulse:   p,
-		AI1:     a1,
-		AI2:     a2,
-		AI3:     a3,
+func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	commonValues := &CommonValues{}
+	decodeCommonValues(commonValues, data, devDesc.Model)
+	if commonValues == nil {
+		return errors.New("invalid common values")
 	}
-	return &v.CommonValues, v
+
+	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
+
+	err := updateDevicePoint("rssi", float64(commonValues.Rssi), device)
+	if err != nil {
+		return err
+	}
+
+	err = updateDevicePoint("snr", float64(commonValues.Snr), device)
+	if err != nil {
+		return err
+	}
+
+	p := pulse(data)
+	_ = updateDevicePoint("pulse", float64(p), device)
+	a1 := ai1(data)
+	_ = updateDevicePoint("ai_1", a1, device)
+	a2 := ai2(data)
+	_ = updateDevicePoint("ai_2", a2, device)
+	a3 := ai3(data)
+	_ = updateDevicePoint("ai_3", a3, device)
+	vol := voltage(data)
+	_ = updateDevicePoint("voltage", vol, device)
+	return nil
 }
 
 func pulse(data string) int {

@@ -1,11 +1,13 @@
-// Package decoder contains all device specific payload decoding and checks
 package decoder
 
 import (
+	"errors"
+	"github.com/NubeIO/lib-module-go/nmodule"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
 
-const Voltage = "voltage"
+var grpcMarshaller nmodule.Marshaller
 
 type CommonValues struct {
 	Sensor string  `json:"sensor"`
@@ -14,16 +16,16 @@ type CommonValues struct {
 	Snr    float32 `json:"snr"`
 }
 
-func DecodePayload(data string, devDesc *LoRaDeviceDescription) (*CommonValues, interface{}) {
+func InitGrpcMarshaller(marshaller nmodule.Marshaller) {
+	grpcMarshaller = marshaller
+}
+
+func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
 	if !devDesc.CheckLength(data) {
-		return nil, nil
+		return errors.New("invalid payload")
 	}
-	cmn, payload := devDesc.Decode(data, devDesc)
-	if cmn == nil {
-		return nil, nil
-	}
-	decodeCommonValues(cmn, data, devDesc.Model)
-	return cmn, payload
+	err := devDesc.Decode(data, devDesc, device)
+	return err
 }
 
 func ValidPayload(data string) bool {
