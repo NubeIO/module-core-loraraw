@@ -12,8 +12,6 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"reflect"
 	"strings"
 	"sync"
@@ -149,26 +147,12 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 	return nil
 }
 
-func (m *Module) addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
-	point := new(model.Point)
-	m.setNewPointFields(deviceBody, point, name)
-	point.EnableWriteable = boolean.NewFalse()
-	pnt, err := m.savePoint(point)
-	return pnt, err
-}
-
-func (m *Module) savePoint(point *model.Point) (*model.Point, error) {
-	point.EnableWriteable = boolean.NewFalse()
-	pnt, err := m.addPoint(point)
-	return pnt, err
-}
-
 func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
 	var points []*model.Point
 	for _, name := range names {
 		pointName := utils.GetStructFieldJSONNameByName(decoder.CommonValues{}, name)
 		point := new(model.Point)
-		m.setNewPointFields(deviceBody, point, pointName)
+		decoder.SetNewPointFields(deviceBody, point, pointName)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}
@@ -197,7 +181,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 			pointName = fmt.Sprintf("%s%s", pointName, postfix)
 		}
 		point := new(model.Point)
-		m.setNewPointFields(deviceBody, point, pointName)
+		decoder.SetNewPointFields(deviceBody, point, pointName)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}
@@ -219,17 +203,6 @@ func (m *Module) savePoints(points []*model.Point) {
 		}()
 	}
 	wg.Wait()
-}
-
-func (m *Module) setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
-	pointBody.Enable = boolean.NewTrue()
-	pointBody.DeviceUUID = deviceBody.UUID
-	pointBody.AddressUUID = deviceBody.AddressUUID
-	pointBody.IsOutput = boolean.NewFalse()
-	pointBody.Name = cases.Title(language.English).String(name)
-	pointBody.IoNumber = name
-	pointBody.ThingType = "point"
-	pointBody.WriteMode = datatype.ReadOnly
 }
 
 // updateDevicePointsAddress by its lora id and type as in temp or lux
@@ -259,13 +232,4 @@ func (m *Module) updatePluginMessage(messageLevel, message string) error {
 		log.Errorf("updatePluginMessage() err: %s", err)
 	}
 	return err
-}
-
-func (m *Module) selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
-	for _, pnt := range device.Points {
-		if pnt.IoNumber == ioNumber {
-			return pnt
-		}
-	}
-	return nil
 }

@@ -62,13 +62,15 @@ func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.
 	}
 
 	temperature := dropletTemp(data)
-	_ = updateDevicePoint("temperature", temperature, device)
 	pressure := dropletPressure(data)
-	_ = updateDevicePoint("pressure", pressure, device)
 	humidity := dropletHumidity(data)
-	_ = updateDevicePoint("humidity", float64(humidity), device)
 	voltage := dropletVoltage(data)
+
+	_ = updateDevicePoint("temperature", temperature, device)
+	_ = updateDevicePoint("pressure", pressure, device)
+	_ = updateDevicePoint("humidity", float64(humidity), device)
 	_ = updateDevicePoint("voltage", voltage, device)
+
 	return nil
 }
 

@@ -11,13 +11,12 @@ import (
 	"strings"
 )
 
-func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
-	for _, pnt := range device.Points {
-		if pnt.IoNumber == ioNumber {
-			return pnt
-		}
-	}
-	return nil
+func updateDeviceFault(id, sensor, deviceUUID string, rssi int) {
+	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", id, rssi, sensor)
+	_ = grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
+		InFault: false,
+		Message: "",
+	})
 }
 
 func updateDevicePoint(name string, value float64, device *model.Device) error {
@@ -38,9 +37,18 @@ func updateDevicePoint(name string, value float64, device *model.Device) error {
 	return nil
 }
 
+func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
+	for _, pnt := range device.Points {
+		if pnt.IoNumber == ioNumber {
+			return pnt
+		}
+	}
+	return nil
+}
+
 func addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
 	point := new(model.Point)
-	setNewPointFields(deviceBody, point, name)
+	SetNewPointFields(deviceBody, point, name)
 	point.EnableWriteable = boolean.NewFalse()
 	pnt, err := savePoint(point)
 	return pnt, err
@@ -64,7 +72,7 @@ func addPoint(body *model.Point) (point *model.Point, err error) {
 	return point, nil
 }
 
-func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
+func SetNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
 	pointBody.Enable = boolean.NewTrue()
 	pointBody.DeviceUUID = deviceBody.UUID
 	pointBody.AddressUUID = deviceBody.AddressUUID
@@ -88,12 +96,4 @@ func updatePointValue(pnt *model.Point, value float64, deviceModel string) error
 		return err
 	}
 	return err
-}
-
-func updateDeviceFault(id, sensor, deviceUUID string, rssi int) {
-	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", id, rssi, sensor)
-	_ = grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
-		InFault: false,
-		Message: "",
-	})
 }

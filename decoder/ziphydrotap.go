@@ -308,87 +308,52 @@ func staticPayloadDecoder(data []byte) TZipHydrotapStatic {
 func writePayloadDecoder(data []byte, device *model.Device) error {
 	index := 1
 	time := int(binary.LittleEndian.Uint32(data[index : index+4]))
-	_ = updateDevicePoint("time", float64(time), device)
-
 	index += 4
 	dispB := int(data[index])
-	_ = updateDevicePoint("dispense_time_boiling", float64(dispB), device)
-
 	index += 1
 	dispC := int(data[index])
-	_ = updateDevicePoint("dispense_time_chilled", float64(dispC), device)
-
 	index += 1
 	dispS := int(data[index])
-	_ = updateDevicePoint("dispense_time_sparkling", float64(dispS), device)
-
 	index += 1
 	tempSpB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("temperature_sp_boiling", float64(tempSpB), device)
-
 	index += 2
 	tempSpC := float32(int(data[index]))
-	_ = updateDevicePoint("temperature_sp_chilled", float64(tempSpC), device)
-
 	index += 1
 	tempSpS := float32(int(data[index]))
-	_ = updateDevicePoint("temperature_sp_sparkling", float64(tempSpS), device)
-
 	index += 1
 	sm := int(data[index])
-	_ = updateDevicePoint("sleep_mode_setting", float64(sm), device)
-
 	index += 1
 	filLyfLtrInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_life_litres_internal", float64(filLyfLtrInt), device)
-
 	index += 2
 	filLyfMnthInt := int(data[index])
-	_ = updateDevicePoint("filter_info_life_months_internal", float64(filLyfMnthInt), device)
-
 	index += 1
 	filLyfLtrExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_life_litres_external", float64(filLyfLtrExt), device)
-
 	index += 2
 	filLyfMnthExt := int(data[index])
-	_ = updateDevicePoint("filter_info_life_months_external", float64(filLyfMnthExt), device)
-
 	index += 1
 	sfTap := (data[index]>>2)&1 == 1
-	_ = updateDevicePoint("safety_allow_tap_changes", utils.BoolToFloat(sfTap), device)
-
 	sfL := (data[index]>>1)&1 == 1
-	_ = updateDevicePoint("safety_lock", utils.BoolToFloat(sfL), device)
-
 	sfHi := (data[index]>>0)&1 == 1
-	_ = updateDevicePoint("safety_hot_isolation", utils.BoolToFloat(sfHi), device)
-
 	index += 1
 	secUI16 := binary.LittleEndian.Uint16(data[index : index+2])
 	secEn := secUI16 >= 10000
-	_ = updateDevicePoint("security_enable", utils.BoolToFloat(secEn), device)
-
 	secPin := int(secUI16 % 10000)
-	_ = updateDevicePoint("security_pin", float64(secPin), device)
-
 	index += 2
+
 	var u16 uint16
 	for i := 0; i < ZipHTTimerLength; i++ {
 		u16 = binary.LittleEndian.Uint16(data[index : index+2])
 		timeStart := int(u16 % 10000)
-		_ = updateDevicePoint(fmt.Sprintf("time_start_%d", i), float64(timeStart), device)
 		enableStart := u16 >= 10000
-		_ = updateDevicePoint(fmt.Sprintf("enable_start_%d", i), utils.BoolToFloat(enableStart), device)
-
 		index += 2
 		u16 = binary.LittleEndian.Uint16(data[index : index+2])
 		timeStop := int(u16 % 10000)
-		_ = updateDevicePoint(fmt.Sprintf("time_stop_%d", i), float64(timeStop), device)
 		enableStop := u16 >= 10000
-		_ = updateDevicePoint(fmt.Sprintf("enable_stop_%d", i), utils.BoolToFloat(enableStop), device)
-
 		index += 2
+		_ = updateDevicePoint(fmt.Sprintf("time_start_%d", i), float64(timeStart), device)
+		_ = updateDevicePoint(fmt.Sprintf("enable_start_%d", i), utils.BoolToFloat(enableStart), device)
+		_ = updateDevicePoint(fmt.Sprintf("time_stop_%d", i), float64(timeStop), device)
+		_ = updateDevicePoint(fmt.Sprintf("enable_stop_%d", i), utils.BoolToFloat(enableStop), device)
 	}
 
 	filLyfLtrUV := 0
@@ -420,6 +385,25 @@ func writePayloadDecoder(data []byte, device *model.Device) error {
 		sparklFlushTime = int(binary.LittleEndian.Uint16(data[index : index+2]))
 		index += 2
 	}
+
+	_ = updateDevicePoint("time", float64(time), device)
+	_ = updateDevicePoint("dispense_time_boiling", float64(dispB), device)
+	_ = updateDevicePoint("dispense_time_chilled", float64(dispC), device)
+	_ = updateDevicePoint("dispense_time_sparkling", float64(dispS), device)
+	_ = updateDevicePoint("temperature_sp_boiling", float64(tempSpB), device)
+	_ = updateDevicePoint("temperature_sp_chilled", float64(tempSpC), device)
+	_ = updateDevicePoint("temperature_sp_sparkling", float64(tempSpS), device)
+	_ = updateDevicePoint("sleep_mode_setting", float64(sm), device)
+	_ = updateDevicePoint("filter_info_life_litres_internal", float64(filLyfLtrInt), device)
+	_ = updateDevicePoint("filter_info_life_months_internal", float64(filLyfMnthInt), device)
+	_ = updateDevicePoint("filter_info_life_litres_external", float64(filLyfLtrExt), device)
+	_ = updateDevicePoint("filter_info_life_months_external", float64(filLyfMnthExt), device)
+	_ = updateDevicePoint("safety_allow_tap_changes", utils.BoolToFloat(sfTap), device)
+	_ = updateDevicePoint("safety_lock", utils.BoolToFloat(sfL), device)
+	_ = updateDevicePoint("safety_hot_isolation", utils.BoolToFloat(sfHi), device)
+	_ = updateDevicePoint("security_enable", utils.BoolToFloat(secEn), device)
+	_ = updateDevicePoint("security_pin", float64(secPin), device)
+	// Pkt V2
 	_ = updateDevicePoint("filter_info_life_litres_uv", float64(filLyfLtrUV), device)
 	_ = updateDevicePoint("filter_info_life_months_uv", float64(filLyfMnthUV), device)
 	_ = updateDevicePoint("co2_life_grams", float64(cO2LyfGrams), device)
@@ -436,98 +420,51 @@ func writePayloadDecoder(data []byte, device *model.Device) error {
 func pollPayloadDecoder(data []byte, device *model.Device) error {
 	index := 1
 	rebooted := (data[index]>>5)&1 == 1
-	_ = updateDevicePoint("rebooted", utils.BoolToFloat(rebooted), device)
-
 	// sCov := (data[index]>>6)&1 == 1
 	// wCov := (data[index]>>7)&1 == 1
-
 	sms := int8((data[index]) & 0x3F)
-	_ = updateDevicePoint("sleep_mode_status", float64(sms), device)
-
 	index += 1
 	tempB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("temperature_ntc_boiling", float64(tempB), device)
-
 	index += 2
 	tempC := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("temperature_ntc_chilled", float64(tempC), device)
-
 	index += 2
 	tempS := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("temperature_ntc_stream", float64(tempS), device)
-
 	index += 2
 	tempCond := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("temperature_ntc_condensor", float64(tempCond), device)
-
 	index += 2
 	f1 := data[index]
-	_ = updateDevicePoint("fault_1", float64(f1), device)
-
 	index += 1
 	f2 := data[index]
-	_ = updateDevicePoint("fault_2", float64(f2), device)
-
 	index += 1
 	f3 := data[index]
-	_ = updateDevicePoint("fault_3", float64(f3), device)
-
 	index += 1
 	f4 := data[index]
-	_ = updateDevicePoint("fault_4", float64(f4), device)
-
 	index += 1
 	kwh := float32(binary.LittleEndian.Uint32(data[index:index+4])) * 0.1
-	_ = updateDevicePoint("usage_energy_kwh", float64(kwh), device)
-
 	index += 4
 	dltDispB := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("usage_water_delta_dispenses_boiling", float64(dltDispB), device)
-
 	index += 2
 	dltDispC := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("usage_water_delta_dispenses_chilled", float64(dltDispC), device)
-
 	index += 2
 	dltDispS := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("usage_water_delta_dispenses_sparkling", float64(dltDispS), device)
-
 	index += 2
 	dltLtrB := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("usage_water_delta_litres_boiling", float64(dltLtrB), device)
-
 	index += 2
 	dltLtrC := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("usage_water_delta_litres_chilled", float64(dltLtrC), device)
-
 	index += 2
 	dltLtrS := float32(binary.LittleEndian.Uint16(data[index:index+2])) / 10
-	_ = updateDevicePoint("usage_water_delta_litres_sparkling", float64(dltLtrS), device)
-
 	index += 2
 	warningIndex := index
 	fltrWrnInt := (data[index]>>0)&1 == 1
-	_ = updateDevicePoint("filter_warning_internal", utils.BoolToFloat(fltrWrnInt), device)
-
 	fltrWrnExt := (data[index]>>1)&1 == 1
-	_ = updateDevicePoint("filter_warning_external", utils.BoolToFloat(fltrWrnExt), device)
-
 	index += 1
 	fltrNfoUseLtrInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_usage_litres_internal", float64(fltrNfoUseLtrInt), device)
-
 	index += 2
 	fltrNfoUseDayInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_usage_days_internal", float64(fltrNfoUseDayInt), device)
-
 	index += 2
 	fltrNfoUseLtrExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_usage_litres_external", float64(fltrNfoUseLtrExt), device)
-
 	index += 2
 	fltrNfoUseDayExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-	_ = updateDevicePoint("filter_info_usage_days_external", float64(fltrNfoUseDayExt), device)
-
 	index += 2
 
 	fltrNfoUseLtrUV := 0
@@ -549,6 +486,31 @@ func pollPayloadDecoder(data []byte, device *model.Device) error {
 		cO2UsgDays = int(data[index])
 		index += 1
 	}
+
+	_ = updateDevicePoint("rebooted", utils.BoolToFloat(rebooted), device)
+	_ = updateDevicePoint("sleep_mode_status", float64(sms), device)
+	_ = updateDevicePoint("temperature_ntc_boiling", float64(tempB), device)
+	_ = updateDevicePoint("temperature_ntc_chilled", float64(tempC), device)
+	_ = updateDevicePoint("temperature_ntc_stream", float64(tempS), device)
+	_ = updateDevicePoint("temperature_ntc_condensor", float64(tempCond), device)
+	_ = updateDevicePoint("fault_1", float64(f1), device)
+	_ = updateDevicePoint("fault_2", float64(f2), device)
+	_ = updateDevicePoint("fault_3", float64(f3), device)
+	_ = updateDevicePoint("fault_4", float64(f4), device)
+	_ = updateDevicePoint("usage_energy_kwh", float64(kwh), device)
+	_ = updateDevicePoint("usage_water_delta_dispenses_boiling", float64(dltDispB), device)
+	_ = updateDevicePoint("usage_water_delta_dispenses_chilled", float64(dltDispC), device)
+	_ = updateDevicePoint("usage_water_delta_dispenses_sparkling", float64(dltDispS), device)
+	_ = updateDevicePoint("usage_water_delta_litres_boiling", float64(dltLtrB), device)
+	_ = updateDevicePoint("usage_water_delta_litres_chilled", float64(dltLtrC), device)
+	_ = updateDevicePoint("usage_water_delta_litres_sparkling", float64(dltLtrS), device)
+	_ = updateDevicePoint("filter_warning_internal", utils.BoolToFloat(fltrWrnInt), device)
+	_ = updateDevicePoint("filter_warning_external", utils.BoolToFloat(fltrWrnExt), device)
+	_ = updateDevicePoint("filter_info_usage_litres_internal", float64(fltrNfoUseLtrInt), device)
+	_ = updateDevicePoint("filter_info_usage_days_internal", float64(fltrNfoUseDayInt), device)
+	_ = updateDevicePoint("filter_info_usage_litres_external", float64(fltrNfoUseLtrExt), device)
+	_ = updateDevicePoint("filter_info_usage_days_external", float64(fltrNfoUseDayExt), device)
+	// Pkt V2
 	_ = updateDevicePoint("filter_info_usage_litres_uv", float64(fltrNfoUseLtrUV), device)
 	_ = updateDevicePoint("filter_info_usage_days_uv", float64(fltrNfoUseDayUV), device)
 	_ = updateDevicePoint("filter_warning_uv", utils.BoolToFloat(fltrWrnUV), device)

@@ -47,15 +47,17 @@ func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device)
 	}
 
 	p := pulse(data)
-	_ = updateDevicePoint("pulse", float64(p), device)
 	a1 := ai1(data)
-	_ = updateDevicePoint("ai_1", a1, device)
 	a2 := ai2(data)
-	_ = updateDevicePoint("ai_2", a2, device)
 	a3 := ai3(data)
-	_ = updateDevicePoint("ai_3", a3, device)
 	vol := voltage(data)
+
+	_ = updateDevicePoint("pulse", float64(p), device)
+	_ = updateDevicePoint("ai_1", a1, device)
+	_ = updateDevicePoint("ai_2", a2, device)
+	_ = updateDevicePoint("ai_3", a3, device)
 	_ = updateDevicePoint("voltage", vol, device)
+
 	return nil
 }
 
