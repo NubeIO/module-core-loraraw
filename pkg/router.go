@@ -8,7 +8,6 @@ import (
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	"net/http"
 )
 
@@ -89,8 +88,7 @@ func CreateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	v := r.QueryParams.Get(nargs.WithPoints)
-	dev, err := (*m).(*Module).addDevice(device, v == "true")
+	dev, err := (*m).(*Module).addDevice(device, false)
 	if err != nil {
 		return nil, err
 	}
