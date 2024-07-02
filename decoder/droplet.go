@@ -7,34 +7,34 @@ import (
 	"strconv"
 )
 
-type TDropletTH struct {
-	CommonValues
-	Voltage     float64 `json:"voltage"`
-	Temperature float64 `json:"temperature"`
-	Pressure    float64 `json:"pressure"`
-	Humidity    int     `json:"humidity"`
+const (
+	DropletVoltageField = "voltage"
+	TemperatureField    = "temperature"
+	PressureField       = "pressure"
+	HumidityField       = "humidity"
+	LightField          = "light"
+	MotionField         = "motion"
+)
+
+func GetTHPointNames() []string {
+	commonValueFields := GetCommonValueNames()
+	dropletTHFields := []string{
+		DropletVoltageField,
+		TemperatureField,
+		PressureField,
+		HumidityField,
+	}
+	return append(commonValueFields, dropletTHFields...)
 }
 
-type TDropletTHL struct {
-	TDropletTH
-	Light int `json:"light"`
+func GetTHLPointNames() []string {
+	dropletTHFields := GetTHPointNames()
+	return append(dropletTHFields, LightField)
 }
 
-type TDropletTHLM struct {
-	TDropletTHL
-	Motion bool `json:"motion"`
-}
-
-func GetPointsStructTH() interface{} {
-	return TDropletTH{}
-}
-
-func GetPointsStructTHL() interface{} {
-	return TDropletTHL{}
-}
-
-func GetPointsStructTHLM() interface{} {
-	return TDropletTHLM{}
+func GetTHLMPointNames() []string {
+	dropletTHLFields := GetTHLPointNames()
+	return append(dropletTHLFields, MotionField)
 }
 
 func CheckPayloadLengthDroplet(data string) bool {

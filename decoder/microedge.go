@@ -9,17 +9,24 @@ import (
 	"strconv"
 )
 
-type TMicroEdge struct {
-	CommonValues
-	Voltage float64 `json:"voltage"`
-	Pulse   int     `json:"pulse"`
-	AI1     float64 `json:"ai_1"`
-	AI2     float64 `json:"ai_2"`
-	AI3     float64 `json:"ai_3"`
-}
+const (
+	MEVoltageField = "voltage"
+	PulseField     = "pulse"
+	AI1Field       = "ai_1"
+	AI2Field       = "ai_2"
+	AI3Field       = "ai_3"
+)
 
-func GetPointsStructME() interface{} {
-	return TMicroEdge{}
+func GetMePointNames() []string {
+	commonValueFields := GetCommonValueNames()
+	tMicroEdgeFields := []string{
+		MEVoltageField,
+		PulseField,
+		AI1Field,
+		AI2Field,
+		AI3Field,
+	}
+	return append(commonValueFields, tMicroEdgeFields...)
 }
 
 func CheckPayloadLengthME(data string) bool {
