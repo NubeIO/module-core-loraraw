@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [v1.0.1-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.1-rc.1) (2024-07-03)
+
+- Refactor: Shift responsibility of updating and creating points to decoder (#29)
+- Prerequisites:
+    - ROS >= 1.0.0
+
 ## [v1.0.0](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0) (2024-05-28)
 
 - Public Release
