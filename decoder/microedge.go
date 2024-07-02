@@ -1,27 +1,32 @@
 package decoder
 
 import (
+	"errors"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
 
-const MEDeviceName = "MicroEdge"
-const MEModel = "MicroEdge"
-const MESensorCode = "AA"
+const (
+	MEVoltageField = "voltage"
+	PulseField     = "pulse"
+	AI1Field       = "ai_1"
+	AI2Field       = "ai_2"
+	AI3Field       = "ai_3"
+)
 
-type TMicroEdge struct {
-	CommonValues
-	Voltage float64 `json:"voltage"`
-	Pulse   int     `json:"pulse"`
-	AI1     float64 `json:"ai_1"`
-	AI2     float64 `json:"ai_2"`
-	AI3     float64 `json:"ai_3"`
-}
-
-func GetPointsStructME() interface{} {
-	return TMicroEdge{}
+func GetMePointNames() []string {
+	commonValueFields := GetCommonValueNames()
+	tMicroEdgeFields := []string{
+		MEVoltageField,
+		PulseField,
+		AI1Field,
+		AI2Field,
+		AI3Field,
+	}
+	return append(commonValueFields, tMicroEdgeFields...)
 }
 
 func CheckPayloadLengthME(data string) bool {
@@ -29,20 +34,38 @@ func CheckPayloadLengthME(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeME(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
+func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+	commonValues := &CommonValues{}
+	decodeCommonValues(commonValues, data, devDesc.Model)
+	if commonValues == nil {
+		return errors.New("invalid common values")
+	}
+
+	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
+
+	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
+	if err != nil {
+		return err
+	}
+
+	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
+	if err != nil {
+		return err
+	}
+
 	p := pulse(data)
 	a1 := ai1(data)
 	a2 := ai2(data)
 	a3 := ai3(data)
 	vol := voltage(data)
-	v := TMicroEdge{
-		Voltage: vol,
-		Pulse:   p,
-		AI1:     a1,
-		AI2:     a2,
-		AI3:     a3,
-	}
-	return &v.CommonValues, v
+
+	_ = updateDevicePoint(PulseField, float64(p), device)
+	_ = updateDevicePoint(AI1Field, a1, device)
+	_ = updateDevicePoint(AI2Field, a2, device)
+	_ = updateDevicePoint(AI3Field, a3, device)
+	_ = updateDevicePoint(MEVoltageField, vol, device)
+
+	return nil
 }
 
 func pulse(data string) int {
