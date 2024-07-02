@@ -9,6 +9,13 @@ import (
 
 var grpcMarshaller nmodule.Marshaller
 
+const (
+	SensorField = "sensor"
+	IDField     = "id"
+	RssiField   = "rssi"
+	SnrField    = "snr"
+)
+
 type CommonValues struct {
 	Sensor string  `json:"sensor"`
 	ID     string  `json:"id"`
@@ -18,6 +25,13 @@ type CommonValues struct {
 
 func InitGrpcMarshaller(marshaller nmodule.Marshaller) {
 	grpcMarshaller = marshaller
+}
+
+func GetCommonValueNames() []string {
+	return []string{
+		RssiField,
+		SnrField,
+	}
 }
 
 func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {

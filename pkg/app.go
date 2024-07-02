@@ -135,24 +135,21 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 		return errors.New(errMsg)
 	}
 
-	points := decoder.GetDevicePointsStruct(deviceBody)
+	points := decoder.GetDevicePointNames(deviceBody)
 	// TODO: should check this before the device is even added in the wizard
-	if points == struct{}{} {
+	if len(points) == 0 {
 		log.Errorf("addDevicePoints() incorrect device model, try THLM %s", err)
 		return errors.New("addDevicePoints() no device description or points found for this device")
 	}
-	pointsRefl := reflect.ValueOf(points)
-	m.addPointsFromName(deviceBody, "Rssi", "Snr")
-	m.addPointsFromStruct(deviceBody, pointsRefl, "")
+	m.addPointsFromName(deviceBody, points...)
 	return nil
 }
 
 func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
 	var points []*model.Point
 	for _, name := range names {
-		pointName := utils.GetStructFieldJSONNameByName(decoder.CommonValues{}, name)
 		point := new(model.Point)
-		decoder.SetNewPointFields(deviceBody, point, pointName)
+		decoder.SetNewPointFields(deviceBody, point, name)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}

@@ -9,17 +9,24 @@ import (
 	"strconv"
 )
 
-type TMicroEdge struct {
-	CommonValues
-	Voltage float64 `json:"voltage"`
-	Pulse   int     `json:"pulse"`
-	AI1     float64 `json:"ai_1"`
-	AI2     float64 `json:"ai_2"`
-	AI3     float64 `json:"ai_3"`
-}
+const (
+	MEVoltageField = "voltage"
+	PulseField     = "pulse"
+	AI1Field       = "ai_1"
+	AI2Field       = "ai_2"
+	AI3Field       = "ai_3"
+)
 
-func GetPointsStructME() interface{} {
-	return TMicroEdge{}
+func GetMePointNames() []string {
+	commonValueFields := GetCommonValueNames()
+	tMicroEdgeFields := []string{
+		MEVoltageField,
+		PulseField,
+		AI1Field,
+		AI2Field,
+		AI3Field,
+	}
+	return append(commonValueFields, tMicroEdgeFields...)
 }
 
 func CheckPayloadLengthME(data string) bool {
@@ -36,12 +43,12 @@ func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device)
 
 	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
 
-	err := updateDevicePoint("rssi", float64(commonValues.Rssi), device)
+	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
 	if err != nil {
 		return err
 	}
 
-	err = updateDevicePoint("snr", float64(commonValues.Snr), device)
+	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
 	if err != nil {
 		return err
 	}
@@ -52,11 +59,11 @@ func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device)
 	a3 := ai3(data)
 	vol := voltage(data)
 
-	_ = updateDevicePoint("pulse", float64(p), device)
-	_ = updateDevicePoint("ai_1", a1, device)
-	_ = updateDevicePoint("ai_2", a2, device)
-	_ = updateDevicePoint("ai_3", a3, device)
-	_ = updateDevicePoint("voltage", vol, device)
+	_ = updateDevicePoint(PulseField, float64(p), device)
+	_ = updateDevicePoint(AI1Field, a1, device)
+	_ = updateDevicePoint(AI2Field, a2, device)
+	_ = updateDevicePoint(AI3Field, a3, device)
+	_ = updateDevicePoint(MEVoltageField, vol, device)
 
 	return nil
 }

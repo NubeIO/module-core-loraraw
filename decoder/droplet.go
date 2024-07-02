@@ -7,34 +7,34 @@ import (
 	"strconv"
 )
 
-type TDropletTH struct {
-	CommonValues
-	Voltage     float64 `json:"voltage"`
-	Temperature float64 `json:"temperature"`
-	Pressure    float64 `json:"pressure"`
-	Humidity    int     `json:"humidity"`
+const (
+	DropletVoltageField = "voltage"
+	TemperatureField    = "temperature"
+	PressureField       = "pressure"
+	HumidityField       = "humidity"
+	LightField          = "light"
+	MotionField         = "motion"
+)
+
+func GetTHPointNames() []string {
+	commonValueFields := GetCommonValueNames()
+	dropletTHFields := []string{
+		DropletVoltageField,
+		TemperatureField,
+		PressureField,
+		HumidityField,
+	}
+	return append(commonValueFields, dropletTHFields...)
 }
 
-type TDropletTHL struct {
-	TDropletTH
-	Light int `json:"light"`
+func GetTHLPointNames() []string {
+	dropletTHFields := GetTHPointNames()
+	return append(dropletTHFields, LightField)
 }
 
-type TDropletTHLM struct {
-	TDropletTHL
-	Motion bool `json:"motion"`
-}
-
-func GetPointsStructTH() interface{} {
-	return TDropletTH{}
-}
-
-func GetPointsStructTHL() interface{} {
-	return TDropletTHL{}
-}
-
-func GetPointsStructTHLM() interface{} {
-	return TDropletTHLM{}
+func GetTHLMPointNames() []string {
+	dropletTHLFields := GetTHLPointNames()
+	return append(dropletTHLFields, MotionField)
 }
 
 func CheckPayloadLengthDroplet(data string) bool {
@@ -51,12 +51,12 @@ func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.
 
 	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
 
-	err := updateDevicePoint("rssi", float64(commonValues.Rssi), device)
+	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
 	if err != nil {
 		return err
 	}
 
-	err = updateDevicePoint("snr", float64(commonValues.Snr), device)
+	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
 	if err != nil {
 		return err
 	}
@@ -66,10 +66,10 @@ func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.
 	humidity := dropletHumidity(data)
 	voltage := dropletVoltage(data)
 
-	_ = updateDevicePoint("temperature", temperature, device)
-	_ = updateDevicePoint("pressure", pressure, device)
-	_ = updateDevicePoint("humidity", float64(humidity), device)
-	_ = updateDevicePoint("voltage", voltage, device)
+	_ = updateDevicePoint(TemperatureField, temperature, device)
+	_ = updateDevicePoint(PressureField, pressure, device)
+	_ = updateDevicePoint(HumidityField, float64(humidity), device)
+	_ = updateDevicePoint(DropletVoltageField, voltage, device)
 
 	return nil
 }
@@ -81,7 +81,7 @@ func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model
 	}
 
 	light := dropletLight(data)
-	_ = updateDevicePoint("light", float64(light), device)
+	_ = updateDevicePoint(LightField, float64(light), device)
 	return nil
 }
 
@@ -92,7 +92,7 @@ func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *mode
 	}
 
 	motion := dropletMotion(data)
-	_ = updateDevicePoint("motion", utils.BoolToFloat(motion), device)
+	_ = updateDevicePoint(MotionField, utils.BoolToFloat(motion), device)
 	return nil
 }
 

@@ -8,21 +8,21 @@ import (
 )
 
 type LoRaDeviceDescription struct {
-	DeviceName      string
-	Model           string
-	SensorCode      string
-	CheckLength     func(data string) bool
-	Decode          func(data string, devDesc *LoRaDeviceDescription, device *model.Device) error
-	GetPointsStruct func() interface{}
+	DeviceName    string
+	Model         string
+	SensorCode    string
+	CheckLength   func(data string) bool
+	Decode        func(data string, devDesc *LoRaDeviceDescription, device *model.Device) error
+	GetPointNames func() []string
 }
 
 var NilLoRaDeviceDescription = LoRaDeviceDescription{
-	DeviceName:      "",
-	Model:           "",
-	SensorCode:      "",
-	CheckLength:     NilLoRaDeviceDescriptionCheckLength,
-	Decode:          NilLoRaDeviceDescriptionDecode,
-	GetPointsStruct: NilLoRaDeviceDescriptionGetPointsStruct,
+	DeviceName:    "",
+	Model:         "",
+	SensorCode:    "",
+	CheckLength:   NilLoRaDeviceDescriptionCheckLength,
+	Decode:        NilLoRaDeviceDescriptionDecode,
+	GetPointNames: NilLoRaDeviceDescriptionGetPointsStruct,
 }
 
 func NilLoRaDeviceDescriptionCheckLength(data string) bool {
@@ -33,52 +33,52 @@ func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription,
 	return errors.New("nil decode function called")
 }
 
-func NilLoRaDeviceDescriptionGetPointsStruct() interface{} {
-	return struct{}{}
+func NilLoRaDeviceDescriptionGetPointsStruct() []string {
+	return []string{}
 }
 
 var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 	{
-		DeviceName:      "MicroEdge",
-		Model:           schema.DeviceModelMicroEdgeV1,
-		CheckLength:     CheckPayloadLengthME,
-		Decode:          DecodeME,
-		GetPointsStruct: GetPointsStructME,
+		DeviceName:    "MicroEdge",
+		Model:         schema.DeviceModelMicroEdgeV1,
+		CheckLength:   CheckPayloadLengthME,
+		Decode:        DecodeME,
+		GetPointNames: GetMePointNames,
 	},
 	{
-		DeviceName:      "MicroEdge",
-		Model:           schema.DeviceModelMicroEdgeV2,
-		CheckLength:     CheckPayloadLengthME,
-		Decode:          DecodeME,
-		GetPointsStruct: GetPointsStructME,
+		DeviceName:    "MicroEdge",
+		Model:         schema.DeviceModelMicroEdgeV2,
+		CheckLength:   CheckPayloadLengthME,
+		Decode:        DecodeME,
+		GetPointNames: GetMePointNames,
 	},
 	{
-		DeviceName:      "Droplet",
-		Model:           schema.DeviceModelTHLM,
-		CheckLength:     CheckPayloadLengthDroplet,
-		Decode:          DecodeDropletTHLM,
-		GetPointsStruct: GetPointsStructTHLM,
+		DeviceName:    "Droplet",
+		Model:         schema.DeviceModelTHLM,
+		CheckLength:   CheckPayloadLengthDroplet,
+		Decode:        DecodeDropletTHLM,
+		GetPointNames: GetTHLMPointNames,
 	},
 	{
-		DeviceName:      "Droplet",
-		Model:           schema.DeviceModelTHL,
-		CheckLength:     CheckPayloadLengthDroplet,
-		Decode:          DecodeDropletTHL,
-		GetPointsStruct: GetPointsStructTHL,
+		DeviceName:    "Droplet",
+		Model:         schema.DeviceModelTHL,
+		CheckLength:   CheckPayloadLengthDroplet,
+		Decode:        DecodeDropletTHL,
+		GetPointNames: GetTHLPointNames,
 	},
 	{
-		DeviceName:      "Droplet",
-		Model:           schema.DeviceModelTH,
-		CheckLength:     CheckPayloadLengthDroplet,
-		Decode:          DecodeDropletTH,
-		GetPointsStruct: GetPointsStructTH,
+		DeviceName:    "Droplet",
+		Model:         schema.DeviceModelTH,
+		CheckLength:   CheckPayloadLengthDroplet,
+		Decode:        DecodeDropletTH,
+		GetPointNames: GetTHPointNames,
 	},
 	{
-		DeviceName:      "ZipHydroTap",
-		Model:           schema.DeviceModelZiptHydroTap,
-		CheckLength:     CheckPayloadLengthZHT,
-		Decode:          DecodeZHT,
-		GetPointsStruct: GetPointsStructZHT,
+		DeviceName:    "ZipHydroTap",
+		Model:         schema.DeviceModelZiptHydroTap,
+		CheckLength:   CheckPayloadLengthZHT,
+		Decode:        DecodeZHT,
+		GetPointNames: GetZHTPointNames,
 	},
 }
 
@@ -91,6 +91,6 @@ func GetDeviceDescription(device *model.Device) *LoRaDeviceDescription {
 	return &NilLoRaDeviceDescription
 }
 
-func GetDevicePointsStruct(device *model.Device) interface{} {
-	return GetDeviceDescription(device).GetPointsStruct()
+func GetDevicePointNames(device *model.Device) []string {
+	return GetDeviceDescription(device).GetPointNames()
 }
