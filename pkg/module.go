@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"github.com/NubeIO/lib-module-go/nmodule"
+	"github.com/NubeIO/module-core-loraraw/decoder"
 	"sync"
 )
 
@@ -22,6 +23,7 @@ func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {
 	m.dbHelper = dbHelper
 	m.moduleName = moduleName
 	m.grpcMarshaller = &grpcMarshaller
+	decoder.InitGrpcMarshaller(&grpcMarshaller)
 	return nil
 }
 
