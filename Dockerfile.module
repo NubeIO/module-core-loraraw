@@ -1,0 +1,16 @@
+FROM golang:1.18-buster AS module-builder
+
+RUN apt-get update && apt-get install -y gcc-arm-linux-gnueabihf
+
+WORKDIR /app
+COPY go.mod ./
+COPY go.sum ./
+
+ARG MODULE_NAME
+
+RUN go mod download
+
+COPY . .
+
+# RUN go build -o ${MODULE_NAME}
+RUN env GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc  CXX=arm-linux-gnueabihf-g++ go build -o ${MODULE_NAME}
