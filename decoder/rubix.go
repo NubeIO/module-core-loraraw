@@ -7,6 +7,8 @@ import (
 	"math"
 	"strconv"
 	"unsafe"
+
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
 
 const HEADER_BIT_COUNT = 6
@@ -21,41 +23,6 @@ type MetaData struct {
 	highValue    int
 	decimalPoint int
 	byteCount    int
-}
-
-type TRubix struct {
-	CommonValues
-	Temp      float32 `json:"temp-1"`
-	Rh        float32 `json:"rh-2"`
-	Lux       float32 `json:"lux-3"`
-	Movement  float32 `json:"movement-4"`
-	Count     float32 `json:"count-5"`
-	Digital   float32 `json:"digital-6"`
-	Voltage   float32 `json:"0-10v-7"`
-	Amplitude float32 `json:"4-20ma-8"`
-	Ohm       float32 `json:"ohm-9"`
-	Co2       float32 `json:"co2-10"`
-	BatVol    float32 `json:"battery-voltage-11"`
-	PushFreq  float32 `json:"push-frequency-12"`
-	Raw       float32 `json:"raw-13"`
-	Uo        float32 `json:"uo-14"`
-	Ui        float32 `json:"ui-15"`
-	Do        float32 `json:"do-16"`
-	Di        float32 `json:"di-17"`
-	FwVer     float32 `json:"firmware-version-18"`
-	HwVer     float32 `json:"hardware-version-19"`
-	Uint8     uint8   `json:"uint_8-20"`
-	Int8      int8    `json:"int_8-21"`
-	Uint16    uint16  `json:"uint_16-22"`
-	Int16     int16   `json:"int_16-23"`
-	Uint32    uint32  `json:"uint_32-24"`
-	Int32     int32   `json:"int_32-25"`
-	Uint64    uint64  `json:"uint_64-26"`
-	Int64     int64   `json:"int_64-27"`
-	Char      byte    `json:"char-28"`
-	Float1    float32 `json:"float-29"`
-	Float2    float32 `json:"float-30"`
-	Float3    float32 `json:"float-31"`
 }
 
 const (
@@ -351,7 +318,7 @@ var serialMap = map[int]MetaData{
 	MDK_FLOAT:            {DATAPOINT, 0, 0, 0, 4},
 	MDK_DOUBLE:           {DATAPOINT, 0, 0, 0, 8}}
 
-func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interface{}) {
+func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
 	/*
 	 * Data Structure:
 	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -372,47 +339,15 @@ func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interfac
 	dataBytes, err := hex.DecodeString(data)
 	if err != nil {
 		fmt.Println("Error decoding hex string:", err)
-		return nil, nil
+		return err
 	}
 	payloadLength := len(dataBytes) - (4 + 1 + 1 + 1 + 4)
 	payload := dataBytes[7 : 7+payloadLength]
 
 	serialData := NewSerialDataWithBuffer(payload)
 
-	var (
-		temperature float32
-		rh          float32
-		lux         float32
-		movement    float32
-		counter     float32
-		digital     float32
-		voltage     float32
-		amplitude   float32
-		ohm         float32
-		co2         float32
-		batVol      float32
-		pushFreq    float32
-		raw         float32
-		uo          float32
-		ui          float32
-		do          float32
-		di          float32
-		fwVer       float32
-		hwVer       float32
-		u8          uint8
-		i8          int8
-		u16         uint16
-		i16         int16
-		u32         uint32
-		i32         int32
-		u64         uint64
-		i64         int64
-		char        byte
-		fl1         float32
-		fl2         float32
-		fl3         float32
-	)
 	var float_count = 0
+
 	for canDecode(serialData) {
 		pos := uint8(0)
 		header := getHeader(serialData, &pos)
@@ -488,51 +423,17 @@ func DecodeRubix(data string, _ *LoRaDeviceDescription) (*CommonValues, interfac
 		}
 	}
 
-	v :=
-		TRubix{
-			Temp:      temperature,
-			Rh:        rh,
-			Lux:       lux,
-			Movement:  movement,
-			Count:     counter,
-			Digital:   digital,
-			Voltage:   voltage,
-			Amplitude: amplitude,
-			Ohm:       ohm,
-			Co2:       co2,
-			BatVol:    batVol,
-			PushFreq:  pushFreq,
-			Raw:       raw,
-			Uo:        uo,
-			Ui:        ui,
-			Do:        do,
-			Di:        di,
-			FwVer:     fwVer,
-			HwVer:     hwVer,
-			Uint8:     u8,
-			Int8:      i8,
-			Uint16:    u16,
-			Int16:     i16,
-			Uint32:    u32,
-			Int32:     i32,
-			Uint64:    u64,
-			Int64:     i64,
-			Char:      char,
-			Float1:    fl1,
-			Float2:    fl2,
-			Float3:    fl3,
-		}
-	return &v.CommonValues, v
+	return nil
 }
 
-func GetPointsStructRubix() interface{} {
-	return TRubix{}
+func GetRubixPointNames() []string {
+	return GetCommonValueNames()
 }
 
 func CheckPayloadLengthRubix(data string) bool {
-	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 2 byte rssi | 2 byte snr
-	payloadLength := len(data) - 22
-	payloadLength /= 2
+	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 1 byte rssi | 1 byte snr
+	payloadLength := len(data) / 2
+	payloadLength -= 9
 	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
 
 	return payloadLength == int(dataLength)

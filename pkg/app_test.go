@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 
@@ -56,19 +55,10 @@ func handleSerialPayload(m *Module, data string, getDeviceFn func(string) *model
 	if devDesc == &decoder.NilLoRaDeviceDescription {
 		return
 	}
-	commonData, fullData := decoder.DecodePayload(data, devDesc)
-	if commonData == nil {
-		return
+	err := decoder.DecodePayload(data, devDesc, device)
+	if err != nil {
+		log.Errorf(err.Error())
 	}
-	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", commonData.ID, commonData.Rssi, commonData.Sensor)
-	// _ = m.grpcMarshaller.UpdateDeviceFault(device.UUID, &model.CommonFault{
-	// 	InFault: false,
-	// 	Message: "",
-	// })
-	// if fullData != nil {
-	// 	m.updateDevicePointValues(commonData, fullData, device)
-	// }
-	fmt.Println(fullData)
 }
 
 func TestHandleSerialPayload(t *testing.T) {
