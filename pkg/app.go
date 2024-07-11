@@ -3,6 +3,10 @@ package pkg
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"strings"
+	"sync"
+
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
@@ -12,9 +16,6 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
-	"reflect"
-	"strings"
-	"sync"
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -104,6 +105,7 @@ func (m *Module) handleSerialPayload(data string) {
 	}
 	devDesc := decoder.GetDeviceDescription(device)
 	if devDesc == &decoder.NilLoRaDeviceDescription {
+		log.Errorln("nil device description found")
 		return
 	}
 	err := decoder.DecodePayload(data, devDesc, device)
