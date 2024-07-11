@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [v1.1.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.1) (2024-07-11)
+
+- Add support for rubix data decoding (#27)
+- Prerequisites:
+    - ROS >= 1.0.0
+
 ## [v1.0.1-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.1-rc.1) (2024-07-03)
 
 - Refactor: Shift responsibility of updating and creating points to decoder (#29)
