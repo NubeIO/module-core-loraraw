@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"reflect"
 	"strconv"
 	"strings"
@@ -56,4 +57,15 @@ func StripLoRaRAWPayload(data string) string {
 func GetLoRaRAWInnerPayloadLength(data string) int {
 	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
 	return int(dataLength)
+}
+
+func IsWriteable(writeMode datatype.WriteMode) bool {
+	switch writeMode {
+	case datatype.ReadOnce, datatype.ReadOnly:
+		return false
+	case datatype.WriteOnce, datatype.WriteOnceReadOnce, datatype.WriteAlways, datatype.WriteOnceThenRead, datatype.WriteAndMaintain:
+		return true
+	default:
+		return false
+	}
 }
