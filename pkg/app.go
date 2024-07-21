@@ -69,7 +69,12 @@ func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
 	body.ObjectType = "analog_input"
 	body.IoType = string(datatype.IOTypeRAW)
 	body.Name = strings.ToLower(body.Name)
-	body.EnableWriteable = boolean.NewFalse()
+	if utils.IsWriteable(body.WriteMode) {
+		body.EnableWriteable = boolean.NewTrue()
+		body.WritePollRequired = boolean.NewTrue()
+	} else {
+		body.EnableWriteable = boolean.NewFalse()
+	}
 	point, err = m.grpcMarshaller.CreatePoint(body) // TODO: in older one after creating there is an update operation
 	if err != nil {
 		return nil, err
