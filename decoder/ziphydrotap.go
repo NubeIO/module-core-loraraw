@@ -3,7 +3,6 @@ package decoder
 import (
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -106,25 +105,13 @@ const (
 )
 
 func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	commonValues := &CommonValues{}
-	decodeCommonValues(commonValues, data, devDesc.Model)
-	if commonValues == nil {
-		return errors.New("invalid common values")
-	}
+	updateDeviceFault(devDesc.Model, device.UUID)
 
-	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
-
-	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
+	bytes, err := getPayloadBytes(data)
 	if err != nil {
 		return err
 	}
 
-	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
-	if err != nil {
-		return err
-	}
-
-	bytes := getPayloadBytes(data)
 	switch pl := getPayloadType(data); pl {
 	// TODO: This should be meta data when it gets supported
 	// case StaticData:
@@ -143,14 +130,18 @@ func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device
 }
 
 func getPayloadType(data string) TZHTPayloadType {
-	plID, _ := strconv.ParseInt(data[14:16], 16, 0)
+	plID, _ := strconv.ParseInt(data[:2], 16, 0)
 	return TZHTPayloadType(plID)
 }
 
 func CheckPayloadLengthZHT(data string) bool {
-	payloadLength := len(data) - 10 // removed addr, nonce and MAC
-	payloadLength /= 2
-	payloadType := getPayloadType(data)
+	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
+	dataLen := len(data)
+	payloadLength := dataLen / 2
+	payloadLength -= 13
+
+	onlyData := data[14 : dataLen-12]
+	payloadType := getPayloadType(onlyData)
 	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
 
 	if getPacketVersion(data) == 1 {
@@ -273,10 +264,12 @@ func GetZHTPointNames() []string {
 	)
 }
 
-func getPayloadBytes(data string) []byte {
-	length, _ := strconv.ParseInt(data[12:14], 16, 0)
-	bytes, _ := hex.DecodeString(data[16 : 16+((length-1)*2)])
-	return bytes
+func getPayloadBytes(data string) ([]byte, error) {
+	bytes, err := hex.DecodeString(data[2:])
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
 }
 
 func getPacketVersion(data string) uint8 {
@@ -340,22 +333,22 @@ func bytesToDate(bytes []byte) string {
 // 		index += 2
 // 	}
 //
-// 	_ = updateDevicePoint("lora_firmware_major", float64(fwMa), device)
-// 	_ = updateDevicePoint("lora_firmware_minor", float64(fwMi), device)
-// 	_ = updateDevicePoint("lora_build_major", float64(buildMa), device)
-// 	_ = updateDevicePoint("lora_build_minor", float64(buildMi), device)
-// 	_ = updateDevicePoint("serial_number", sn, device)
-// 	_ = updateDevicePoint("model_number", mn, device)
-// 	_ = updateDevicePoint("product_number", pn, device)
-// 	_ = updateDevicePoint("firmware_version", fw, device)
-// 	_ = updateDevicePoint("calibration_date", calDate, device)
-// 	_ = updateDevicePoint("first_50_litres_data", f50lDate, device)
-// 	_ = updateDevicePoint("filter_log_date_internal", filtLogDateInt, device)
-// 	_ = updateDevicePoint("filter_log_litres_internal", filtLogLitresInt, device)
-// 	_ = updateDevicePoint("filter_log_date_external", filtLogDateExt, device)
-// 	_ = updateDevicePoint("filter_log_litres_external", filtLogLitresExt, device)
-// 	_ = updateDevicePoint("filter_log_date_uv", filtLogDateUV, device)
-// 	_ = updateDevicePoint("filter_log_litres_uv", filtLogLitresUV, device)
+// 	_ = UpdateDevicePoint("lora_firmware_major", float64(fwMa), device)
+// 	_ = UpdateDevicePoint("lora_firmware_minor", float64(fwMi), device)
+// 	_ = UpdateDevicePoint("lora_build_major", float64(buildMa), device)
+// 	_ = UpdateDevicePoint("lora_build_minor", float64(buildMi), device)
+// 	_ = UpdateDevicePoint("serial_number", sn, device)
+// 	_ = UpdateDevicePoint("model_number", mn, device)
+// 	_ = UpdateDevicePoint("product_number", pn, device)
+// 	_ = UpdateDevicePoint("firmware_version", fw, device)
+// 	_ = UpdateDevicePoint("calibration_date", calDate, device)
+// 	_ = UpdateDevicePoint("first_50_litres_data", f50lDate, device)
+// 	_ = UpdateDevicePoint("filter_log_date_internal", filtLogDateInt, device)
+// 	_ = UpdateDevicePoint("filter_log_litres_internal", filtLogLitresInt, device)
+// 	_ = UpdateDevicePoint("filter_log_date_external", filtLogDateExt, device)
+// 	_ = UpdateDevicePoint("filter_log_litres_external", filtLogLitresExt, device)
+// 	_ = UpdateDevicePoint("filter_log_date_uv", filtLogDateUV, device)
+// 	_ = UpdateDevicePoint("filter_log_litres_uv", filtLogLitresUV, device)
 //
 // 	return nil
 // }
@@ -405,10 +398,10 @@ func writePayloadDecoder(data []byte, device *model.Device) error {
 		timeStop := int(u16 % 10000)
 		enableStop := u16 >= 10000
 		index += 2
-		_ = updateDevicePoint(fmt.Sprintf("%s_%d", TimeStartField, i), float64(timeStart), device)
-		_ = updateDevicePoint(fmt.Sprintf("%s_%d", TimeStopField, i), float64(timeStop), device)
-		_ = updateDevicePoint(fmt.Sprintf("%s_%d", EnableStartField, i), utils.BoolToFloat(enableStart), device)
-		_ = updateDevicePoint(fmt.Sprintf("%s_%d", EnableStopField, i), utils.BoolToFloat(enableStop), device)
+		_ = UpdateDevicePoint(fmt.Sprintf("%s_%d", TimeStartField, i), float64(timeStart), device)
+		_ = UpdateDevicePoint(fmt.Sprintf("%s_%d", TimeStopField, i), float64(timeStop), device)
+		_ = UpdateDevicePoint(fmt.Sprintf("%s_%d", EnableStartField, i), utils.BoolToFloat(enableStart), device)
+		_ = UpdateDevicePoint(fmt.Sprintf("%s_%d", EnableStopField, i), utils.BoolToFloat(enableStop), device)
 	}
 
 	filLyfLtrUV := 0
@@ -441,33 +434,33 @@ func writePayloadDecoder(data []byte, device *model.Device) error {
 		index += 2
 	}
 
-	_ = updateDevicePoint(TimeField, float64(time), device)
-	_ = updateDevicePoint(DispenseTimeBoilingField, float64(dispB), device)
-	_ = updateDevicePoint(DispenseTimeChilledField, float64(dispC), device)
-	_ = updateDevicePoint(DispenseTimeSparklingField, float64(dispS), device)
-	_ = updateDevicePoint(TemperatureSPBoilingField, float64(tempSpB), device)
-	_ = updateDevicePoint(TemperatureSPChilledField, float64(tempSpC), device)
-	_ = updateDevicePoint(TemperatureSPSparklingField, float64(tempSpS), device)
-	_ = updateDevicePoint(SleepModeSettingField, float64(sm), device)
-	_ = updateDevicePoint(FilterInfoLifeLitresInternalField, float64(filLyfLtrInt), device)
-	_ = updateDevicePoint(FilterInfoLifeMonthsInternalField, float64(filLyfMnthInt), device)
-	_ = updateDevicePoint(FilterInfoLifeLitresExternalField, float64(filLyfLtrExt), device)
-	_ = updateDevicePoint(FilterInfoLifeMonthsExternalField, float64(filLyfMnthExt), device)
-	_ = updateDevicePoint(SafetyAllowTapChangesField, utils.BoolToFloat(sfTap), device)
-	_ = updateDevicePoint(SafetyLockField, utils.BoolToFloat(sfL), device)
-	_ = updateDevicePoint(SafetyHotIsolationField, utils.BoolToFloat(sfHi), device)
-	_ = updateDevicePoint(SecurityEnableField, utils.BoolToFloat(secEn), device)
-	_ = updateDevicePoint(SecurityPinField, float64(secPin), device)
+	_ = UpdateDevicePoint(TimeField, float64(time), device)
+	_ = UpdateDevicePoint(DispenseTimeBoilingField, float64(dispB), device)
+	_ = UpdateDevicePoint(DispenseTimeChilledField, float64(dispC), device)
+	_ = UpdateDevicePoint(DispenseTimeSparklingField, float64(dispS), device)
+	_ = UpdateDevicePoint(TemperatureSPBoilingField, float64(tempSpB), device)
+	_ = UpdateDevicePoint(TemperatureSPChilledField, float64(tempSpC), device)
+	_ = UpdateDevicePoint(TemperatureSPSparklingField, float64(tempSpS), device)
+	_ = UpdateDevicePoint(SleepModeSettingField, float64(sm), device)
+	_ = UpdateDevicePoint(FilterInfoLifeLitresInternalField, float64(filLyfLtrInt), device)
+	_ = UpdateDevicePoint(FilterInfoLifeMonthsInternalField, float64(filLyfMnthInt), device)
+	_ = UpdateDevicePoint(FilterInfoLifeLitresExternalField, float64(filLyfLtrExt), device)
+	_ = UpdateDevicePoint(FilterInfoLifeMonthsExternalField, float64(filLyfMnthExt), device)
+	_ = UpdateDevicePoint(SafetyAllowTapChangesField, utils.BoolToFloat(sfTap), device)
+	_ = UpdateDevicePoint(SafetyLockField, utils.BoolToFloat(sfL), device)
+	_ = UpdateDevicePoint(SafetyHotIsolationField, utils.BoolToFloat(sfHi), device)
+	_ = UpdateDevicePoint(SecurityEnableField, utils.BoolToFloat(secEn), device)
+	_ = UpdateDevicePoint(SecurityPinField, float64(secPin), device)
 	// Pkt V2
-	_ = updateDevicePoint(FilterInfoLifeLitresUVField, float64(filLyfLtrUV), device)
-	_ = updateDevicePoint(FilterInfoLifeMonthsUVField, float64(filLyfMnthUV), device)
-	_ = updateDevicePoint(CO2LifeGramsField, float64(cO2LyfGrams), device)
-	_ = updateDevicePoint(CO2LifeMonthsField, float64(cO2LyfMnths), device)
-	_ = updateDevicePoint(CO2PressureField, float64(cO2Pressure), device)
-	_ = updateDevicePoint(CO2TankCapacityField, float64(cO2TankCap), device)
-	_ = updateDevicePoint(CO2AbsorptionRateField, float64(cO2AbsorpRate), device)
-	_ = updateDevicePoint(SparklingFlowRateField, float64(sparklFlowRate), device)
-	_ = updateDevicePoint(SparklingFlushTimeField, float64(sparklFlushTime), device)
+	_ = UpdateDevicePoint(FilterInfoLifeLitresUVField, float64(filLyfLtrUV), device)
+	_ = UpdateDevicePoint(FilterInfoLifeMonthsUVField, float64(filLyfMnthUV), device)
+	_ = UpdateDevicePoint(CO2LifeGramsField, float64(cO2LyfGrams), device)
+	_ = UpdateDevicePoint(CO2LifeMonthsField, float64(cO2LyfMnths), device)
+	_ = UpdateDevicePoint(CO2PressureField, float64(cO2Pressure), device)
+	_ = UpdateDevicePoint(CO2TankCapacityField, float64(cO2TankCap), device)
+	_ = UpdateDevicePoint(CO2AbsorptionRateField, float64(cO2AbsorpRate), device)
+	_ = UpdateDevicePoint(SparklingFlowRateField, float64(sparklFlowRate), device)
+	_ = UpdateDevicePoint(SparklingFlushTimeField, float64(sparklFlushTime), device)
 
 	return nil
 }
@@ -542,36 +535,36 @@ func pollPayloadDecoder(data []byte, device *model.Device) error {
 		index += 1
 	}
 
-	_ = updateDevicePoint(RebootedField, utils.BoolToFloat(rebooted), device)
-	_ = updateDevicePoint(SleepModeStatusField, float64(sms), device)
-	_ = updateDevicePoint(TemperatureNTCBoilingField, float64(tempB), device)
-	_ = updateDevicePoint(TemperatureNTCChilledField, float64(tempC), device)
-	_ = updateDevicePoint(TemperatureNTCStreamField, float64(tempS), device)
-	_ = updateDevicePoint(TemperatureNTCCondensorField, float64(tempCond), device)
-	_ = updateDevicePoint(Fault1Field, float64(f1), device)
-	_ = updateDevicePoint(Fault2Field, float64(f2), device)
-	_ = updateDevicePoint(Fault3Field, float64(f3), device)
-	_ = updateDevicePoint(Fault4Field, float64(f4), device)
-	_ = updateDevicePoint(UsageEnergyKWhField, float64(kwh), device)
-	_ = updateDevicePoint(UsageWaterDeltaDispensesBoilingField, float64(dltDispB), device)
-	_ = updateDevicePoint(UsageWaterDeltaDispensesChilledField, float64(dltDispC), device)
-	_ = updateDevicePoint(UsageWaterDeltaDispensesSparklingField, float64(dltDispS), device)
-	_ = updateDevicePoint(UsageWaterDeltaLitresBoilingField, float64(dltLtrB), device)
-	_ = updateDevicePoint(UsageWaterDeltaLitresChilledField, float64(dltLtrC), device)
-	_ = updateDevicePoint(UsageWaterDeltaLitresSparklingField, float64(dltLtrS), device)
-	_ = updateDevicePoint(FilterWarningInternalField, utils.BoolToFloat(fltrWrnInt), device)
-	_ = updateDevicePoint(FilterWarningExternalField, utils.BoolToFloat(fltrWrnExt), device)
-	_ = updateDevicePoint(FilterInfoUsageLitresInternalField, float64(fltrNfoUseLtrInt), device)
-	_ = updateDevicePoint(FilterInfoUsageDaysInternalField, float64(fltrNfoUseDayInt), device)
-	_ = updateDevicePoint(FilterInfoUsageLitresExternalField, float64(fltrNfoUseLtrExt), device)
-	_ = updateDevicePoint(FilterInfoUsageDaysExternalField, float64(fltrNfoUseDayExt), device)
+	_ = UpdateDevicePoint(RebootedField, utils.BoolToFloat(rebooted), device)
+	_ = UpdateDevicePoint(SleepModeStatusField, float64(sms), device)
+	_ = UpdateDevicePoint(TemperatureNTCBoilingField, float64(tempB), device)
+	_ = UpdateDevicePoint(TemperatureNTCChilledField, float64(tempC), device)
+	_ = UpdateDevicePoint(TemperatureNTCStreamField, float64(tempS), device)
+	_ = UpdateDevicePoint(TemperatureNTCCondensorField, float64(tempCond), device)
+	_ = UpdateDevicePoint(Fault1Field, float64(f1), device)
+	_ = UpdateDevicePoint(Fault2Field, float64(f2), device)
+	_ = UpdateDevicePoint(Fault3Field, float64(f3), device)
+	_ = UpdateDevicePoint(Fault4Field, float64(f4), device)
+	_ = UpdateDevicePoint(UsageEnergyKWhField, float64(kwh), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaDispensesBoilingField, float64(dltDispB), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaDispensesChilledField, float64(dltDispC), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaDispensesSparklingField, float64(dltDispS), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaLitresBoilingField, float64(dltLtrB), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaLitresChilledField, float64(dltLtrC), device)
+	_ = UpdateDevicePoint(UsageWaterDeltaLitresSparklingField, float64(dltLtrS), device)
+	_ = UpdateDevicePoint(FilterWarningInternalField, utils.BoolToFloat(fltrWrnInt), device)
+	_ = UpdateDevicePoint(FilterWarningExternalField, utils.BoolToFloat(fltrWrnExt), device)
+	_ = UpdateDevicePoint(FilterInfoUsageLitresInternalField, float64(fltrNfoUseLtrInt), device)
+	_ = UpdateDevicePoint(FilterInfoUsageDaysInternalField, float64(fltrNfoUseDayInt), device)
+	_ = UpdateDevicePoint(FilterInfoUsageLitresExternalField, float64(fltrNfoUseLtrExt), device)
+	_ = UpdateDevicePoint(FilterInfoUsageDaysExternalField, float64(fltrNfoUseDayExt), device)
 	// Pkt V2
-	_ = updateDevicePoint(FilterInfoUsageLitresUVField, float64(fltrNfoUseLtrUV), device)
-	_ = updateDevicePoint(FilterInfoUsageDaysUVField, float64(fltrNfoUseDayUV), device)
-	_ = updateDevicePoint(FilterWarningUVField, utils.BoolToFloat(fltrWrnUV), device)
-	_ = updateDevicePoint(CO2LowGasWarningField, utils.BoolToFloat(cO2GasPressureWrn), device)
-	_ = updateDevicePoint(CO2UsageGramsField, float64(cO2UsgGrams), device)
-	_ = updateDevicePoint(CO2UsageDaysField, float64(cO2UsgDays), device)
+	_ = UpdateDevicePoint(FilterInfoUsageLitresUVField, float64(fltrNfoUseLtrUV), device)
+	_ = UpdateDevicePoint(FilterInfoUsageDaysUVField, float64(fltrNfoUseDayUV), device)
+	_ = UpdateDevicePoint(FilterWarningUVField, utils.BoolToFloat(fltrWrnUV), device)
+	_ = UpdateDevicePoint(CO2LowGasWarningField, utils.BoolToFloat(cO2GasPressureWrn), device)
+	_ = UpdateDevicePoint(CO2UsageGramsField, float64(cO2UsgGrams), device)
+	_ = UpdateDevicePoint(CO2UsageDaysField, float64(cO2UsgDays), device)
 
 	return nil
 }

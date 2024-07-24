@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	"errors"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
@@ -39,37 +38,34 @@ func GetTHLMPointNames() []string {
 
 func CheckPayloadLengthDroplet(data string) bool {
 	dl := len(data)
+	// TODO: Will this still be valid?
 	return dl == 36 || dl == 32 || dl == 44
 }
 
 func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	commonValues := &CommonValues{}
-	decodeCommonValues(commonValues, data, devDesc.Model)
-	if commonValues == nil {
-		return errors.New("invalid common values")
+	updateDeviceFault(devDesc.Model, device.UUID)
+
+	temperature, err := dropletTemp(data)
+	if err != nil {
+		return err
 	}
-
-	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
-
-	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
+	pressure, err := dropletPressure(data)
+	if err != nil {
+		return err
+	}
+	humidity, err := dropletHumidity(data)
+	if err != nil {
+		return err
+	}
+	voltage, err := dropletVoltage(data)
 	if err != nil {
 		return err
 	}
 
-	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
-	if err != nil {
-		return err
-	}
-
-	temperature := dropletTemp(data)
-	pressure := dropletPressure(data)
-	humidity := dropletHumidity(data)
-	voltage := dropletVoltage(data)
-
-	_ = updateDevicePoint(TemperatureField, temperature, device)
-	_ = updateDevicePoint(PressureField, pressure, device)
-	_ = updateDevicePoint(HumidityField, float64(humidity), device)
-	_ = updateDevicePoint(DropletVoltageField, voltage, device)
+	_ = UpdateDevicePoint(TemperatureField, temperature, device)
+	_ = UpdateDevicePoint(PressureField, pressure, device)
+	_ = UpdateDevicePoint(HumidityField, float64(humidity), device)
+	_ = UpdateDevicePoint(DropletVoltageField, voltage, device)
 
 	return nil
 }
@@ -79,9 +75,11 @@ func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model
 	if err != nil {
 		return err
 	}
-
-	light := dropletLight(data)
-	_ = updateDevicePoint(LightField, float64(light), device)
+	light, err := dropletLight(data)
+	if err != nil {
+		return err
+	}
+	_ = UpdateDevicePoint(LightField, float64(light), device)
 	return nil
 }
 
@@ -90,45 +88,65 @@ func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *mode
 	if err != nil {
 		return err
 	}
-
-	motion := dropletMotion(data)
-	_ = updateDevicePoint(MotionField, utils.BoolToFloat(motion), device)
+	motion, err := dropletMotion(data)
+	if err != nil {
+		return err
+	}
+	_ = UpdateDevicePoint(MotionField, utils.BoolToFloat(motion), device)
 	return nil
 }
 
-func dropletTemp(data string) float64 {
-	v, _ := strconv.ParseInt(data[10:12]+data[8:10], 16, 0)
+func dropletTemp(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[2:4]+data[:2], 16, 0)
+	if err != nil {
+		return 0, err
+	}
 	v_ := float64(v) / 100
-	return v_
+	return v_, nil
 }
 
-func dropletPressure(data string) float64 {
-	v, _ := strconv.ParseInt(data[14:16]+data[12:14], 16, 0)
+func dropletPressure(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[6:8]+data[4:6], 16, 0)
+	if err != nil {
+		return 0, err
+	}
 	v_ := float64(v) / 10
-	return v_
+	return v_, err
 }
 
-func dropletHumidity(data string) int {
-	v, _ := strconv.ParseInt(data[16:18], 16, 0)
+func dropletHumidity(data string) (int, error) {
+	v, err := strconv.ParseInt(data[8:10], 16, 0)
+	if err != nil {
+		return 0, err
+	}
 	v = v & 127
-	return int(v)
+	return int(v), nil
 }
 
-func dropletVoltage(data string) float64 {
-	v, _ := strconv.ParseInt(data[22:24], 16, 0)
+func dropletVoltage(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[14:16], 16, 0)
+	if err != nil {
+		return 0, err
+	}
 	v_ := float64(v) / 50
 	if v_ < 1 { // added in by aidan not tested asked by Craig (its needed when the droplet uses lithium batteries)
 		v_ = v_ - 0.06 + 5
 	}
-	return v_
+	return v_, nil
 }
 
-func dropletLight(data string) int {
-	v, _ := strconv.ParseInt(data[20:22]+data[18:20], 16, 0)
-	return int(v)
+func dropletLight(data string) (int, error) {
+	v, err := strconv.ParseInt(data[12:14]+data[10:12], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(v), nil
 }
 
-func dropletMotion(data string) bool {
-	v, _ := strconv.ParseInt(data[16:18], 16, 0)
-	return v > 127
+func dropletMotion(data string) (bool, error) {
+	v, err := strconv.ParseInt(data[8:10], 16, 0)
+	if err != nil {
+		return false, err
+	}
+	return v > 127, nil
 }

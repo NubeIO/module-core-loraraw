@@ -108,10 +108,23 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Errorln("nil device description found")
 		return
 	}
-	err := decoder.DecodePayload(data, devDesc, device)
+	if !devDesc.CheckLength(data) {
+		log.Errorln("invalid payload")
+		return
+	}
+	dataLen := len(data)
+	onlyData := data[14 : dataLen-12]
+	err := decoder.DecodePayload(onlyData, devDesc, device)
 	if err != nil {
 		log.Errorf(err.Error())
+		return
 	}
+
+	rssi := decoder.DecodeRSSI(data)
+	snr := decoder.DecodeSNR(data)
+
+	_ = decoder.UpdateDevicePoint(decoder.RssiField, float64(rssi), device)
+	_ = decoder.UpdateDevicePoint(decoder.SnrField, float64(snr), device)
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {

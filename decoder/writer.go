@@ -11,15 +11,15 @@ import (
 	"strings"
 )
 
-func updateDeviceFault(id, sensor, deviceUUID string, rssi int) {
-	log.Infof("sensor found. ID: %s, RSSI: %d, Type: %s", id, rssi, sensor)
+func updateDeviceFault(sensor, deviceUUID string) {
+	log.Infof("sensor found. Type: %s", sensor)
 	_ = grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
 		InFault: false,
 		Message: "",
 	})
 }
 
-func updateDevicePoint(name string, value float64, device *model.Device) error {
+func UpdateDevicePoint(name string, value float64, device *model.Device) error {
 	pnt := selectPointByIoNumber(name, device)
 	if pnt == nil {
 		log.Debugf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
