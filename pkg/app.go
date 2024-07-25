@@ -113,15 +113,19 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 	dataLen := len(data)
-	onlyData := data[14 : dataLen-12]
-	err := decoder.DecodePayload(onlyData, devDesc, device)
+	originalData := data
+	expectedMod := decoder.LoraRawHeaderLen + decoder.LoraRawInnerHeaderLen + decoder.LoraRawCmacLen + decoder.RssiLen + decoder.SnrLen
+	if (dataLen/2)%16 == expectedMod {
+		data = data[14 : dataLen-12]
+	}
+	err := decoder.DecodePayload(data, devDesc, device)
 	if err != nil {
 		log.Errorf(err.Error())
 		return
 	}
 
-	rssi := decoder.DecodeRSSI(data)
-	snr := decoder.DecodeSNR(data)
+	rssi := decoder.DecodeRSSI(originalData)
+	snr := decoder.DecodeSNR(originalData)
 
 	_ = decoder.UpdateDevicePoint(decoder.RssiField, float64(rssi), device)
 	_ = decoder.UpdateDevicePoint(decoder.SnrField, float64(snr), device)

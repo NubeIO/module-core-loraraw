@@ -38,7 +38,6 @@ func GetTHLMPointNames() []string {
 
 func CheckPayloadLengthDroplet(data string) bool {
 	dl := len(data)
-	// TODO: Will this still be valid?
 	return dl == 36 || dl == 32 || dl == 44
 }
 
@@ -97,7 +96,7 @@ func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *mode
 }
 
 func dropletTemp(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[2:4]+data[:2], 16, 0)
+	v, err := strconv.ParseInt(data[10:12]+data[8:10], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -106,7 +105,7 @@ func dropletTemp(data string) (float64, error) {
 }
 
 func dropletPressure(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[6:8]+data[4:6], 16, 0)
+	v, err := strconv.ParseInt(data[14:16]+data[12:14], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -115,7 +114,7 @@ func dropletPressure(data string) (float64, error) {
 }
 
 func dropletHumidity(data string) (int, error) {
-	v, err := strconv.ParseInt(data[8:10], 16, 0)
+	v, err := strconv.ParseInt(data[16:18], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -124,7 +123,7 @@ func dropletHumidity(data string) (int, error) {
 }
 
 func dropletVoltage(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[14:16], 16, 0)
+	v, err := strconv.ParseInt(data[22:24], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -136,7 +135,7 @@ func dropletVoltage(data string) (float64, error) {
 }
 
 func dropletLight(data string) (int, error) {
-	v, err := strconv.ParseInt(data[12:14]+data[10:12], 16, 0)
+	v, err := strconv.ParseInt(data[20:22]+data[18:20], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -144,7 +143,7 @@ func dropletLight(data string) (int, error) {
 }
 
 func dropletMotion(data string) (bool, error) {
-	v, err := strconv.ParseInt(data[8:10], 16, 0)
+	v, err := strconv.ParseInt(data[16:18], 16, 0)
 	if err != nil {
 		return false, err
 	}

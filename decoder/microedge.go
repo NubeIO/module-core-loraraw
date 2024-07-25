@@ -30,7 +30,6 @@ func GetMePointNames() []string {
 
 func CheckPayloadLengthME(data string) bool {
 	dl := len(data)
-	// TODO: Will this still be valid?
 	return dl == 36 || dl == 32 || dl == 44
 }
 
@@ -68,24 +67,15 @@ func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device)
 }
 
 func pulse(data string) (int, error) {
-	v, err := strconv.ParseInt(data[:8], 16, 0)
+	v, err := strconv.ParseInt(data[8:16], 16, 0)
 	if err != nil {
 		return 0, err
 	}
 	return int(v), nil
 }
 
-func voltage(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[8:10], 16, 0)
-	if err != nil {
-		return 0, err
-	}
-	v_ := float64(v) / 50
-	return v_, nil
-}
-
 func ai1(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[10:14], 16, 0)
+	v, err := strconv.ParseInt(data[18:22], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -93,7 +83,7 @@ func ai1(data string) (float64, error) {
 }
 
 func ai2(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[14:18], 16, 0)
+	v, err := strconv.ParseInt(data[22:26], 16, 0)
 	if err != nil {
 		return 0, err
 	}
@@ -101,11 +91,20 @@ func ai2(data string) (float64, error) {
 }
 
 func ai3(data string) (float64, error) {
-	v, err := strconv.ParseInt(data[18:22], 16, 0)
+	v, err := strconv.ParseInt(data[26:30], 16, 0)
 	if err != nil {
 		return 0, err
 	}
 	return float64(v), nil
+}
+
+func voltage(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[16:18], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	v_ := float64(v) / 50
+	return v_, nil
 }
 
 func MicroEdgePointType(pointType string, value float64, deviceModel string) float64 {
