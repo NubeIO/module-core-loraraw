@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [v1.1.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.2) (2024-07-25)
+
+- Revert remove priority array changes (#35)
+- Prerequisites:
+  - ROS >= 1.0.0
+
 ## [v1.1.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.1) (2024-07-11)
 
 - Add support for rubix data decoding (#27)
