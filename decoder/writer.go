@@ -87,8 +87,10 @@ func updatePointValue(pnt *model.Point, value float64, deviceModel string) error
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		value = MicroEdgePointType(pnt.IoType, value, deviceModel)
 	}
+	priority := map[string]*float64{"_16": &value}
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
+		Priority:      &priority,
 	}
 	_, err := grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
 	if err != nil {
