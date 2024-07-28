@@ -528,11 +528,6 @@ func GetRubixPointNames() []string {
 	return GetCommonValueNames()
 }
 
-func CheckPayloadLengthRubix(data string) bool {
-	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
-	payloadLength := len(data) / 2
-	payloadLength -= 13
-	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
-
-	return payloadLength == int(dataLength)
+func CheckPayloadLengthRubix(_ string) bool {
+	return true
 }

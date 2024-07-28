@@ -140,9 +140,9 @@ func CheckPayloadLengthZHT(data string) bool {
 	payloadLength := dataLen / 2
 	payloadLength -= 13
 
-	onlyData := data[14 : dataLen-12]
+	dataLength := utils.GetInnerPayloadLength(data)
+	onlyData := data[14:dataLength]
 	payloadType := getPayloadType(onlyData)
-	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
 
 	if getPacketVersion(data) == 1 {
 		return (payloadType == StaticData && dataLength == ZHTPlLenStaticV1 && payloadLength > ZHTPlLenStaticV1) ||

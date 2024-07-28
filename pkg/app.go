@@ -92,9 +92,11 @@ func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
 	}
+
 	if !decoder.ValidPayload(data) {
 		return
 	}
+
 	log.Debugf("uplink: %s", data)
 	device := m.getDeviceByLoRaAddress(decoder.DecodeAddress(data))
 	if device == nil {
@@ -103,21 +105,29 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
+
 	devDesc := decoder.GetDeviceDescription(device)
 	if devDesc == &decoder.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
 		return
 	}
+
 	if !devDesc.CheckLength(data) {
 		log.Errorln("invalid payload")
 		return
 	}
+
 	dataLen := len(data)
 	originalData := data
-	expectedMod := decoder.LoraRawHeaderLen + decoder.LoraRawInnerHeaderLen + decoder.LoraRawCmacLen + decoder.RssiLen + decoder.SnrLen
+	expectedMod := decoder.LoraRawHeaderLen + decoder.LoraRawCmacLen + decoder.RssiLen + decoder.SnrLen
 	if (dataLen/2)%16 == expectedMod {
-		data = data[14 : dataLen-12]
+		if !utils.CheckLoRaRAWPayloadLength(data) {
+			log.Errorln("LoRaRaw payload length mismatched")
+			return
+		}
+		data = data[14:utils.GetInnerPayloadLength(data)]
 	}
+
 	err := decoder.DecodePayload(data, devDesc, device)
 	if err != nil {
 		log.Errorf(err.Error())

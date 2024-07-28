@@ -2,6 +2,7 @@ package utils
 
 import (
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -36,4 +37,18 @@ func GetReflectFieldJSONName(field reflect.StructField) string {
 		}
 		return name
 	}
+}
+
+func CheckLoRaRAWPayloadLength(data string) bool {
+	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
+	payloadLength := len(data) / 2
+	payloadLength -= 13
+	dataLength := GetInnerPayloadLength(data)
+
+	return payloadLength == dataLength
+}
+
+func GetInnerPayloadLength(data string) int {
+	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
+	return int(dataLength)
 }

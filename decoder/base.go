@@ -14,11 +14,10 @@ const (
 )
 
 const (
-	LoraRawHeaderLen      = 4
-	LoraRawInnerHeaderLen = 3
-	LoraRawCmacLen        = 4
-	RssiLen               = 1
-	SnrLen                = 1
+	LoraRawHeaderLen = 4
+	LoraRawCmacLen   = 4
+	RssiLen          = 1
+	SnrLen           = 1
 )
 
 type CommonValues struct {
