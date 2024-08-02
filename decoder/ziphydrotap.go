@@ -138,7 +138,7 @@ func CheckPayloadLengthZHT(data string) bool {
 	payloadLength := dataLen / 2
 	payloadLength -= 13
 
-	dataLength := utils.GetInnerPayloadLength(data)
+	dataLength := utils.GetLoRaRAWInnerPayloadLength(data)
 	onlyData := data[14:dataLength]
 	payloadType := getPayloadType(onlyData)
 

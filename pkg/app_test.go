@@ -38,8 +38,7 @@ func handleSerialPayload(data string, device *model.Device) {
 			log.Errorln("LoRaRaw payload length mismatched")
 			return
 		}
-
-		data = data[14:utils.GetInnerPayloadLength(data)]
+		data = utils.StripLoRaRAWPayload(data)
 	}
 
 	err := decoder.DecodePayload(data, devDesc, device, updateDevicePointMock)

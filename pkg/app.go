@@ -125,7 +125,7 @@ func (m *Module) handleSerialPayload(data string) {
 			log.Errorln("LoRaRaw payload length mismatched")
 			return
 		}
-		data = data[14:utils.GetInnerPayloadLength(data)]
+		data = utils.StripLoRaRAWPayload(data)
 	}
 
 	err := decoder.DecodePayload(data, devDesc, device, m.updateDevicePoint)

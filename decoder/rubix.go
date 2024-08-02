@@ -513,12 +513,12 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		case MDK_BOOL:
 			decodeData(serialData, header, &b1)
 			_ = updatePointFn(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+		case 0:
+			log.Debug("reached end of data with some bits left over")
 		default:
 			log.Errorf("Unknown header: %d", header)
-
 		}
 	}
-
 	return nil
 }
 
