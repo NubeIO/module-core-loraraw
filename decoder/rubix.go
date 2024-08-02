@@ -358,7 +358,7 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 
-func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
 	/*
 	 * Data Structure:
 	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -410,11 +410,9 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		b1          float32
 	)
 
-	updateDeviceFault(devDesc.Model, device.UUID)
-
 	dataBytes, err := hex.DecodeString(data)
 	if err != nil {
-		log.Errorf("Error decoding hex string:", err)
+		log.Errorf("Error decoding hex string: %v", err)
 		return err
 	}
 
@@ -427,94 +425,94 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		switch header {
 		case MDK_TEMP:
 			decodeData(serialData, header, &temperature)
-			_ = UpdateDevicePoint(generateFieldName(TempField, hasPos, &position), float64(temperature), device)
+			_ = updatePointFn(generateFieldName(TempField, hasPos, &position), float64(temperature), device)
 		case MDK_RH:
 			decodeData(serialData, header, &rh)
-			_ = UpdateDevicePoint(generateFieldName(RHField, hasPos, &position), float64(rh), device)
+			_ = updatePointFn(generateFieldName(RHField, hasPos, &position), float64(rh), device)
 		case MDK_LUX:
 			decodeData(serialData, header, &lux)
-			_ = UpdateDevicePoint(generateFieldName(LuxField, hasPos, &position), float64(lux), device)
+			_ = updatePointFn(generateFieldName(LuxField, hasPos, &position), float64(lux), device)
 		case MDK_MOVEMENT:
 			decodeData(serialData, header, &movement)
-			_ = UpdateDevicePoint(generateFieldName(MovementField, hasPos, &position), float64(movement), device)
+			_ = updatePointFn(generateFieldName(MovementField, hasPos, &position), float64(movement), device)
 		case MDK_COUNTER:
 			decodeData(serialData, header, &counter)
-			_ = UpdateDevicePoint(generateFieldName(CounterField, hasPos, &position), float64(counter), device)
+			_ = updatePointFn(generateFieldName(CounterField, hasPos, &position), float64(counter), device)
 		case MDK_DIGITAL:
 			decodeData(serialData, header, &digital)
-			_ = UpdateDevicePoint(generateFieldName(DigitalField, hasPos, &position), float64(digital), device)
+			_ = updatePointFn(generateFieldName(DigitalField, hasPos, &position), float64(digital), device)
 		case MDK_VOLTAGE_0_10:
 			decodeData(serialData, header, &voltage)
-			_ = UpdateDevicePoint(generateFieldName(VoltageField, hasPos, &position), float64(voltage), device)
+			_ = updatePointFn(generateFieldName(VoltageField, hasPos, &position), float64(voltage), device)
 		case MDK_MILLIAMPS_4_20:
 			decodeData(serialData, header, &amplitude)
-			_ = UpdateDevicePoint(generateFieldName(MilliampsField, hasPos, &position), float64(amplitude), device)
+			_ = updatePointFn(generateFieldName(MilliampsField, hasPos, &position), float64(amplitude), device)
 		case MDK_OHM:
 			decodeData(serialData, header, &ohm)
-			_ = UpdateDevicePoint(generateFieldName(OhmField, hasPos, &position), float64(ohm), device)
+			_ = updatePointFn(generateFieldName(OhmField, hasPos, &position), float64(ohm), device)
 		case MDK_CO2:
 			decodeData(serialData, header, &co2)
-			_ = UpdateDevicePoint(generateFieldName(CO2Field, hasPos, &position), float64(co2), device)
+			_ = updatePointFn(generateFieldName(CO2Field, hasPos, &position), float64(co2), device)
 		case MDK_BATTERY_VOLTAGE:
 			decodeData(serialData, header, &batVol)
-			_ = UpdateDevicePoint(generateFieldName(BatteryVoltageField, hasPos, &position), float64(batVol), device)
+			_ = updatePointFn(generateFieldName(BatteryVoltageField, hasPos, &position), float64(batVol), device)
 		case MDK_PUSH_FREQUENCY:
 			decodeData(serialData, header, &pushFreq)
-			_ = UpdateDevicePoint(generateFieldName(PushFrequencyField, hasPos, &position), float64(pushFreq), device)
+			_ = updatePointFn(generateFieldName(PushFrequencyField, hasPos, &position), float64(pushFreq), device)
 		case MDK_RAW:
 			decodeData(serialData, header, &raw)
-			_ = UpdateDevicePoint(generateFieldName(RawField, hasPos, &position), float64(raw), device)
+			_ = updatePointFn(generateFieldName(RawField, hasPos, &position), float64(raw), device)
 		case MDK_UO:
 			decodeData(serialData, header, &uo)
-			_ = UpdateDevicePoint(generateFieldName(UOField, hasPos, &position), float64(uo), device)
+			_ = updatePointFn(generateFieldName(UOField, hasPos, &position), float64(uo), device)
 		case MDK_UI:
 			decodeData(serialData, header, &ui)
-			_ = UpdateDevicePoint(generateFieldName(UIField, hasPos, &position), float64(ui), device)
+			_ = updatePointFn(generateFieldName(UIField, hasPos, &position), float64(ui), device)
 		case MDK_DO:
 			decodeData(serialData, header, &do)
-			_ = UpdateDevicePoint(generateFieldName(DOField, hasPos, &position), float64(do), device)
+			_ = updatePointFn(generateFieldName(DOField, hasPos, &position), float64(do), device)
 		case MDK_DI:
 			decodeData(serialData, header, &di)
-			_ = UpdateDevicePoint(generateFieldName(DIField, hasPos, &position), float64(di), device)
+			_ = updatePointFn(generateFieldName(DIField, hasPos, &position), float64(di), device)
 		case MDK_FIRMWARE_VERSION:
 			decodeData(serialData, header, &fwVer)
-			_ = UpdateDevicePoint(generateFieldName(FwVersionField, hasPos, &position), float64(fwVer), device)
+			_ = updatePointFn(generateFieldName(FwVersionField, hasPos, &position), float64(fwVer), device)
 		case MDK_HARDWARE_VERSION:
 			decodeData(serialData, header, &hwVer)
-			_ = UpdateDevicePoint(generateFieldName(HwVersionField, hasPos, &position), float64(hwVer), device)
+			_ = updatePointFn(generateFieldName(HwVersionField, hasPos, &position), float64(hwVer), device)
 		case MDK_UINT_8:
 			decodeData(serialData, header, &u8)
-			_ = UpdateDevicePoint(generateFieldName(UInt8Field, hasPos, &position), float64(u8), device)
+			_ = updatePointFn(generateFieldName(UInt8Field, hasPos, &position), float64(u8), device)
 		case MDK_INT_8:
 			decodeData(serialData, header, &i8)
-			_ = UpdateDevicePoint(generateFieldName(Int8Field, hasPos, &position), float64(i8), device)
+			_ = updatePointFn(generateFieldName(Int8Field, hasPos, &position), float64(i8), device)
 		case MDK_UINT_16:
 			decodeData(serialData, header, &u16)
-			_ = UpdateDevicePoint(generateFieldName(UInt16Field, hasPos, &position), float64(u16), device)
+			_ = updatePointFn(generateFieldName(UInt16Field, hasPos, &position), float64(u16), device)
 		case MDK_INT_16:
 			decodeData(serialData, header, &i16)
-			_ = UpdateDevicePoint(generateFieldName(Int16Field, hasPos, &position), float64(i16), device)
+			_ = updatePointFn(generateFieldName(Int16Field, hasPos, &position), float64(i16), device)
 		case MDK_UINT_32:
 			decodeData(serialData, header, &u32)
-			_ = UpdateDevicePoint(generateFieldName(UInt32Field, hasPos, &position), float64(u32), device)
+			_ = updatePointFn(generateFieldName(UInt32Field, hasPos, &position), float64(u32), device)
 		case MDK_INT_32:
 			decodeData(serialData, header, &i32)
-			_ = UpdateDevicePoint(generateFieldName(Int32Field, hasPos, &position), float64(i32), device)
+			_ = updatePointFn(generateFieldName(Int32Field, hasPos, &position), float64(i32), device)
 		case MDK_UINT_64:
 			decodeData(serialData, header, &u64)
-			_ = UpdateDevicePoint(generateFieldName(UInt64Field, hasPos, &position), float64(u64), device)
+			_ = updatePointFn(generateFieldName(UInt64Field, hasPos, &position), float64(u64), device)
 		case MDK_INT_64:
 			decodeData(serialData, header, &i64)
-			_ = UpdateDevicePoint(generateFieldName(Int64Field, hasPos, &position), float64(i64), device)
+			_ = updatePointFn(generateFieldName(Int64Field, hasPos, &position), float64(i64), device)
 		case MDK_CHAR:
 			decodeData(serialData, header, &char)
-			_ = UpdateDevicePoint(generateFieldName(CharField, hasPos, &position), float64(char), device)
+			_ = updatePointFn(generateFieldName(CharField, hasPos, &position), float64(char), device)
 		case MDK_FLOAT:
 			decodeData(serialData, header, &fl1)
-			_ = UpdateDevicePoint(generateFieldName(FloatField, hasPos, &position), float64(fl1), device)
+			_ = updatePointFn(generateFieldName(FloatField, hasPos, &position), float64(fl1), device)
 		case MDK_BOOL:
 			decodeData(serialData, header, &b1)
-			_ = UpdateDevicePoint(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+			_ = updatePointFn(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
 		default:
 			log.Errorf("Unknown header: %d", header)
 

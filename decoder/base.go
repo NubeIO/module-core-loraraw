@@ -1,12 +1,9 @@
 package decoder
 
 import (
-	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
-
-var grpcMarshaller nmodule.Marshaller
 
 const (
 	RssiField = "rssi"
@@ -27,10 +24,6 @@ type CommonValues struct {
 	Snr    float32 `json:"snr"`
 }
 
-func InitGrpcMarshaller(marshaller nmodule.Marshaller) {
-	grpcMarshaller = marshaller
-}
-
 func GetCommonValueNames() []string {
 	return []string{
 		RssiField,
@@ -38,8 +31,8 @@ func GetCommonValueNames() []string {
 	}
 }
 
-func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	err := devDesc.Decode(data, devDesc, device)
+func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device, fn UpdateDevicePointFunc) error {
+	err := devDesc.Decode(data, devDesc, device, fn)
 	return err
 }
 

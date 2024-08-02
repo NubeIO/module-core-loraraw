@@ -128,7 +128,7 @@ func (m *Module) handleSerialPayload(data string) {
 		data = data[14:utils.GetInnerPayloadLength(data)]
 	}
 
-	err := decoder.DecodePayload(data, devDesc, device)
+	err := decoder.DecodePayload(data, devDesc, device, m.updateDevicePoint)
 	if err != nil {
 		log.Errorf(err.Error())
 		return
@@ -137,8 +137,10 @@ func (m *Module) handleSerialPayload(data string) {
 	rssi := decoder.DecodeRSSI(originalData)
 	snr := decoder.DecodeSNR(originalData)
 
-	_ = decoder.UpdateDevicePoint(decoder.RssiField, float64(rssi), device)
-	_ = decoder.UpdateDevicePoint(decoder.SnrField, float64(snr), device)
+	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
+	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
+
+	m.updateDeviceFault(devDesc.Model, device.UUID)
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
@@ -178,7 +180,7 @@ func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
 	var points []*model.Point
 	for _, name := range names {
 		point := new(model.Point)
-		decoder.SetNewPointFields(deviceBody, point, name)
+		setNewPointFields(deviceBody, point, name)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}
@@ -207,7 +209,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 			pointName = fmt.Sprintf("%s%s", pointName, postfix)
 		}
 		point := new(model.Point)
-		decoder.SetNewPointFields(deviceBody, point, pointName)
+		setNewPointFields(deviceBody, point, pointName)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}

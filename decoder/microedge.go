@@ -33,9 +33,7 @@ func CheckPayloadLengthME(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	updateDeviceFault(devDesc.Model, device.UUID)
-
+func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
 	p, err := pulse(data)
 	if err != nil {
 		return err
@@ -57,11 +55,11 @@ func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device)
 		return err
 	}
 
-	_ = UpdateDevicePoint(PulseField, float64(p), device)
-	_ = UpdateDevicePoint(MEVoltageField, vol, device)
-	_ = UpdateDevicePoint(AI1Field, a1, device)
-	_ = UpdateDevicePoint(AI2Field, a2, device)
-	_ = UpdateDevicePoint(AI3Field, a3, device)
+	_ = updatePointFn(PulseField, float64(p), device)
+	_ = updatePointFn(MEVoltageField, vol, device)
+	_ = updatePointFn(AI1Field, a1, device)
+	_ = updatePointFn(AI2Field, a2, device)
+	_ = updatePointFn(AI3Field, a3, device)
 
 	return nil
 }

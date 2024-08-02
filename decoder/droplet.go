@@ -41,9 +41,7 @@ func CheckPayloadLengthDroplet(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	updateDeviceFault(devDesc.Model, device.UUID)
-
+func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
 		return err
@@ -61,16 +59,16 @@ func DecodeDropletTH(data string, devDesc *LoRaDeviceDescription, device *model.
 		return err
 	}
 
-	_ = UpdateDevicePoint(TemperatureField, temperature, device)
-	_ = UpdateDevicePoint(PressureField, pressure, device)
-	_ = UpdateDevicePoint(HumidityField, float64(humidity), device)
-	_ = UpdateDevicePoint(DropletVoltageField, voltage, device)
+	_ = updatePointFn(TemperatureField, temperature, device)
+	_ = updatePointFn(PressureField, pressure, device)
+	_ = updatePointFn(HumidityField, float64(humidity), device)
+	_ = updatePointFn(DropletVoltageField, voltage, device)
 
 	return nil
 }
 
-func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	err := DecodeDropletTH(data, devDesc, device)
+func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+	err := DecodeDropletTH(data, devDesc, device, updatePointFn)
 	if err != nil {
 		return err
 	}
@@ -78,12 +76,12 @@ func DecodeDropletTHL(data string, devDesc *LoRaDeviceDescription, device *model
 	if err != nil {
 		return err
 	}
-	_ = UpdateDevicePoint(LightField, float64(light), device)
+	_ = updatePointFn(LightField, float64(light), device)
 	return nil
 }
 
-func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	err := DecodeDropletTHL(data, devDesc, device)
+func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+	err := DecodeDropletTHL(data, devDesc, device, updatePointFn)
 	if err != nil {
 		return err
 	}
@@ -91,7 +89,7 @@ func DecodeDropletTHLM(data string, devDesc *LoRaDeviceDescription, device *mode
 	if err != nil {
 		return err
 	}
-	_ = UpdateDevicePoint(MotionField, utils.BoolToFloat(motion), device)
+	_ = updatePointFn(MotionField, utils.BoolToFloat(motion), device)
 	return nil
 }
 

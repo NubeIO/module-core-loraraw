@@ -1,36 +1,36 @@
-package decoder
+package pkg
 
 import (
 	"github.com/NubeIO/lib-utils-go/boolean"
+	"github.com/NubeIO/module-core-loraraw/decoder"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"strings"
 )
 
-func updateDeviceFault(sensor, deviceUUID string) {
+func (m *Module) updateDeviceFault(sensor, deviceUUID string) {
 	log.Infof("sensor found. Type: %s", sensor)
-	_ = grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
+	_ = m.grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
 		InFault: false,
 		Message: "",
 	})
 }
 
-func UpdateDevicePoint(name string, value float64, device *model.Device) error {
+func (m *Module) updateDevicePoint(name string, value float64, device *model.Device) error {
 	pnt := selectPointByIoNumber(name, device)
 	if pnt == nil {
 		log.Debugf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
-		newPoint, err := addPointFromName(device, name)
+		newPoint, err := m.addPointFromName(device, name)
 		if err != nil {
 			log.Errorf("failed to create point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
 			return err
 		}
 		pnt = newPoint
 	}
-	err := updatePointValue(pnt, value, device.Model)
+	err := m.updatePointValue(pnt, value, device.Model)
 	if err != nil {
 		return err
 	}
@@ -46,33 +46,21 @@ func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
 	return nil
 }
 
-func addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
+func (m *Module) addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
 	point := new(model.Point)
-	SetNewPointFields(deviceBody, point, name)
+	setNewPointFields(deviceBody, point, name)
 	point.EnableWriteable = boolean.NewFalse()
-	pnt, err := savePoint(point)
+	pnt, err := m.savePoint(point)
 	return pnt, err
 }
 
-func savePoint(point *model.Point) (*model.Point, error) {
+func (m *Module) savePoint(point *model.Point) (*model.Point, error) {
 	point.EnableWriteable = boolean.NewFalse()
-	pnt, err := addPoint(point)
+	pnt, err := m.addPoint(point)
 	return pnt, err
 }
 
-func addPoint(body *model.Point) (point *model.Point, err error) {
-	body.ObjectType = "analog_input"
-	body.IoType = string(datatype.IOTypeRAW)
-	body.Name = strings.ToLower(body.Name)
-	body.EnableWriteable = boolean.NewFalse()
-	point, err = grpcMarshaller.CreatePoint(body) // TODO: in older one after creating there is an update operation
-	if err != nil {
-		return nil, err
-	}
-	return point, nil
-}
-
-func SetNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
+func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
 	pointBody.Enable = boolean.NewTrue()
 	pointBody.DeviceUUID = deviceBody.UUID
 	pointBody.AddressUUID = deviceBody.AddressUUID
@@ -83,16 +71,16 @@ func SetNewPointFields(deviceBody *model.Device, pointBody *model.Point, name st
 	pointBody.WriteMode = datatype.ReadOnly
 }
 
-func updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
+func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
-		value = MicroEdgePointType(pnt.IoType, value, deviceModel)
+		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
 	}
 	priority := map[string]*float64{"_16": &value}
 	pointWriter := dto.PointWriter{
 		OriginalValue: &value,
 		Priority:      &priority,
 	}
-	_, err := grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
+	_, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
 	if err != nil {
 		log.Error(err)
 		return err

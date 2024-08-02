@@ -9,12 +9,14 @@ import (
 	"strings"
 )
 
+type UpdateDevicePointFunc func(name string, value float64, device *model.Device) error
+
 type LoRaDeviceDescription struct {
 	DeviceName    string
 	Model         string
 	SensorCode    string
 	CheckLength   func(data string) bool
-	Decode        func(data string, devDesc *LoRaDeviceDescription, device *model.Device) error
+	Decode        func(data string, devDesc *LoRaDeviceDescription, device *model.Device, updateDevPntFnc UpdateDevicePointFunc) error
 	GetPointNames func() []string
 }
 
@@ -31,7 +33,7 @@ func NilLoRaDeviceDescriptionCheckLength(data string) bool {
 	return false
 }
 
-func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription, device *model.Device, f UpdateDevicePointFunc) error {
 	return errors.New("nil decode function called")
 }
 
