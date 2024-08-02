@@ -43,9 +43,10 @@ func CheckLoRaRAWPayloadLength(data string) bool {
 	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
 	payloadLength := len(data) / 2
 	payloadLength -= 13
-	dataLength := GetInnerPayloadLength(data)
+	innerDataLength := GetInnerPayloadLength(data)
 
-	return payloadLength == dataLength
+	// inner data length must be <= encrypted payload length due to AES padding for payload to be mod16
+	return innerDataLength <= payloadLength
 }
 
 func GetInnerPayloadLength(data string) int {
