@@ -79,3 +79,50 @@ func TestHandleSerialPayload(t *testing.T) {
 		})
 	}
 }
+
+func TestMicroEdgePayload(t *testing.T) {
+	mockDevice := &model.Device{
+		Name: "MicroEdge",
+		CommonDevice: model.CommonDevice{
+			Model: "MicroEdgeV1",
+		},
+	}
+
+	tests := []struct {
+		name string
+		data string
+	}{
+		{"MicroEdgeOne", "17AC7BB100000000FF03FF03FF03FF014B5F"},
+		{"MicroEdgeTwo", "55ACA79B00000000FF03FF03FF03FF013F64"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handleSerialPayload(tt.data, mockDevice)
+		})
+	}
+}
+
+func TestDropletPayload(t *testing.T) {
+	mockDevice := &model.Device{
+		Name: "Droplet",
+		CommonDevice: model.CommonDevice{
+			Model: "THLM",
+		},
+	}
+
+	tests := []struct {
+		name string
+		data string
+	}{
+		{"DropletOne", "CBB272EAB20696263C0000DD000000041861"},
+		{"DropletTwo", "36B2A847DE0698263D0000E9000000D91E5C"},
+		{"DropletThree", "1AB22D4F2006C6263D0200DB000000E81A61"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handleSerialPayload(tt.data, mockDevice)
+		})
+	}
+}
