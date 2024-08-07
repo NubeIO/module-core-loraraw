@@ -3,6 +3,7 @@
 ## [v1.1.0-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.3) (2024-08-07)
 
 - Account for CMAC difference in driver-lora (#36)
+  - **NOTE: Requires [driver-lora](https://github.com/NubeIO/driver-lora/releases/tag/v1.1.0-rc.1) >= `v1.1.0-rc.1`**
 
 ## [v1.1.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.2) (2024-07-25)
 
