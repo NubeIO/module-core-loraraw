@@ -1,6 +1,8 @@
 package pkg
 
 import (
+	"encoding/hex"
+	"errors"
 	"github.com/NubeIO/module-core-loraraw/logger"
 	"github.com/go-yaml/yaml"
 	log "github.com/sirupsen/logrus"
@@ -11,12 +13,14 @@ import (
 type Config struct {
 	ReIterationTime time.Duration `yaml:"re_iteration_time"`
 	LogLevel        string        `yaml:"log_level"`
+	DefaultKey      string        `yaml:"default_key" type:"secret"`
 }
 
 func (m *Module) DefaultConfig() *Config {
 	return &Config{
 		ReIterationTime: 5 * time.Second,
 		LogLevel:        "ERROR",
+		DefaultKey:      "5f5f5f544f505f5345435245545f5f5f",
 	}
 }
 
@@ -30,6 +34,14 @@ func (m *Module) ValidateAndSetConfig(config []byte) ([]byte, error) {
 	}
 	logger.SetLogger(logLevel)
 	newConfig.LogLevel = strings.ToUpper(logLevel.String())
+
+	keyBytes, err := hex.DecodeString(newConfig.DefaultKey)
+	if err != nil {
+		return nil, err
+	}
+	if len(keyBytes) != 16 {
+		return nil, errors.New("invalid default key: key must be exactly 16 bytes")
+	}
 
 	newConfValid, err := yaml.Marshal(newConfig)
 	if err != nil {

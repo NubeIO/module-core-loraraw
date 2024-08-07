@@ -63,6 +63,17 @@ func (m *Module) SerialClose() error {
 	return disconnect()
 }
 
+func (m *Module) WriteToLoRaRaw(data []byte) error {
+	if Port == nil {
+		return errors.New("serial connection error: port not set")
+	}
+	_, err := Port.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *SerialSetting) Loop(plChan chan<- string, errChan chan<- error) {
 	scanner := bufio.NewScanner(Port)
 	for scanner.Scan() {
