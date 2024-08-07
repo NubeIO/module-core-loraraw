@@ -358,20 +358,21 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 
-func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
+func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
 	/*
 	 * Data Structure:
-	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
-	 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length |            Payload           | 1 bytes RSSI              |   1 bytes SNR         |
-	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
-	 * | data[0:3]       | data[4]      | data[5]       | data[6]       |     data[7:dataLen-4]        | data[dataLen-4:dataLen-2] | data[dataLen-2:dataLen]
-	 * -----------------------------------------------------------------------------------------------------------------------------------------------------
+	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length | Payload           | 4 bytes CMAC              | 1 bytes RSSI              |   1 bytes SNR           |
+	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+	 * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
+	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 	 *
 	 * - 4 bytes address:              data[0:3]
 	 * - 1 byte opts:                  data[4]
 	 * - 1 byte nonce:                 data[5]
 	 * - 1 byte length field:          data[6]
-	 * - Payload:                      data[7:dataLen-2]
+	 * - Payload:                      data[7:dataLen-6]
+	 * - CMAC:						   data[dataLen-6:dataLen-2]
 	 * - 1 bytes RSSI:                 data[dataLen-2:dataLen-1]
 	 * - 1 bytes SNR:                  data[dataLen-1:dataLen]
 	 */
@@ -409,33 +410,13 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		b1          float32
 	)
 
-	commonValues := &CommonValues{}
-	decodeCommonValues(commonValues, data, devDesc.Model)
-	if commonValues == nil {
-		return errors.New("invalid common values")
-	}
-
-	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
-
-	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
-	if err != nil {
-		return err
-	}
-
-	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
-	if err != nil {
-		return err
-	}
-
 	dataBytes, err := hex.DecodeString(data)
 	if err != nil {
-		log.Errorf("Error decoding hex string:", err)
+		log.Errorf("Error decoding hex string: %v", err)
 		return err
 	}
-	payloadLength := len(dataBytes) - (4 + 1 + 1 + 1 + 2)
-	payload := dataBytes[7 : 7+payloadLength]
 
-	serialData := NewSerialDataWithBuffer(payload)
+	serialData := NewSerialDataWithBuffer(dataBytes)
 
 	hasPos := hasPositionalData(serialData)
 	var position uint8 = 0
@@ -444,100 +425,100 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		switch header {
 		case MDK_TEMP:
 			decodeData(serialData, header, &temperature)
-			_ = updateDevicePoint(generateFieldName(TempField, hasPos, &position), float64(temperature), device)
+			_ = updatePointFn(generateFieldName(TempField, hasPos, &position), float64(temperature), device)
 		case MDK_RH:
 			decodeData(serialData, header, &rh)
-			_ = updateDevicePoint(generateFieldName(RHField, hasPos, &position), float64(rh), device)
+			_ = updatePointFn(generateFieldName(RHField, hasPos, &position), float64(rh), device)
 		case MDK_LUX:
 			decodeData(serialData, header, &lux)
-			_ = updateDevicePoint(generateFieldName(LuxField, hasPos, &position), float64(lux), device)
+			_ = updatePointFn(generateFieldName(LuxField, hasPos, &position), float64(lux), device)
 		case MDK_MOVEMENT:
 			decodeData(serialData, header, &movement)
-			_ = updateDevicePoint(generateFieldName(MovementField, hasPos, &position), float64(movement), device)
+			_ = updatePointFn(generateFieldName(MovementField, hasPos, &position), float64(movement), device)
 		case MDK_COUNTER:
 			decodeData(serialData, header, &counter)
-			_ = updateDevicePoint(generateFieldName(CounterField, hasPos, &position), float64(counter), device)
+			_ = updatePointFn(generateFieldName(CounterField, hasPos, &position), float64(counter), device)
 		case MDK_DIGITAL:
 			decodeData(serialData, header, &digital)
-			_ = updateDevicePoint(generateFieldName(DigitalField, hasPos, &position), float64(digital), device)
+			_ = updatePointFn(generateFieldName(DigitalField, hasPos, &position), float64(digital), device)
 		case MDK_VOLTAGE_0_10:
 			decodeData(serialData, header, &voltage)
-			_ = updateDevicePoint(generateFieldName(VoltageField, hasPos, &position), float64(voltage), device)
+			_ = updatePointFn(generateFieldName(VoltageField, hasPos, &position), float64(voltage), device)
 		case MDK_MILLIAMPS_4_20:
 			decodeData(serialData, header, &amplitude)
-			_ = updateDevicePoint(generateFieldName(MilliampsField, hasPos, &position), float64(amplitude), device)
+			_ = updatePointFn(generateFieldName(MilliampsField, hasPos, &position), float64(amplitude), device)
 		case MDK_OHM:
 			decodeData(serialData, header, &ohm)
-			_ = updateDevicePoint(generateFieldName(OhmField, hasPos, &position), float64(ohm), device)
+			_ = updatePointFn(generateFieldName(OhmField, hasPos, &position), float64(ohm), device)
 		case MDK_CO2:
 			decodeData(serialData, header, &co2)
-			_ = updateDevicePoint(generateFieldName(CO2Field, hasPos, &position), float64(co2), device)
+			_ = updatePointFn(generateFieldName(CO2Field, hasPos, &position), float64(co2), device)
 		case MDK_BATTERY_VOLTAGE:
 			decodeData(serialData, header, &batVol)
-			_ = updateDevicePoint(generateFieldName(BatteryVoltageField, hasPos, &position), float64(batVol), device)
+			_ = updatePointFn(generateFieldName(BatteryVoltageField, hasPos, &position), float64(batVol), device)
 		case MDK_PUSH_FREQUENCY:
 			decodeData(serialData, header, &pushFreq)
-			_ = updateDevicePoint(generateFieldName(PushFrequencyField, hasPos, &position), float64(pushFreq), device)
+			_ = updatePointFn(generateFieldName(PushFrequencyField, hasPos, &position), float64(pushFreq), device)
 		case MDK_RAW:
 			decodeData(serialData, header, &raw)
-			_ = updateDevicePoint(generateFieldName(RawField, hasPos, &position), float64(raw), device)
+			_ = updatePointFn(generateFieldName(RawField, hasPos, &position), float64(raw), device)
 		case MDK_UO:
 			decodeData(serialData, header, &uo)
-			_ = updateDevicePoint(generateFieldName(UOField, hasPos, &position), float64(uo), device)
+			_ = updatePointFn(generateFieldName(UOField, hasPos, &position), float64(uo), device)
 		case MDK_UI:
 			decodeData(serialData, header, &ui)
-			_ = updateDevicePoint(generateFieldName(UIField, hasPos, &position), float64(ui), device)
+			_ = updatePointFn(generateFieldName(UIField, hasPos, &position), float64(ui), device)
 		case MDK_DO:
 			decodeData(serialData, header, &do)
-			_ = updateDevicePoint(generateFieldName(DOField, hasPos, &position), float64(do), device)
+			_ = updatePointFn(generateFieldName(DOField, hasPos, &position), float64(do), device)
 		case MDK_DI:
 			decodeData(serialData, header, &di)
-			_ = updateDevicePoint(generateFieldName(DIField, hasPos, &position), float64(di), device)
+			_ = updatePointFn(generateFieldName(DIField, hasPos, &position), float64(di), device)
 		case MDK_FIRMWARE_VERSION:
 			decodeData(serialData, header, &fwVer)
-			_ = updateDevicePoint(generateFieldName(FwVersionField, hasPos, &position), float64(fwVer), device)
+			_ = updatePointFn(generateFieldName(FwVersionField, hasPos, &position), float64(fwVer), device)
 		case MDK_HARDWARE_VERSION:
 			decodeData(serialData, header, &hwVer)
-			_ = updateDevicePoint(generateFieldName(HwVersionField, hasPos, &position), float64(hwVer), device)
+			_ = updatePointFn(generateFieldName(HwVersionField, hasPos, &position), float64(hwVer), device)
 		case MDK_UINT_8:
 			decodeData(serialData, header, &u8)
-			_ = updateDevicePoint(generateFieldName(UInt8Field, hasPos, &position), float64(u8), device)
+			_ = updatePointFn(generateFieldName(UInt8Field, hasPos, &position), float64(u8), device)
 		case MDK_INT_8:
 			decodeData(serialData, header, &i8)
-			_ = updateDevicePoint(generateFieldName(Int8Field, hasPos, &position), float64(i8), device)
+			_ = updatePointFn(generateFieldName(Int8Field, hasPos, &position), float64(i8), device)
 		case MDK_UINT_16:
 			decodeData(serialData, header, &u16)
-			_ = updateDevicePoint(generateFieldName(UInt16Field, hasPos, &position), float64(u16), device)
+			_ = updatePointFn(generateFieldName(UInt16Field, hasPos, &position), float64(u16), device)
 		case MDK_INT_16:
 			decodeData(serialData, header, &i16)
-			_ = updateDevicePoint(generateFieldName(Int16Field, hasPos, &position), float64(i16), device)
+			_ = updatePointFn(generateFieldName(Int16Field, hasPos, &position), float64(i16), device)
 		case MDK_UINT_32:
 			decodeData(serialData, header, &u32)
-			_ = updateDevicePoint(generateFieldName(UInt32Field, hasPos, &position), float64(u32), device)
+			_ = updatePointFn(generateFieldName(UInt32Field, hasPos, &position), float64(u32), device)
 		case MDK_INT_32:
 			decodeData(serialData, header, &i32)
-			_ = updateDevicePoint(generateFieldName(Int32Field, hasPos, &position), float64(i32), device)
+			_ = updatePointFn(generateFieldName(Int32Field, hasPos, &position), float64(i32), device)
 		case MDK_UINT_64:
 			decodeData(serialData, header, &u64)
-			_ = updateDevicePoint(generateFieldName(UInt64Field, hasPos, &position), float64(u64), device)
+			_ = updatePointFn(generateFieldName(UInt64Field, hasPos, &position), float64(u64), device)
 		case MDK_INT_64:
 			decodeData(serialData, header, &i64)
-			_ = updateDevicePoint(generateFieldName(Int64Field, hasPos, &position), float64(i64), device)
+			_ = updatePointFn(generateFieldName(Int64Field, hasPos, &position), float64(i64), device)
 		case MDK_CHAR:
 			decodeData(serialData, header, &char)
-			_ = updateDevicePoint(generateFieldName(CharField, hasPos, &position), float64(char), device)
+			_ = updatePointFn(generateFieldName(CharField, hasPos, &position), float64(char), device)
 		case MDK_FLOAT:
 			decodeData(serialData, header, &fl1)
-			_ = updateDevicePoint(generateFieldName(FloatField, hasPos, &position), float64(fl1), device)
+			_ = updatePointFn(generateFieldName(FloatField, hasPos, &position), float64(fl1), device)
 		case MDK_BOOL:
 			decodeData(serialData, header, &b1)
-			_ = updateDevicePoint(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+			_ = updatePointFn(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+		case 0:
+			log.Debug("reached end of data with some bits left over")
 		default:
 			log.Errorf("Unknown header: %d", header)
-
 		}
 	}
-
 	return nil
 }
 
@@ -545,11 +526,6 @@ func GetRubixPointNames() []string {
 	return GetCommonValueNames()
 }
 
-func CheckPayloadLengthRubix(data string) bool {
-	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 1 byte rssi | 1 byte snr
-	payloadLength := len(data) / 2
-	payloadLength -= 9
-	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
-
-	return payloadLength == int(dataLength)
+func CheckPayloadLengthRubix(_ string) bool {
+	return true
 }

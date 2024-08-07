@@ -92,9 +92,11 @@ func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
 	}
+
 	if !decoder.ValidPayload(data) {
 		return
 	}
+
 	log.Debugf("uplink: %s", data)
 	device := m.getDeviceByLoRaAddress(decoder.DecodeAddress(data))
 	if device == nil {
@@ -103,15 +105,42 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
+
 	devDesc := decoder.GetDeviceDescription(device)
 	if devDesc == &decoder.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
 		return
 	}
-	err := decoder.DecodePayload(data, devDesc, device)
+
+	if !devDesc.CheckLength(data) {
+		log.Errorln("invalid payload")
+		return
+	}
+
+	dataLen := len(data)
+	originalData := data
+	expectedMod := decoder.LoraRawHeaderLen + decoder.LoraRawCmacLen + decoder.RssiLen + decoder.SnrLen
+	if (dataLen/2)%16 == expectedMod {
+		if !utils.CheckLoRaRAWPayloadLength(data) {
+			log.Errorln("LoRaRaw payload length mismatched")
+			return
+		}
+		data = utils.StripLoRaRAWPayload(data)
+	}
+
+	err := decoder.DecodePayload(data, devDesc, device, m.updateDevicePoint)
 	if err != nil {
 		log.Errorf(err.Error())
+		return
 	}
+
+	rssi := decoder.DecodeRSSI(originalData)
+	snr := decoder.DecodeSNR(originalData)
+
+	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
+	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
+
+	m.updateDeviceFault(devDesc.Model, device.UUID)
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
@@ -151,7 +180,7 @@ func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
 	var points []*model.Point
 	for _, name := range names {
 		point := new(model.Point)
-		decoder.SetNewPointFields(deviceBody, point, name)
+		setNewPointFields(deviceBody, point, name)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}
@@ -180,7 +209,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 			pointName = fmt.Sprintf("%s%s", pointName, postfix)
 		}
 		point := new(model.Point)
-		decoder.SetNewPointFields(deviceBody, point, pointName)
+		setNewPointFields(deviceBody, point, pointName)
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}

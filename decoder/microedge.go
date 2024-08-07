@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	"errors"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
@@ -34,64 +33,76 @@ func CheckPayloadLengthME(data string) bool {
 	return dl == 36 || dl == 32 || dl == 44
 }
 
-func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	commonValues := &CommonValues{}
-	decodeCommonValues(commonValues, data, devDesc.Model)
-	if commonValues == nil {
-		return errors.New("invalid common values")
+func DecodeME(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+	p, err := pulse(data)
+	if err != nil {
+		return err
 	}
-
-	updateDeviceFault(commonValues.ID, commonValues.Sensor, device.UUID, commonValues.Rssi)
-
-	err := updateDevicePoint(RssiField, float64(commonValues.Rssi), device)
+	vol, err := voltage(data)
+	if err != nil {
+		return err
+	}
+	a1, err := ai1(data)
+	if err != nil {
+		return err
+	}
+	a2, err := ai2(data)
+	if err != nil {
+		return err
+	}
+	a3, err := ai3(data)
 	if err != nil {
 		return err
 	}
 
-	err = updateDevicePoint(SnrField, float64(commonValues.Snr), device)
-	if err != nil {
-		return err
-	}
-
-	p := pulse(data)
-	a1 := ai1(data)
-	a2 := ai2(data)
-	a3 := ai3(data)
-	vol := voltage(data)
-
-	_ = updateDevicePoint(PulseField, float64(p), device)
-	_ = updateDevicePoint(AI1Field, a1, device)
-	_ = updateDevicePoint(AI2Field, a2, device)
-	_ = updateDevicePoint(AI3Field, a3, device)
-	_ = updateDevicePoint(MEVoltageField, vol, device)
+	_ = updatePointFn(PulseField, float64(p), device)
+	_ = updatePointFn(MEVoltageField, vol, device)
+	_ = updatePointFn(AI1Field, a1, device)
+	_ = updatePointFn(AI2Field, a2, device)
+	_ = updatePointFn(AI3Field, a3, device)
 
 	return nil
 }
 
-func pulse(data string) int {
-	v, _ := strconv.ParseInt(data[8:16], 16, 0)
-	return int(v)
+func pulse(data string) (int, error) {
+	v, err := strconv.ParseInt(data[8:16], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	return int(v), nil
 }
 
-func ai1(data string) float64 {
-	v, _ := strconv.ParseInt(data[18:22], 16, 0)
-	return float64(v)
+func ai1(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[18:22], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	return float64(v), nil
 }
 
-func ai2(data string) float64 {
-	v, _ := strconv.ParseInt(data[22:26], 16, 0)
-	return float64(v)
+func ai2(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[22:26], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	return float64(v), nil
 }
 
-func ai3(data string) float64 {
-	v, _ := strconv.ParseInt(data[26:30], 16, 0)
-	return float64(v)
+func ai3(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[26:30], 16, 0)
+	if err != nil {
+		return 0, err
+	}
+	return float64(v), nil
 }
 
-func voltage(data string) float64 {
-	v, _ := strconv.ParseInt(data[16:18], 16, 0)
+func voltage(data string) (float64, error) {
+	v, err := strconv.ParseInt(data[16:18], 16, 0)
+	if err != nil {
+		return 0, err
+	}
 	v_ := float64(v) / 50
-	return v_
+	return v_, nil
 }
 
 func MicroEdgePointType(pointType string, value float64, deviceModel string) float64 {

@@ -1,19 +1,20 @@
 package decoder
 
 import (
-	"errors"
-	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
 )
 
-var grpcMarshaller nmodule.Marshaller
+const (
+	RssiField = "rssi"
+	SnrField  = "snr"
+)
 
 const (
-	SensorField = "sensor"
-	IDField     = "id"
-	RssiField   = "rssi"
-	SnrField    = "snr"
+	LoraRawHeaderLen = 4
+	LoraRawCmacLen   = 4
+	RssiLen          = 1
+	SnrLen           = 1
 )
 
 type CommonValues struct {
@@ -23,10 +24,6 @@ type CommonValues struct {
 	Snr    float32 `json:"snr"`
 }
 
-func InitGrpcMarshaller(marshaller nmodule.Marshaller) {
-	grpcMarshaller = marshaller
-}
-
 func GetCommonValueNames() []string {
 	return []string{
 		RssiField,
@@ -34,11 +31,8 @@ func GetCommonValueNames() []string {
 	}
 }
 
-func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device) error {
-	if !devDesc.CheckLength(data) {
-		return errors.New("invalid payload")
-	}
-	err := devDesc.Decode(data, devDesc, device)
+func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device, fn UpdateDevicePointFunc) error {
+	err := devDesc.Decode(data, devDesc, device, fn)
 	return err
 }
 
@@ -50,13 +44,6 @@ func DecodeAddress(data string) string {
 	return data[:8]
 }
 
-func decodeCommonValues(payload *CommonValues, data string, sensor string) {
-	payload.Sensor = sensor
-	payload.ID = DecodeAddress(data)
-	payload.Rssi = DecodeRSSI(data)
-	payload.Snr = decodeSNR(data)
-}
-
 func DecodeRSSI(data string) int {
 	dataLen := len(data)
 	v, _ := strconv.ParseInt(data[dataLen-4:dataLen-2], 16, 0)
@@ -64,7 +51,7 @@ func DecodeRSSI(data string) int {
 	return int(v)
 }
 
-func decodeSNR(data string) float32 {
+func DecodeSNR(data string) float32 {
 	dataLen := len(data)
 	v, _ := strconv.ParseInt(data[dataLen-2:], 16, 0)
 	var f float32
