@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.0-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.3) (2024-08-07)
+
+- Account for CMAC difference in driver-lora (#36)
+
 ## [v1.1.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.2) (2024-07-25)
 
 - Revert remove priority array changes (#35)
