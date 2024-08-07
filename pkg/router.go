@@ -150,6 +150,13 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: Encode PointWriter (pw)
+
+	// TODO: Encrypt the encoded data by using encrypter.Encrypt method
+
+	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
+
 	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {
 		return nil, err
