@@ -5,10 +5,12 @@ import (
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
+	"github.com/NubeIO/lib-utils-go/nstring"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -137,7 +139,7 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(r.PathParams["uuid"], point)
+	pnt, err := (*m).(*Module).updatePoint(r.PathParams["uuid"], point)
 	if err != nil {
 		return nil, err
 	}
@@ -151,17 +153,23 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
+	pnt, err := (*m).(*Module).grpcMarshaller.GetPoint(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: Encode PointWriter (pw)
+	log.Infof("Point Address UUID >>>>>>> %s ", nstring.DerefString(pnt.AddressUUID))
 
 	// TODO: Encrypt the encoded data by using encrypter.Encrypt method
 
 	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
 
-	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
+	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(pnt.Point)
+	return json.Marshal(pointWriteResponse.Point)
 }
 
 func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {

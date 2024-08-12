@@ -70,16 +70,40 @@ func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
 	body.IoType = string(datatype.IOTypeRAW)
 	body.Name = strings.ToLower(body.Name)
 	if utils.IsWriteable(body.WriteMode) {
+		dev, err := m.grpcMarshaller.GetDevice(body.DeviceUUID)
+		if err != nil {
+			return nil, err
+		}
+		body.AddressUUID = dev.AddressUUID
 		body.EnableWriteable = boolean.NewTrue()
 		body.WritePollRequired = boolean.NewTrue()
 	} else {
-		body.EnableWriteable = boolean.NewFalse()
+		body = utils.ResetWriteableProperties(body)
 	}
 	point, err = m.grpcMarshaller.CreatePoint(body) // TODO: in older one after creating there is an update operation
 	if err != nil {
 		return nil, err
 	}
 	return point, nil
+}
+
+func (m *Module) updatePoint(uuid string, body *model.Point) (*model.Point, error) {
+	if utils.IsWriteable(body.WriteMode) {
+		dev, err := m.grpcMarshaller.GetDevice(body.DeviceUUID)
+		if err != nil {
+			return nil, err
+		}
+		body.AddressUUID = dev.AddressUUID
+		body.EnableWriteable = boolean.NewTrue()
+		body.WritePollRequired = boolean.NewTrue()
+	} else {
+		body = utils.ResetWriteableProperties(body)
+	}
+	pnt, err := m.grpcMarshaller.UpdatePoint(uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	return pnt, nil
 }
 
 func (m *Module) deletePoint(_ *model.Point) (success bool, err error) {

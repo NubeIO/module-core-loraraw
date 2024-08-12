@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"reflect"
 	"strconv"
 	"strings"
@@ -69,4 +71,14 @@ func IsWriteable(writeMode datatype.WriteMode) bool {
 	default:
 		return false
 	}
+}
+
+func ResetWriteableProperties(point *model.Point) *model.Point {
+	point.WriteValueOriginal = nil
+	point.WriteValue = nil
+	point.WritePriority = nil
+	point.CurrentPriority = nil
+	point.EnableWriteable = boolean.NewFalse()
+	point.WritePollRequired = boolean.NewFalse()
+	return point
 }
