@@ -40,9 +40,10 @@ func GetReflectFieldJSONName(field reflect.StructField) string {
 }
 
 func CheckLoRaRAWPayloadLength(data string) bool {
-	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
+	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 1 byte rssi | 1 byte snr
+	// NOTE CMAC is not sent when it's already decrypted by the driver
 	payloadLength := len(data) / 2
-	payloadLength -= 13
+	payloadLength -= 9
 	innerDataLength := GetLoRaRAWInnerPayloadLength(data)
 
 	// inner data length must be <= encrypted payload length due to AES padding for payload to be mod16

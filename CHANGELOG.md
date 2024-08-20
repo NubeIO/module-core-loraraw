@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.0-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.4) (2024-08-20)
+
+- Revert Account for CMAC difference in driver-lora (#36)
+
 ## [v1.1.0-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.3) (2024-08-07)
 
 - Account for CMAC difference in driver-lora (#36)

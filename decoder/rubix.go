@@ -359,24 +359,6 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 }
 
 func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
-	/*
-	 * Data Structure:
-	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length | Payload           | 4 bytes CMAC              | 1 bytes RSSI              |   1 bytes SNR           |
-	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	 * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
-	 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	 *
-	 * - 4 bytes address:              data[0:3]
-	 * - 1 byte opts:                  data[4]
-	 * - 1 byte nonce:                 data[5]
-	 * - 1 byte length field:          data[6]
-	 * - Payload:                      data[7:dataLen-6]
-	 * - CMAC:						   data[dataLen-6:dataLen-2]
-	 * - 1 bytes RSSI:                 data[dataLen-2:dataLen-1]
-	 * - 1 bytes SNR:                  data[dataLen-1:dataLen]
-	 */
-
 	var (
 		temperature float32
 		rh          float32
