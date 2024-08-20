@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"strconv"
+
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"strconv"
 )
 
 type TZHTPayloadType int
@@ -133,23 +134,17 @@ func getPayloadType(data string) TZHTPayloadType {
 }
 
 func CheckPayloadLengthZHT(data string) bool {
-	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 4 byte cmac | 1 byte rssi | 1 byte snr
-	dataLen := len(data)
-	payloadLength := dataLen / 2
-	payloadLength -= 13
-
-	dataLength := utils.GetLoRaRAWInnerPayloadLength(data)
-	onlyData := data[14:dataLength]
-	payloadType := getPayloadType(onlyData)
+	dataLength := len(data) / 2
+	payloadType := getPayloadType(data)
 
 	if getPacketVersion(data) == 1 {
-		return (payloadType == StaticData && dataLength == ZHTPlLenStaticV1 && payloadLength > ZHTPlLenStaticV1) ||
-			(payloadType == WriteData && dataLength == ZHTPlLenWriteV1 && payloadLength > ZHTPlLenWriteV1) ||
-			(payloadType == PollData && dataLength == ZHTPlLenPollV1 && payloadLength > ZHTPlLenPollV1)
+		return (payloadType == StaticData && dataLength == ZHTPlLenStaticV1) ||
+			(payloadType == WriteData && dataLength == ZHTPlLenWriteV1) ||
+			(payloadType == PollData && dataLength == ZHTPlLenPollV1)
 	} else if getPacketVersion(data) == 2 {
-		return (payloadType == StaticData && dataLength == ZHTPlLenStaticV2 && payloadLength > ZHTPlLenStaticV2) ||
-			(payloadType == WriteData && dataLength == ZHTPlLenWriteV2 && payloadLength > ZHTPlLenWriteV2) ||
-			(payloadType == PollData && dataLength == ZHTPlLenPollV2 && payloadLength > ZHTPlLenPollV2)
+		return (payloadType == StaticData && dataLength == ZHTPlLenStaticV2) ||
+			(payloadType == WriteData && dataLength == ZHTPlLenWriteV2) ||
+			(payloadType == PollData && dataLength == ZHTPlLenPollV2)
 	}
 	return false
 }

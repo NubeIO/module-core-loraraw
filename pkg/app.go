@@ -112,20 +112,38 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	if !devDesc.CheckLength(data) {
-		log.Errorln("invalid payload")
-		return
-	}
-
 	dataLen := len(data)
 	originalData := data
-	expectedMod := decoder.LoraRawHeaderLen + decoder.LoraRawCmacLen + decoder.RssiLen + decoder.SnrLen
+	expectedMod := decoder.LoraRawHeaderLen + decoder.RssiLen + decoder.SnrLen
 	if (dataLen/2)%16 == expectedMod {
+		/*
+		 * Data Structure:
+		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length | Payload           | 4 bytes CMAC              | 1 bytes RSSI              |   1 bytes SNR           |
+		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		 * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
+		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+		 *
+		 * - 4 bytes address:              data[0:3]
+		 * - 1 byte opts:                  data[4]
+		 * - 1 byte nonce:                 data[5]
+		 * - 1 byte length field:          data[6]
+		 * - Payload:                      data[7:dataLen-6]
+		 * - CMAC:						   data[dataLen-6:dataLen-2]
+		 * - 1 bytes RSSI:                 data[dataLen-2:dataLen-1]
+		 * - 1 bytes SNR:                  data[dataLen-1:dataLen]
+		 */
+
 		if !utils.CheckLoRaRAWPayloadLength(data) {
 			log.Errorln("LoRaRaw payload length mismatched")
 			return
 		}
 		data = utils.StripLoRaRAWPayload(data)
+	}
+
+	if !devDesc.CheckLength(data) {
+		log.Errorln("invalid payload")
+		return
 	}
 
 	err := decoder.DecodePayload(data, devDesc, device, m.updateDevicePoint)
