@@ -128,9 +128,22 @@ func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device
 	return nil
 }
 
+func getPayloadBytes(data string) ([]byte, error) {
+	bytes, err := hex.DecodeString(data[2:])
+	if err != nil {
+		return nil, err
+	}
+	return bytes, nil
+}
+
 func getPayloadType(data string) TZHTPayloadType {
 	plID, _ := strconv.ParseInt(data[:2], 16, 0)
 	return TZHTPayloadType(plID)
+}
+
+func getPacketVersion(data string) uint8 {
+	v, _ := strconv.ParseInt(data[2:4], 16, 0)
+	return uint8(v)
 }
 
 func CheckPayloadLengthZHT(data string) bool {
@@ -255,19 +268,6 @@ func GetZHTPointNames() []string {
 		),
 		tZipHydroTapPollFields...,
 	)
-}
-
-func getPayloadBytes(data string) ([]byte, error) {
-	bytes, err := hex.DecodeString(data[2:])
-	if err != nil {
-		return nil, err
-	}
-	return bytes, nil
-}
-
-func getPacketVersion(data string) uint8 {
-	v, _ := strconv.ParseInt(data[16:18], 16, 0)
-	return uint8(v)
 }
 
 func bytesToString(bytes []byte) string {

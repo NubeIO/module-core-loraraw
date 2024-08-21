@@ -18,6 +18,7 @@ type LoRaDeviceDescription struct {
 	CheckLength   func(data string) bool
 	Decode        func(data string, devDesc *LoRaDeviceDescription, device *model.Device, updateDevPntFnc UpdateDevicePointFunc) error
 	GetPointNames func() []string
+	IsLoRaRAW     bool
 }
 
 var NilLoRaDeviceDescription = LoRaDeviceDescription{
@@ -48,6 +49,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthME,
 		Decode:        DecodeME,
 		GetPointNames: GetMePointNames,
+		IsLoRaRAW:     false,
 	},
 	{
 		DeviceName:    "MicroEdge",
@@ -55,6 +57,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthME,
 		Decode:        DecodeME,
 		GetPointNames: GetMePointNames,
+		IsLoRaRAW:     false,
 	},
 	{
 		DeviceName:    "Droplet",
@@ -62,6 +65,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthDroplet,
 		Decode:        DecodeDropletTHLM,
 		GetPointNames: GetTHLMPointNames,
+		IsLoRaRAW:     false,
 	},
 	{
 		DeviceName:    "Droplet",
@@ -69,6 +73,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthDroplet,
 		Decode:        DecodeDropletTHL,
 		GetPointNames: GetTHLPointNames,
+		IsLoRaRAW:     false,
 	},
 	{
 		DeviceName:    "Droplet",
@@ -76,6 +81,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthDroplet,
 		Decode:        DecodeDropletTH,
 		GetPointNames: GetTHPointNames,
+		IsLoRaRAW:     false,
 	},
 	{
 		DeviceName:    "ZipHydroTap",
@@ -83,6 +89,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthZHT,
 		Decode:        DecodeZHT,
 		GetPointNames: GetZHTPointNames,
+		IsLoRaRAW:     true,
 	},
 	{
 		DeviceName:    "Rubix",
@@ -90,6 +97,7 @@ var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
 		CheckLength:   CheckPayloadLengthRubix,
 		Decode:        DecodeRubix,
 		GetPointNames: GetRubixPointNames,
+		IsLoRaRAW:     true,
 	},
 }
 

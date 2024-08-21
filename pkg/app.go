@@ -77,7 +77,7 @@ func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
 	return point, nil
 }
 
-func (m *Module) deletePoint(body *model.Point) (success bool, err error) {
+func (m *Module) deletePoint(_ *model.Point) (success bool, err error) {
 	// TODO: For now this db call has been removed, so that point deletes of lora points is not allowed by the user; can only be deleted by the whole device.
 	/*
 		success, err = m.db.DeletePoint(body.UUID)
@@ -106,16 +106,29 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	devDesc := decoder.GetDeviceDescription(device)
-	if devDesc == &decoder.NilLoRaDeviceDescription {
-		log.Errorln("nil device description found")
+	err := decodeData(data, device, m.updateDevicePoint)
+	if err != nil {
+		log.Errorf("decode error: %v\r\n", err)
 		return
 	}
 
-	dataLen := len(data)
-	originalData := data
-	expectedMod := decoder.LoraRawHeaderLen + decoder.RssiLen + decoder.SnrLen
-	if (dataLen/2)%16 == expectedMod {
+	rssi := decoder.DecodeRSSI(data)
+	snr := decoder.DecodeSNR(data)
+
+	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
+	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
+
+	m.updateDeviceFault(device.Model, device.UUID)
+}
+
+func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateDevicePointFunc) error {
+	devDesc := decoder.GetDeviceDescription(device)
+	if devDesc == &decoder.NilLoRaDeviceDescription {
+		log.Errorln("nil device description found")
+		return errors.New("no device description found")
+	}
+
+	if devDesc.IsLoRaRAW {
 		/*
 		 * Data Structure:
 		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -123,42 +136,20 @@ func (m *Module) handleSerialPayload(data string) {
 		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 		 * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
 		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		 *
-		 * - 4 bytes address:              data[0:3]
-		 * - 1 byte opts:                  data[4]
-		 * - 1 byte nonce:                 data[5]
-		 * - 1 byte length field:          data[6]
-		 * - Payload:                      data[7:dataLen-6]
-		 * - CMAC:						   data[dataLen-6:dataLen-2]
-		 * - 1 bytes RSSI:                 data[dataLen-2:dataLen-1]
-		 * - 1 bytes SNR:                  data[dataLen-1:dataLen]
 		 */
 
 		if !utils.CheckLoRaRAWPayloadLength(data) {
-			log.Errorln("LoRaRaw payload length mismatched")
-			return
+			return errors.New("LoRaRaw payload length mismatched")
 		}
 		data = utils.StripLoRaRAWPayload(data)
 	}
 
 	if !devDesc.CheckLength(data) {
-		log.Errorln("invalid payload")
-		return
+		return errors.New("invalid payload length")
 	}
 
-	err := decoder.DecodePayload(data, devDesc, device, m.updateDevicePoint)
-	if err != nil {
-		log.Errorf(err.Error())
-		return
-	}
-
-	rssi := decoder.DecodeRSSI(originalData)
-	snr := decoder.DecodeSNR(originalData)
-
-	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
-	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
-
-	m.updateDeviceFault(devDesc.Model, device.UUID)
+	err := decoder.DecodePayload(data, devDesc, device, updatePointFn)
+	return err
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
