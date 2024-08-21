@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"github.com/NubeIO/lib-utils-go/nstring"
 	"strconv"
 
 	"github.com/NubeIO/module-core-loraraw/utils"
@@ -105,18 +106,16 @@ const (
 	PollData
 )
 
-func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc,
+	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc) error {
 	bytes, err := getPayloadBytes(data)
 	if err != nil {
 		return err
 	}
 
 	switch pl := getPayloadType(data); pl {
-	// TODO: This should be meta data when it gets supported
-	// case StaticData:
-	//     payload := staticPayloadDecoder(bytes)
-	//     payloadFull := TZipHydrotapStaticFull{TZipHydrotapStatic: payload}
-	//     return &payloadFull.CommonValues, payloadFull
+	case StaticData:
+		return staticPayloadDecoder(bytes, device, updateDeviceMetaTagsFn)
 	case WriteData:
 		err := writePayloadDecoder(bytes, device, updatePointFn)
 		return err
@@ -286,65 +285,87 @@ func bytesToDate(bytes []byte) string {
 }
 
 // No usages of staticPayloadDecoder method
-// func staticPayloadDecoder(data []byte, device *model.Device) error {
-// 	index := 1
-// 	fwMa := data[index]
-// 	index += 1
-// 	fwMi := data[index]
-// 	index += 1
-// 	buildMa := data[index]
-// 	index += 1
-// 	buildMi := data[index]
-// 	index += 1
-// 	sn := bytesToString(data[index : index+15])
-// 	index += 15
-// 	mn := bytesToString(data[index : index+20])
-// 	index += 20
-// 	pn := bytesToString(data[index : index+20])
-// 	index += 20
-// 	fw := bytesToString(data[index : index+20])
-// 	index += 20
-// 	calDate := bytesToDate(data[index : index+3])
-// 	index += 3
-// 	f50lDate := bytesToDate(data[index : index+3])
-// 	index += 3
-// 	filtLogDateInt := bytesToDate(data[index : index+3])
-// 	index += 3
-// 	filtLogLitresInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-// 	index += 2
-// 	filtLogDateExt := bytesToDate(data[index : index+3])
-// 	index += 3
-// 	filtLogLitresExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
-// 	index += 2
-//
-// 	filtLogDateUV := ""
-// 	filtLogLitresUV := 0
-// 	if data[0] >= 2 {
-// 		filtLogDateUV = bytesToDate(data[index : index+3])
-// 		index += 3
-// 		filtLogLitresUV = int(binary.LittleEndian.Uint16(data[index : index+2]))
-// 		index += 2
-// 	}
-//
-// 	_ = updatePointFn("lora_firmware_major", float64(fwMa), device)
-// 	_ = updatePointFn("lora_firmware_minor", float64(fwMi), device)
-// 	_ = updatePointFn("lora_build_major", float64(buildMa), device)
-// 	_ = updatePointFn("lora_build_minor", float64(buildMi), device)
-// 	_ = updatePointFn("serial_number", sn, device)
-// 	_ = updatePointFn("model_number", mn, device)
-// 	_ = updatePointFn("product_number", pn, device)
-// 	_ = updatePointFn("firmware_version", fw, device)
-// 	_ = updatePointFn("calibration_date", calDate, device)
-// 	_ = updatePointFn("first_50_litres_data", f50lDate, device)
-// 	_ = updatePointFn("filter_log_date_internal", filtLogDateInt, device)
-// 	_ = updatePointFn("filter_log_litres_internal", filtLogLitresInt, device)
-// 	_ = updatePointFn("filter_log_date_external", filtLogDateExt, device)
-// 	_ = updatePointFn("filter_log_litres_external", filtLogLitresExt, device)
-// 	_ = updatePointFn("filter_log_date_uv", filtLogDateUV, device)
-// 	_ = updatePointFn("filter_log_litres_uv", filtLogLitresUV, device)
-//
-// 	return nil
-// }
+func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc) error {
+	index := 1
+	fwMa := data[index]
+	index += 1
+	fwMi := data[index]
+	index += 1
+	buildMa := data[index]
+	index += 1
+	buildMi := data[index]
+	index += 1
+	sn := bytesToString(data[index : index+15])
+	index += 15
+	mn := bytesToString(data[index : index+20])
+	index += 20
+	pn := bytesToString(data[index : index+20])
+	index += 20
+	fw := bytesToString(data[index : index+20])
+	index += 20
+	calDate := bytesToDate(data[index : index+3])
+	index += 3
+	f50lDate := bytesToDate(data[index : index+3])
+	index += 3
+	filtLogDateInt := bytesToDate(data[index : index+3])
+	index += 3
+	filtLogLitresInt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	index += 2
+	filtLogDateExt := bytesToDate(data[index : index+3])
+	index += 3
+	filtLogLitresExt := int(binary.LittleEndian.Uint16(data[index : index+2]))
+	index += 2
+
+	filtLogDateUV := ""
+	filtLogLitresUV := 0
+	if data[0] >= 2 {
+		filtLogDateUV = bytesToDate(data[index : index+3])
+		index += 3
+		filtLogLitresUV = int(binary.LittleEndian.Uint16(data[index : index+2]))
+		index += 2
+	}
+
+	addressUUID := nstring.DerefString(device.AddressUUID)
+	var modbusAddress int64
+	if len(addressUUID) >= 4 {
+		modbusAddress, _ = strconv.ParseInt(addressUUID[2:4], 16, 0)
+	}
+
+	metaTags := map[string]string{
+		"lora_firmware_major":        string(fwMa),
+		"lora_firmware_minor":        string(fwMi),
+		"lora_build_major":           string(buildMa),
+		"lora_build_minor":           string(buildMi),
+		"serial_number":              sn,
+		"model_number":               mn,
+		"product_number":             pn,
+		"firmware_version":           fw,
+		"calibration_date":           calDate,
+		"first_50_litres_data":       f50lDate,
+		"filter_log_date_internal":   filtLogDateInt,
+		"filter_log_litres_internal": strconv.Itoa(filtLogLitresInt),
+		"filter_log_date_external":   filtLogDateExt,
+		"filter_log_litres_external": strconv.Itoa(filtLogLitresExt),
+		"filter_log_date_uv":         filtLogDateUV,
+		"filter_log_litres_uv":       strconv.Itoa(filtLogLitresUV),
+		"modbus_address":             strconv.FormatInt(modbusAddress, 10),
+	}
+
+	for k, v := range metaTags {
+		for _, metaTag := range device.MetaTags {
+			if k == metaTag.Key {
+				metaTag.Value = v
+				continue
+			}
+		}
+		device.MetaTags = append(device.MetaTags, &model.DeviceMetaTag{
+			DeviceUUID: device.UUID,
+			Key:        k,
+			Value:      v,
+		})
+	}
+	return updateDeviceMetaTagsFn(device.UUID, device.MetaTags)
+}
 
 func writePayloadDecoder(data []byte, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
 	index := 1

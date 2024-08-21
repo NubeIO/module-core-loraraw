@@ -31,8 +31,9 @@ func GetCommonValueNames() []string {
 	}
 }
 
-func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device, fn UpdateDevicePointFunc) error {
-	err := devDesc.Decode(data, devDesc, device, fn)
+func DecodePayload(data string, devDesc *LoRaDeviceDescription, device *model.Device, fn UpdateDevicePointFunc,
+	mtFn UpdateDeviceMetaTagsFunc) error {
+	err := devDesc.Decode(data, devDesc, device, fn, mtFn)
 	return err
 }
 

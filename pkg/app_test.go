@@ -36,7 +36,7 @@ func runTests(tests []TestStruct, mockDevice *model.Device, t *testing.T) {
 		t.Run(tt.Name, func(t *testing.T) {
 			currTest = &tt
 			currIndex = 0
-			err := decodeData(tt.Data, mockDevice, updateDevicePointMock)
+			err := decodeData(tt.Data, mockDevice, updateDevicePointMock, updateDeviceMetaTagsMock)
 			if err != nil {
 				test.Logf("FAILED decodeData(): %v", err)
 				test.Fail()
@@ -60,6 +60,10 @@ func updateDevicePointMock(name string, value float64, device *model.Device) err
 		test.Fail()
 	}
 	currIndex++
+	return nil
+}
+
+func updateDeviceMetaTagsMock(uuid string, metaTags []*model.DeviceMetaTag) error {
 	return nil
 }
 

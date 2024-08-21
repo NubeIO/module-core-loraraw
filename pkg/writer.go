@@ -87,3 +87,12 @@ func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel s
 	}
 	return err
 }
+
+func (m *Module) updateDeviceMetaTags(uuid string, metaTags []*model.DeviceMetaTag) error {
+	err := m.grpcMarshaller.UpsertDeviceMetaTags(uuid, metaTags, nil)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
+}
