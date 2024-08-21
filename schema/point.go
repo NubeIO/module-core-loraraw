@@ -15,12 +15,12 @@ type PointSchema struct {
 
 	AddressId struct {
 		Type        string `json:"type" default:"number"`
-		Title       string `json:"title" default:"Point Id"`
+		Title       string `json:"title" default:"Point ID"`
 		Default     int    `json:"default" default:"1"`
 		Minimum     int    `json:"minimum" default:"1"`
-		Maximim     int    `json:"maximum" default:"9999"`
+		Maximum     int    `json:"maximum" default:"256"`
 		ReadOnly    bool   `json:"readOnly" default:"false"`
-		Description string `json:"description" default:"Decimal format: 1-9999"`
+		Description string `json:"description" default:"Decimal format: 1-256"`
 	} `json:"address_id"`
 	DataType  DataType         `json:"data_type"`
 	WriteMode schema.WriteMode `json:"write_mode"`

@@ -13,14 +13,14 @@ import (
 type Config struct {
 	ReIterationTime time.Duration `yaml:"re_iteration_time"`
 	LogLevel        string        `yaml:"log_level"`
-	Secret          string        `yaml:"secret" type:"secret"`
+	DefaultKey      string        `yaml:"default_key" type:"secret"`
 }
 
 func (m *Module) DefaultConfig() *Config {
 	return &Config{
 		ReIterationTime: 5 * time.Second,
 		LogLevel:        "ERROR",
-		Secret:          "5f5f5f544f505f5345435245545f5f5f",
+		DefaultKey:      "5f5f5f544f505f5345435245545f5f5f",
 	}
 }
 
@@ -35,7 +35,7 @@ func (m *Module) ValidateAndSetConfig(config []byte) ([]byte, error) {
 	logger.SetLogger(logLevel)
 	newConfig.LogLevel = strings.ToUpper(logLevel.String())
 
-	keyBytes, err := hex.DecodeString(newConfig.Secret)
+	keyBytes, err := hex.DecodeString(newConfig.DefaultKey)
 	if err != nil {
 		return nil, err
 	}
