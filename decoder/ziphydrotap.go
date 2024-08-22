@@ -287,13 +287,13 @@ func bytesToDate(bytes []byte) string {
 // No usages of staticPayloadDecoder method
 func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc) error {
 	index := 1
-	fwMa := data[index]
+	fwMa := int(data[index])
 	index += 1
-	fwMi := data[index]
+	fwMi := int(data[index])
 	index += 1
-	buildMa := data[index]
+	buildMa := int(data[index])
 	index += 1
-	buildMi := data[index]
+	buildMi := int(data[index])
 	index += 1
 	sn := bytesToString(data[index : index+15])
 	index += 15
@@ -328,14 +328,14 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 	addressUUID := nstring.DerefString(device.AddressUUID)
 	var modbusAddress int64
 	if len(addressUUID) >= 4 {
-		modbusAddress, _ = strconv.ParseInt(addressUUID[2:4], 16, 0)
+		modbusAddress, _ = strconv.ParseInt(addressUUID[4:6], 16, 0)
 	}
 
 	metaTags := map[string]string{
-		"lora_firmware_major":        string(fwMa),
-		"lora_firmware_minor":        string(fwMi),
-		"lora_build_major":           string(buildMa),
-		"lora_build_minor":           string(buildMi),
+		"lora_firmware_major":        strconv.Itoa(fwMa),
+		"lora_firmware_minor":        strconv.Itoa(fwMi),
+		"lora_build_major":           strconv.Itoa(buildMa),
+		"lora_build_minor":           strconv.Itoa(buildMi),
 		"serial_number":              sn,
 		"model_number":               mn,
 		"product_number":             pn,
@@ -348,7 +348,7 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 		"filter_log_litres_external": strconv.Itoa(filtLogLitresExt),
 		"filter_log_date_uv":         filtLogDateUV,
 		"filter_log_litres_uv":       strconv.Itoa(filtLogLitresUV),
-		"modbus_address":             strconv.FormatInt(modbusAddress, 10),
+		"modbus_address":             strconv.Itoa(int(modbusAddress)),
 	}
 
 	for k, v := range metaTags {
