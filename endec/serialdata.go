@@ -1,4 +1,4 @@
-package decoder
+package endec
 
 type SerialData struct {
 	Buffer      []byte

@@ -10,7 +10,7 @@ import (
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
-	"github.com/NubeIO/module-core-loraraw/decoder"
+	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -122,15 +122,15 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	if !decoder.ValidPayload(data) {
+	if !endec.ValidPayload(data) {
 		return
 	}
 
 	log.Debugf("uplink: %s", data)
-	device := m.getDeviceByLoRaAddress(decoder.DecodeAddress(data))
+	device := m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
 	if device == nil {
-		id := decoder.DecodeAddress(data) // show user messages from lora
-		rssi := decoder.DecodeRSSI(data)
+		id := endec.DecodeAddress(data) // show user messages from lora
+		rssi := endec.DecodeRSSI(data)
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
@@ -141,18 +141,18 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	rssi := decoder.DecodeRSSI(data)
-	snr := decoder.DecodeSNR(data)
+	rssi := endec.DecodeRSSI(data)
+	snr := endec.DecodeSNR(data)
 
-	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
-	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
+	_ = m.updateDevicePoint(endec.RssiField, float64(rssi), device)
+	_ = m.updateDevicePoint(endec.SnrField, float64(snr), device)
 
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateDevicePointFunc) error {
-	devDesc := decoder.GetDeviceDescription(device)
-	if devDesc == &decoder.NilLoRaDeviceDescription {
+func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc) error {
+	devDesc := endec.GetDeviceDescription(device)
+	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
 		return errors.New("no device description found")
 	}
@@ -177,7 +177,7 @@ func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateD
 		return errors.New("invalid payload length")
 	}
 
-	err := decoder.DecodePayload(data, devDesc, device, updatePointFn)
+	err := endec.DecodePayload(data, devDesc, device, updatePointFn)
 	return err
 }
 
@@ -204,7 +204,7 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 		return errors.New(errMsg)
 	}
 
-	points := decoder.GetDevicePointNames(deviceBody)
+	points := endec.GetDevicePointNames(deviceBody)
 	// TODO: should check this before the device is even added in the wizard
 	if len(points) == 0 {
 		log.Errorf("addDevicePoints() incorrect device model, try THLM %s", err)
@@ -230,7 +230,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 	for i := 0; i < pointsRefl.NumField(); i++ {
 		field := pointsRefl.Field(i)
 		if field.Kind() == reflect.Struct {
-			if _, ok := field.Interface().(decoder.CommonValues); !ok {
+			if _, ok := field.Interface().(endec.CommonValues); !ok {
 				m.addPointsFromStruct(deviceBody, pointsRefl.Field(i), postfix)
 			}
 			continue

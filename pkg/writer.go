@@ -2,7 +2,7 @@ package pkg
 
 import (
 	"github.com/NubeIO/lib-utils-go/boolean"
-	"github.com/NubeIO/module-core-loraraw/decoder"
+	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -73,7 +73,7 @@ func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name st
 
 func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
-		value = decoder.MicroEdgePointType(pnt.IoType, value, deviceModel)
+		value = endec.MicroEdgePointType(pnt.IoType, value, deviceModel)
 	}
 	priority := map[string]*float64{"_16": &value}
 	pointWriter := dto.PointWriter{

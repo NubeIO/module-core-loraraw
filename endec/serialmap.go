@@ -1,4 +1,4 @@
-package decoder
+package endec
 
 const HEADER_BIT_COUNT = 6
 

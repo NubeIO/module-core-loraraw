@@ -1,4 +1,4 @@
-package decoder
+package endec
 
 import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
