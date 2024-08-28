@@ -161,7 +161,7 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	// TODO: Encode PointWriter (pw)
 	log.Infof("Point Address UUID >>>>>>> %s ", nstring.DerefString(pnt.AddressUUID))
 
-	// TODO: Encrypt the encoded data by using encrypter.Encrypt method
+	// TODO: Encrypt the encoded data by using aesutils.Encrypt method
 
 	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
 

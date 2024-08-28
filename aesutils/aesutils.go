@@ -1,10 +1,17 @@
-package encrypter
+package aesutils
 
 import (
+	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/hex"
+	"errors"
 	"github.com/chmike/cmac-go"
+)
+
+const (
+	LoraRawCmacLen   = 4
+	LoraRawHeaderLen = 4
 )
 
 var nonce byte = 0
@@ -46,6 +53,30 @@ func Encrypt(address string, data, key []byte, opts byte) ([]byte, error) {
 	encryptedData = append(encryptedData, mac...)
 
 	return encryptedData, nil
+}
+
+func Decrypt(data, key []byte) ([]byte, error) {
+	// Check CMAC
+	cm := data[len(data)-LoraRawCmacLen:]
+	cmacTest, err := prepareCMAC(data[:len(data)-LoraRawCmacLen], key)
+	if !bytes.Equal(cm, cmacTest) {
+		return nil, errors.New("incorrect CMAC or Key")
+	}
+
+	// Decrypt
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	decrypted := make([]byte, len(data)-LoraRawHeaderLen-LoraRawCmacLen)
+	mode.CryptBlocks(decrypted, data[LoraRawHeaderLen:len(data)-LoraRawCmacLen])
+
+	// Append header and CMAC
+	result := append(data[:LoraRawHeaderLen], decrypted...)
+	result = append(result, cm...)
+	return result, nil
 }
 
 func prepareCMAC(data, key []byte) ([]byte, error) {
