@@ -47,6 +47,7 @@ const (
 	MDK_FLOAT            = 40
 	MDK_DOUBLE           = 41
 	MDK_STRING           = 42
+	MDK_ERROR            = 43
 )
 
 const (

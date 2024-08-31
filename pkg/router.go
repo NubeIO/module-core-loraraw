@@ -2,16 +2,18 @@ package pkg
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
 	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var route *router.Router
@@ -159,11 +161,48 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	}
 
 	// TODO: Encode PointWriter (pw)
+	serialData := endec.NewSerialData()
+	endec.SetPositionalData(serialData, true)
+	endec.SetRequestData(serialData, true)
+	msgId, _ := endec.GenerateRandomId()
+	endec.SetMessageId(serialData, msgId)
+	endec.UpdateBitPositionsForHeaderByte(serialData)
+
 	log.Infof("Point Address UUID >>>>>>> %s ", nstring.DerefString(pnt.AddressUUID))
 
-	// TODO: Encrypt the encoded data by using aesutils.Encrypt method
+	// If the PointWriter struct has fields, you can also print them individually
+	// Assuming pw has fields like `Name` and `Value`
+	for _, value := range *pw.Priority {
+		if value != nil {
+			floatValue := *value
+			if pnt.Name == "operation" {
+				endec.EncodeData(serialData, floatValue, endec.MDK_BOOL, 1)
+			} else if pnt.Name == "mode" {
+				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 2)
+			} else if pnt.Name == "cool temperature" {
+				endec.EncodeData(serialData, floatValue, endec.MDK_TEMP, 3)
+			} else if pnt.Name == "heat temperature" {
+				endec.EncodeData(serialData, floatValue, endec.MDK_TEMP, 4)
+			} else if pnt.Name == "fan speed" {
+				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 5)
+			} else if pnt.Name == "vertical position" {
+				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 6)
+			} else if pnt.Name == "horizontal position" {
 
+			}
+		}
+	}
+
+	// TODO: Encrypt the encoded data by using aesutils.Encrypt method
+	// aesutils.Encrypt()
 	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
+	err = (*m).(*Module).WriteToLoRaRaw(serialData.Buffer)
+
+	if err != nil {
+		log.Infof("Error writing to LoRa: %v\n", err)
+	} else {
+		log.Infof("Data sent successfully")
+	}
 
 	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {

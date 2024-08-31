@@ -44,6 +44,7 @@ const (
 	Int64Field          = "int_64"
 	FloatField          = "float"
 	DoubleField         = "double"
+	ErrorField          = "error"
 )
 
 func canDecode(serialData *SerialData) bool {
@@ -51,7 +52,7 @@ func canDecode(serialData *SerialData) bool {
 }
 
 func getHeader(serialData *SerialData, position *uint8) MetaDataKey {
-	if hasPositionalData(serialData) {
+	if HasPositionalData(serialData) {
 		positionVector, shiftPos, bytesRequired := getVector(serialData, 8, serialData.ReadBitPos)
 		*position = uint8(vectorToBits(positionVector, 8, shiftPos, bytesRequired))
 	}
@@ -173,6 +174,7 @@ func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) er
 			} else {
 				return fmt.Errorf("invalid type for MDK_UINT_16: %T", data)
 			}
+
 		case MDK_INT_16:
 			if v, ok := data.(*int16); ok {
 				*v = int16(dataBits)
@@ -223,6 +225,21 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	if !hasPosition {
 		*pos++
 	}
+	if *pos == 1 {
+		return "Operation"
+	} else if *pos == 2 {
+		return "Mode"
+	} else if *pos == 3 {
+		return "Cool Temperature"
+	} else if *pos == 4 {
+		return "Heat Temperature"
+	} else if *pos == 5 {
+		return "Fan Speed"
+	} else if *pos == 6 {
+		return "Vertical Position"
+	} else if *pos == 7 {
+		return "Horizontal Position"
+	}
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 
@@ -258,6 +275,7 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		char        byte
 		fl1         float32
 		b1          float32
+		error       uint16
 	)
 
 	dataBytes, err := hex.DecodeString(data)
@@ -268,8 +286,12 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 
 	serialData := NewSerialDataWithBuffer(dataBytes)
 
-	hasPos := hasPositionalData(serialData)
+	hasPos := HasPositionalData(serialData)
 	var position uint8 = 0
+	if HasRequestData(serialData) || HasResponseData(serialData) {
+		UpdateBitPositionsForHeaderByte(serialData)
+	}
+
 	for canDecode(serialData) {
 		header := getHeader(serialData, &position)
 		switch header {
@@ -363,6 +385,9 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		case MDK_BOOL:
 			decodeData(serialData, header, &b1)
 			_ = updatePointFn(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+		case MDK_ERROR:
+			decodeData(serialData, header, &error)
+			_ = updatePointFn(generateFieldName(ErrorField, hasPos, &position), float64(error), device)
 		case 0:
 			log.Debug("reached end of data with some bits left over")
 		default:

@@ -1,5 +1,9 @@
 package endec
 
+import (
+	"math/rand"
+)
+
 type SerialData struct {
 	Buffer      []byte
 	ReadBitPos  int
@@ -30,16 +34,55 @@ func NewSerialDataWithBuffer(buffer []byte) *SerialData {
 	}
 }
 
-func setPositionalData(serialData *SerialData, set bool) {
-	if set {
-		// Set the first bit in the first byte to 1
-		serialData.Buffer[0] |= 0x01
-	} else {
-		// Set the first bit in the first byte to 0
-		serialData.Buffer[0] &^= 0x01
+func BIT_SET(byteValue byte, bit bool, position uint8) byte {
+	if bit {
+		return byteValue | (1 << position)
+	}
+	return byteValue &^ (1 << position)
+}
+
+func SetPositionalData(serialData *SerialData, set bool) {
+	serialData.Buffer[0] = BIT_SET(serialData.Buffer[0], set, 0)
+}
+
+func HasPositionalData(serialData *SerialData) bool {
+	return serialData.Buffer[0]&1 == 1
+}
+
+func SetRequestData(serialData *SerialData, set bool) {
+	serialData.Buffer[0] = BIT_SET(serialData.Buffer[0], set, 1)
+}
+
+func HasRequestData(serialData *SerialData) bool {
+	return serialData.Buffer[0]&2 != 0
+}
+
+func SetResponseData(serialData *SerialData, set bool) {
+	serialData.Buffer[0] = BIT_SET(serialData.Buffer[0], set, 2)
+}
+
+func HasResponseData(serialData *SerialData) bool {
+	return serialData.Buffer[0]&4 != 0
+}
+
+func UpdateBitPositionsForHeaderByte(serialData *SerialData) {
+	if HasRequestData(serialData) || HasResponseData(serialData) {
+		serialData.ReadBitPos += 8 // 8 bits for message ID
 	}
 }
 
-func hasPositionalData(serialData *SerialData) bool {
-	return serialData.Buffer[0]&1 == 1
+func SetMessageId(serialData *SerialData, id uint8) {
+	if HasRequestData(serialData) || HasResponseData(serialData) {
+		serialData.Buffer = append(serialData.Buffer, id)
+	}
+}
+
+func GenerateRandomId() (uint8, error) {
+	// Create a new Rand instance with a seed
+	var b [1]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+	return b[0], nil
 }
