@@ -27,7 +27,7 @@ type DeviceSchema struct {
 	AddressUUID   schema.AddressUUID              `json:"address_uuid"`
 	Model         schema.Model                    `json:"model"`
 	HistoryEnable schema.HistoryEnableDefaultTrue `json:"history_enable"`
-	DeviceKey     DeviceKey                       `json:"device_key" type:"secret"` // TODO: Write to DB
+	DeviceKey     DeviceKey                       `json:"device_key" type:"secret"`
 }
 
 func GetDeviceSchema() *DeviceSchema {
