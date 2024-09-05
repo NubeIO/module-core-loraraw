@@ -1,8 +1,10 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"reflect"
 	"strings"
 	"sync"
@@ -135,6 +137,23 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
+	if !m.config.DecryptionDisabled {
+		hexKey := m.config.DefaultKey
+		if device.Manufacture != "" {
+			hexKey = device.Manufacture // Manufacture property from device model holds hex key
+		}
+		byteKey, err := hex.DecodeString(hexKey)
+		if err != nil {
+			log.Errorf("error decoding device key: %s", err)
+			return
+		}
+		data, err = decryptData(data, byteKey)
+		if err != nil {
+			log.Errorf("error decrypting data: %s", err)
+			return
+		}
+	}
+
 	err := decodeData(data, device, m.updateDevicePoint)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
@@ -148,6 +167,18 @@ func (m *Module) handleSerialPayload(data string) {
 	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
 
 	m.updateDeviceFault(device.Model, device.UUID)
+}
+
+func decryptData(data string, key []byte) (string, error) {
+	byteData, err := hex.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	decryptedData, err := aesutils.Decrypt(byteData, key)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(decryptedData), nil
 }
 
 func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateDevicePointFunc) error {
