@@ -79,6 +79,24 @@ func Decrypt(data, key []byte) ([]byte, error) {
 	return result, nil
 }
 
+func DecryptLegacy(data, key []byte) ([]byte, error) {
+	// Decrypt
+	if len(data) < 16 {
+		return nil, errors.New("invalid data length for DecryptLegacy")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	decLength := len(data) - (len(data) % 16)
+	decrypted := make([]byte, decLength)
+	mode.CryptBlocks(decrypted, data[:decLength])
+	decrypted = append(decrypted, data[decLength:]...)
+	return decrypted, nil
+}
+
 func prepareCMAC(data, key []byte) ([]byte, error) {
 	// Create a new CMAC object with the given key and AES block size
 	cm, err := cmac.New(aes.NewCipher, key)
