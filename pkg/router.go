@@ -3,6 +3,7 @@ package pkg
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -151,6 +152,13 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(pnt)
 }
 
+func SafeDereferenceUint8(ptr *int) (uint8, error) {
+	if ptr == nil {
+		return 0, errors.New("attempting to dereference a nil uint8 pointer")
+	}
+	return uint8(*ptr), nil
+}
+
 func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var pw *dto.PointWriter
 	err := json.Unmarshal(r.Body, &pw)
@@ -181,24 +189,28 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
+			addressID, err := SafeDereferenceUint8(pnt.AddressID)
+			if err != nil {
+				return nil, err
+			}
 			if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_8 {
-				endec.EncodeData(serialData, uint8(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, uint8(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_16 {
-				endec.EncodeData(serialData, uint16(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, uint16(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_32 {
-				endec.EncodeData(serialData, uint32(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, uint32(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_64 {
-				endec.EncodeData(serialData, uint64(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, uint64(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_8 {
-				endec.EncodeData(serialData, int8(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, int8(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_16 {
-				endec.EncodeData(serialData, int16(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, int16(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_32 {
-				endec.EncodeData(serialData, int32(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, int32(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_64 {
-				endec.EncodeData(serialData, int64(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, int64(floatValue), endec.MetaDataKey(pointDataType), addressID)
 			} else {
-				endec.EncodeData(serialData, floatValue, endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+				endec.EncodeData(serialData, floatValue, endec.MetaDataKey(pointDataType), addressID)
 			}
 		}
 	}
