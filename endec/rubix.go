@@ -225,21 +225,6 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	if !hasPosition {
 		*pos++
 	}
-	if *pos == 1 {
-		return "Operation"
-	} else if *pos == 2 {
-		return "Mode"
-	} else if *pos == 3 {
-		return "Cool Temperature"
-	} else if *pos == 4 {
-		return "Heat Temperature"
-	} else if *pos == 5 {
-		return "Fan Speed"
-	} else if *pos == 6 {
-		return "Vertical Position"
-	} else if *pos == 7 {
-		return "Horizontal Position"
-	}
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 

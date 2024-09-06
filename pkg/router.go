@@ -1,13 +1,16 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
 	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
@@ -160,7 +163,6 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	// TODO: Encode PointWriter (pw)
 	serialData := endec.NewSerialData()
 	endec.SetPositionalData(serialData, true)
 	endec.SetRequestData(serialData, true)
@@ -175,33 +177,54 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	for _, value := range *pw.Priority {
 		if value != nil {
 			floatValue := *value
-			if pnt.Name == "operation" {
-				endec.EncodeData(serialData, floatValue, endec.MDK_BOOL, 1)
-			} else if pnt.Name == "mode" {
-				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 2)
-			} else if pnt.Name == "cool temperature" {
-				endec.EncodeData(serialData, floatValue, endec.MDK_TEMP, 3)
-			} else if pnt.Name == "heat temperature" {
-				endec.EncodeData(serialData, floatValue, endec.MDK_TEMP, 4)
-			} else if pnt.Name == "fan speed" {
-				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 5)
-			} else if pnt.Name == "vertical position" {
-				endec.EncodeData(serialData, uint8(floatValue), endec.MDK_UINT_8, 6)
-			} else if pnt.Name == "horizontal position" {
-
+			pointDataType, err := strconv.Atoi(pnt.DataType) // As DataType is store as string
+			if err != nil {
+				return nil, err
+			}
+			if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_8 {
+				endec.EncodeData(serialData, uint8(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_16 {
+				endec.EncodeData(serialData, uint16(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_32 {
+				endec.EncodeData(serialData, uint32(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_64 {
+				endec.EncodeData(serialData, uint64(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_8 {
+				endec.EncodeData(serialData, int8(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_16 {
+				endec.EncodeData(serialData, int16(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_32 {
+				endec.EncodeData(serialData, int32(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_64 {
+				endec.EncodeData(serialData, int64(floatValue), endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
+			} else {
+				endec.EncodeData(serialData, floatValue, endec.MetaDataKey(pointDataType), uint8(*pnt.AddressID))
 			}
 		}
 	}
 
-	// TODO: Encrypt the encoded data by using aesutils.Encrypt method
-	// aesutils.Encrypt()
-	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
-	err = (*m).(*Module).WriteToLoRaRaw(serialData.Buffer)
+	device, err := (*m).(*Module).grpcMarshaller.GetDevice(pnt.DeviceUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := hex.DecodeString(device.Manufacture)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encrypt the encoded data by using aesutils.Encrypt method
+	encryptedData, err := aesutils.Encrypt(
+		nstring.DerefString(pnt.AddressUUID),
+		serialData.Buffer,
+		key,
+		0,
+	)
+
+	err = (*m).(*Module).WriteToLoRaRaw(encryptedData)
 
 	if err != nil {
 		log.Infof("Error writing to LoRa: %v\n", err)
-	} else {
-		log.Infof("Data sent successfully")
 	}
 
 	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
