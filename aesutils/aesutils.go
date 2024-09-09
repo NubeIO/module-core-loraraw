@@ -6,7 +6,8 @@ import (
 	"crypto/cipher"
 	"encoding/hex"
 	"errors"
-	"github.com/chmike/cmac-go"
+
+	"github.com/enceve/crypto/cmac"
 )
 
 const (
@@ -98,16 +99,23 @@ func DecryptLegacy(data, key []byte) ([]byte, error) {
 }
 
 func prepareCMAC(data, key []byte) ([]byte, error) {
-	// Create a new CMAC object with the given key and AES block size
-	cm, err := cmac.New(aes.NewCipher, key)
+	// Create AES cipher
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
-	cm.Write(data[:16])
-	cm.Write(data[4:])
+	// Create CMAC object
+	cmacObj, err := cmac.New(block)
+	if err != nil {
+		return nil, err
+	}
 
-	mac := cm.Sum(nil)
+	// Update CMAC with parts of the data
+	cmacObj.Write(data[:16])
+	cmacObj.Write(data[4:])
 
-	return mac, nil
+	// Compute MAC and return the first 4 bytes (MAC length of 4 bytes)
+	mac := cmacObj.Sum(nil)
+	return mac[:4], nil
 }
