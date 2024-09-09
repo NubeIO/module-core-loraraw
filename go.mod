@@ -27,6 +27,7 @@ require (
 	github.com/NubeIO/lib-system v0.0.3 // indirect
 	github.com/NubeIO/lib-systemctl-go v0.3.1 // indirect
 	github.com/creack/goselect v0.1.2 // indirect
+	github.com/enceve/crypto v0.0.0-20160707101852-34d48bb93815 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

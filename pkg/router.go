@@ -1,17 +1,23 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"strconv"
+
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
 	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/aesutils"
+	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
-	"net/http"
 )
 
 var route *router.Router
@@ -146,6 +152,13 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(pnt)
 }
 
+func SafeDereferenceUint8(ptr *int) (uint8, error) {
+	if ptr == nil {
+		return 0, errors.New("attempting to dereference a nil uint8 pointer")
+	}
+	return uint8(*ptr), nil
+}
+
 func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var pw *dto.PointWriter
 	err := json.Unmarshal(r.Body, &pw)
@@ -158,12 +171,73 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	// TODO: Encode PointWriter (pw)
+	serialData := endec.NewSerialData()
+	endec.SetPositionalData(serialData, true)
+	endec.SetRequestData(serialData, true)
+	msgId, _ := endec.GenerateRandomId()
+	endec.SetMessageId(serialData, msgId)
+	endec.UpdateBitPositionsForHeaderByte(serialData)
+
 	log.Infof("Point Address UUID >>>>>>> %s ", nstring.DerefString(pnt.AddressUUID))
 
-	// TODO: Encrypt the encoded data by using encrypter.Encrypt method
+	// If the PointWriter struct has fields, you can also print them individually
+	// Assuming pw has fields like `Name` and `Value`
+	for _, value := range *pw.Priority {
+		if value != nil {
+			floatValue := *value
+			pointDataType, err := strconv.Atoi(pnt.DataType) // As DataType is store as string
+			if err != nil {
+				return nil, err
+			}
+			addressID, err := SafeDereferenceUint8(pnt.AddressID)
+			if err != nil {
+				return nil, err
+			}
+			if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_8 {
+				endec.EncodeData(serialData, uint8(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_16 {
+				endec.EncodeData(serialData, uint16(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_32 {
+				endec.EncodeData(serialData, uint32(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_64 {
+				endec.EncodeData(serialData, uint64(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_8 {
+				endec.EncodeData(serialData, int8(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_16 {
+				endec.EncodeData(serialData, int16(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_32 {
+				endec.EncodeData(serialData, int32(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_64 {
+				endec.EncodeData(serialData, int64(floatValue), endec.MetaDataKey(pointDataType), addressID)
+			} else {
+				endec.EncodeData(serialData, floatValue, endec.MetaDataKey(pointDataType), addressID)
+			}
+		}
+	}
 
-	// TODO: Write to serial port by using (*m).(*Module).WriteToLoRaRaw method
+	device, err := (*m).(*Module).grpcMarshaller.GetDevice(pnt.DeviceUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	key, err := hex.DecodeString(device.Manufacture)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encrypt the encoded data by using aesutils.Encrypt method
+	encryptedData, err := aesutils.Encrypt(
+		nstring.DerefString(pnt.AddressUUID),
+		serialData.Buffer,
+		key,
+		0,
+	)
+
+	err = (*m).(*Module).WriteToLoRaRaw(encryptedData)
+
+	if err != nil {
+		log.Infof("Error writing to LoRa: %v\n", err)
+	}
 
 	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {

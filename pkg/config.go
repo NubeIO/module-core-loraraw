@@ -11,16 +11,18 @@ import (
 )
 
 type Config struct {
-	ReIterationTime time.Duration `yaml:"re_iteration_time"`
-	LogLevel        string        `yaml:"log_level"`
-	DefaultKey      string        `yaml:"default_key" type:"secret"`
+	ReIterationTime    time.Duration `yaml:"re_iteration_time"`
+	LogLevel           string        `yaml:"log_level"`
+	DefaultKey         string        `yaml:"default_key" type:"secret"`
+	DecryptionDisabled bool          `yaml:"decryption_disabled"`
 }
 
 func (m *Module) DefaultConfig() *Config {
 	return &Config{
-		ReIterationTime: 5 * time.Second,
-		LogLevel:        "ERROR",
-		DefaultKey:      "5f5f5f544f505f5345435245545f5f5f",
+		ReIterationTime:    5 * time.Second,
+		LogLevel:           "ERROR",
+		DefaultKey:         "5f5f5f544f505f5345435245545f5f5f",
+		DecryptionDisabled: false,
 	}
 }
 
