@@ -21,7 +21,7 @@ func (m *Module) DefaultConfig() *Config {
 	return &Config{
 		ReIterationTime:    5 * time.Second,
 		LogLevel:           "ERROR",
-		DefaultKey:         "5f5f5f544f505f5345435245545f5f5f",
+		DefaultKey:         "0301021604050f07e6095a0b0c12630f",
 		DecryptionDisabled: false,
 	}
 }

@@ -137,7 +137,7 @@ func (m *Module) handleSerialPayload(data string) {
 	if device == nil && !m.config.DecryptionDisabled {
 		// maybe it's a legacy device (droplet, microedge)
 		dataLegacy, err := decryptLegacy(data, m.config.DefaultKey)
-		if err != nil {
+		if err == nil {
 			device = m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
 			legacyDevice = true
 			data = dataLegacy
@@ -218,7 +218,7 @@ func decryptData(data string, hexKey string, decryptFunc func([]byte, []byte) ([
 	if err != nil {
 		return "", err
 	}
-	decryptedData, err := aesutils.Decrypt(byteData, byteKey)
+	decryptedData, err := aesutils.Decrypt(byteData[:len(byteData)-2], byteKey)
 	if err != nil {
 		return "", err
 	}
