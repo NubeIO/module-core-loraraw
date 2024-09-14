@@ -13,7 +13,7 @@ require (
 	github.com/NubeIO/lib-utils-go v0.0.1
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7
 	github.com/NubeIO/nubeio-rubix-lib-models-go v1.14.7
-	github.com/chmike/cmac-go v1.1.0
+	github.com/enceve/crypto v0.0.0-20160707101852-34d48bb93815
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/hashicorp/go-plugin v1.4.9
 	github.com/sirupsen/logrus v1.9.3
@@ -27,7 +27,6 @@ require (
 	github.com/NubeIO/lib-system v0.0.3 // indirect
 	github.com/NubeIO/lib-systemctl-go v0.3.1 // indirect
 	github.com/creack/goselect v0.1.2 // indirect
-	github.com/enceve/crypto v0.0.0-20160707101852-34d48bb93815 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-sql-driver/mysql v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
