@@ -17,11 +17,13 @@ type Config struct {
 	DecryptionDisabled bool          `yaml:"decryption_disabled"`
 }
 
+const DefaultDeviceKey = "0301021604050f07e6095a0b0c12630f"
+
 func (m *Module) DefaultConfig() *Config {
 	return &Config{
 		ReIterationTime:    5 * time.Second,
 		LogLevel:           "ERROR",
-		DefaultKey:         "0301021604050f07e6095a0b0c12630f",
+		DefaultKey:         DefaultDeviceKey,
 		DecryptionDisabled: false,
 	}
 }
@@ -41,8 +43,10 @@ func (m *Module) ValidateAndSetConfig(config []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(keyBytes) != 16 {
-		return nil, errors.New("invalid default key: key must be exactly 16 bytes")
+	if len(keyBytes) == 0 {
+		newConfig.DefaultKey = DefaultDeviceKey
+	} else if len(keyBytes) != 16 {
+		return nil, errors.New("invalid default key: must be exactly 16 bytes")
 	}
 
 	newConfValid, err := yaml.Marshal(newConfig)
