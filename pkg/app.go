@@ -218,7 +218,7 @@ func decryptData(data string, hexKey string, decryptFunc func([]byte, []byte) ([
 	if err != nil {
 		return "", err
 	}
-	decryptedData, err := aesutils.Decrypt(byteData[:len(byteData)-2], byteKey)
+	decryptedData, err := decryptFunc(byteData[:len(byteData)-2], byteKey)
 	if err != nil {
 		return "", err
 	}
