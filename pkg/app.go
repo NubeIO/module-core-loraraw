@@ -1,11 +1,14 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/NubeIO/module-core-loraraw/aesutils"
 
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
@@ -126,8 +129,20 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
+	var err error
 	log.Debugf("uplink: %s", data)
+	legacyDevice := false
 	device := m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
+
+	if device == nil && !m.config.DecryptionDisabled {
+		// maybe it's a legacy device (droplet, microedge)
+		dataLegacy, err := decryptLegacy(data, m.config.DefaultKey)
+		if err == nil {
+			device = m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
+			legacyDevice = true
+			data = dataLegacy
+		}
+	}
 	if device == nil {
 		id := endec.DecodeAddress(data) // show user messages from lora
 		rssi := endec.DecodeRSSI(data)
@@ -135,7 +150,19 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	err := decodeData(data, device, m.updateDevicePoint)
+	if !legacyDevice && !m.config.DecryptionDisabled {
+		hexKey := m.config.DefaultKey
+		if device.Manufacture != "" {
+			hexKey = device.Manufacture // Manufacture property from device model holds hex key
+		}
+		data, err = decryptNormal(data, hexKey)
+		if err != nil {
+			log.Errorf("error decrypting data: %s", err)
+			return
+		}
+	}
+
+	err = decodeData(data, device, m.updateDevicePoint)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
 		return
@@ -179,6 +206,31 @@ func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDev
 
 	err := endec.DecodePayload(data, devDesc, device, updatePointFn)
 	return err
+}
+
+func decryptData(data string, hexKey string, decryptFunc func([]byte, []byte) ([]byte, error)) (string, error) {
+	byteKey, err := hex.DecodeString(hexKey)
+	if err != nil {
+		log.Errorf("error decoding device key: %s", err)
+		return "", err
+	}
+	byteData, err := hex.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	decryptedData, err := decryptFunc(byteData[:len(byteData)-2], byteKey)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(decryptedData), nil
+}
+
+func decryptNormal(data string, hexKey string) (string, error) {
+	return decryptData(data, hexKey, aesutils.Decrypt)
+}
+
+func decryptLegacy(data string, hexKey string) (string, error) {
+	return decryptData(data, hexKey, aesutils.DecryptLegacy)
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {

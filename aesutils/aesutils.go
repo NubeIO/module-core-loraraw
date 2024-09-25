@@ -6,6 +6,7 @@ import (
 	"crypto/cipher"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"github.com/enceve/crypto/cmac"
 )
@@ -60,6 +61,10 @@ func Decrypt(data, key []byte) ([]byte, error) {
 	// Check CMAC
 	cm := data[len(data)-LoraRawCmacLen:]
 	cmacTest, err := prepareCMAC(data[:len(data)-LoraRawCmacLen], key)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("CMAC generation failed: %s", err))
+	}
+
 	if !bytes.Equal(cm, cmacTest) {
 		return nil, errors.New("incorrect CMAC or Key")
 	}
@@ -78,6 +83,24 @@ func Decrypt(data, key []byte) ([]byte, error) {
 	result := append(data[:LoraRawHeaderLen], decrypted...)
 	result = append(result, cm...)
 	return result, nil
+}
+
+func DecryptLegacy(data, key []byte) ([]byte, error) {
+	// Decrypt
+	if len(data) < 16 {
+		return nil, errors.New("invalid data length for DecryptLegacy")
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	decLength := len(data) - (len(data) % 16)
+	decrypted := make([]byte, decLength)
+	mode.CryptBlocks(decrypted, data[:decLength])
+	decrypted = append(decrypted, data[decLength:]...)
+	return decrypted, nil
 }
 
 func prepareCMAC(data, key []byte) ([]byte, error) {

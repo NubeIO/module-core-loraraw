@@ -220,7 +220,12 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	key, err := hex.DecodeString(device.Manufacture)
+	hexKey := (*m).(*Module).config.DefaultKey
+	if device.Manufacture != "" {
+		hexKey = device.Manufacture // Manufacture property from device model holds hex key
+	}
+
+	key, err := hex.DecodeString(hexKey)
 	if err != nil {
 		return nil, err
 	}
