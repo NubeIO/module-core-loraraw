@@ -162,7 +162,7 @@ func (m *Module) handleSerialPayload(data string) {
 		}
 	}
 
-	err = decodeData(data, device, m.updateDevicePoint)
+	err = decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
 		return
@@ -177,7 +177,8 @@ func (m *Module) handleSerialPayload(data string) {
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc) error {
+func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc,
+	updateDeviceMetaTagFn decoder.UpdateDeviceMetaTagsFunc) error {
 	devDesc := endec.GetDeviceDescription(device)
 	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
@@ -204,7 +205,7 @@ func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDev
 		return errors.New("invalid payload length")
 	}
 
-	err := endec.DecodePayload(data, devDesc, device, updatePointFn)
+	err := endec.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn)
 	return err
 }
 
@@ -234,7 +235,7 @@ func decryptLegacy(data string, hexKey string) (string, error) {
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
-	opts := &nmodule.Opts{Args: &nargs.Args{AddressUUID: &address, WithPoints: true}}
+	opts := &nmodule.Opts{Args: &nargs.Args{AddressUUID: &address, WithPoints: true, WithMetaTags: true}}
 	device, err := m.grpcMarshaller.GetOneDeviceByArgs(opts)
 	if err != nil {
 		return nil
