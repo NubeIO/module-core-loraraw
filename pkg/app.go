@@ -178,7 +178,7 @@ func (m *Module) handleSerialPayload(data string) {
 }
 
 func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc,
-	updateDeviceMetaTagFn decoder.UpdateDeviceMetaTagsFunc) error {
+	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc) error {
 	devDesc := endec.GetDeviceDescription(device)
 	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
