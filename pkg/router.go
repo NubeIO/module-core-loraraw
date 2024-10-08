@@ -240,9 +240,6 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 
 	pendingPointWrite := &PendingPointWrite{MessageId: msgId, Message: encryptedData}
 	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
-	queueSize := (*m).(*Module).pointWriteQueue.Size()
-
-	log.Infof("Queue size: %s", queueSize)
 
 	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {
