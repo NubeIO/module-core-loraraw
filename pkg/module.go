@@ -6,13 +6,14 @@ import (
 )
 
 type Module struct {
-	dbHelper       nmodule.DBHelper
-	moduleName     string
-	grpcMarshaller nmodule.Marshaller
-	config         *Config
-	networkUUID    string
-	interruptChan  chan struct{}
-	mutex          *sync.RWMutex
+	dbHelper        nmodule.DBHelper
+	moduleName      string
+	grpcMarshaller  nmodule.Marshaller
+	config          *Config
+	networkUUID     string
+	interruptChan   chan struct{}
+	mutex           *sync.RWMutex
+	pointWriteQueue *PointWriteQueue
 }
 
 func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {

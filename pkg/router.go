@@ -238,11 +238,8 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		0,
 	)
 
-	err = (*m).(*Module).WriteToLoRaRaw(encryptedData)
-
-	if err != nil {
-		log.Infof("Error writing to LoRa: %v\n", err)
-	}
+	pendingPointWrite := &PendingPointWrite{MessageId: msgId, Message: encryptedData}
+	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
 
 	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
 	if err != nil {
