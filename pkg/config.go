@@ -11,20 +11,24 @@ import (
 )
 
 type Config struct {
-	ReIterationTime    time.Duration `yaml:"re_iteration_time"`
-	LogLevel           string        `yaml:"log_level"`
-	DefaultKey         string        `yaml:"default_key" type:"secret"`
-	DecryptionDisabled bool          `yaml:"decryption_disabled"`
+	ReIterationTime      time.Duration `yaml:"re_iteration_time"`
+	LogLevel             string        `yaml:"log_level"`
+	DefaultKey           string        `yaml:"default_key" type:"secret"`
+	DecryptionDisabled   bool          `yaml:"decryption_disabled"`
+	WriteQueueMaxRetries int           `yaml:"write_queue_max_retries"`
+	WriteQueueTimeout    time.Duration `yaml:"write_queue_timeout"`
 }
 
 const DefaultDeviceKey = "0301021604050f07e6095a0b0c12630f"
 
 func (m *Module) DefaultConfig() *Config {
 	return &Config{
-		ReIterationTime:    5 * time.Second,
-		LogLevel:           "ERROR",
-		DefaultKey:         DefaultDeviceKey,
-		DecryptionDisabled: false,
+		ReIterationTime:      5 * time.Second,
+		LogLevel:             "ERROR",
+		DefaultKey:           DefaultDeviceKey,
+		DecryptionDisabled:   false,
+		WriteQueueMaxRetries: 5,
+		WriteQueueTimeout:    5 * time.Second,
 	}
 }
 
