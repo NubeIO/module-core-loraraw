@@ -1,16 +1,19 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync"
 
+	"github.com/NubeIO/module-core-loraraw/aesutils"
+
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
-	"github.com/NubeIO/module-core-loraraw/decoder"
+	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -69,12 +72,41 @@ func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
 	body.ObjectType = "analog_input"
 	body.IoType = string(datatype.IOTypeRAW)
 	body.Name = strings.ToLower(body.Name)
-	body.EnableWriteable = boolean.NewFalse()
+	if utils.IsWriteable(body.WriteMode) {
+		dev, err := m.grpcMarshaller.GetDevice(body.DeviceUUID)
+		if err != nil {
+			return nil, err
+		}
+		body.AddressUUID = dev.AddressUUID
+		body.EnableWriteable = boolean.NewTrue()
+		body.WritePollRequired = boolean.NewTrue()
+	} else {
+		body = utils.ResetWriteableProperties(body)
+	}
 	point, err = m.grpcMarshaller.CreatePoint(body) // TODO: in older one after creating there is an update operation
 	if err != nil {
 		return nil, err
 	}
 	return point, nil
+}
+
+func (m *Module) updatePoint(uuid string, body *model.Point) (*model.Point, error) {
+	if utils.IsWriteable(body.WriteMode) {
+		dev, err := m.grpcMarshaller.GetDevice(body.DeviceUUID)
+		if err != nil {
+			return nil, err
+		}
+		body.AddressUUID = dev.AddressUUID
+		body.EnableWriteable = boolean.NewTrue()
+		body.WritePollRequired = boolean.NewTrue()
+	} else {
+		body = utils.ResetWriteableProperties(body)
+	}
+	pnt, err := m.grpcMarshaller.UpdatePoint(uuid, body)
+	if err != nil {
+		return nil, err
+	}
+	return pnt, nil
 }
 
 func (m *Module) deletePoint(_ *model.Point) (success bool, err error) {
@@ -93,38 +125,62 @@ func (m *Module) handleSerialPayload(data string) {
 		return
 	}
 
-	if !decoder.ValidPayload(data) {
+	if !endec.ValidPayload(data) {
 		return
 	}
 
+	var err error
 	log.Debugf("uplink: %s", data)
-	device := m.getDeviceByLoRaAddress(decoder.DecodeAddress(data))
+	legacyDevice := false
+	device := m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
+
+	if device == nil && !m.config.DecryptionDisabled {
+		// maybe it's a legacy device (droplet, microedge)
+		dataLegacy, err := decryptLegacy(data, m.config.DefaultKey)
+		if err == nil {
+			device = m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
+			legacyDevice = true
+			data = dataLegacy
+		}
+	}
 	if device == nil {
-		id := decoder.DecodeAddress(data) // show user messages from lora
-		rssi := decoder.DecodeRSSI(data)
+		id := endec.DecodeAddress(data) // show user messages from lora
+		rssi := endec.DecodeRSSI(data)
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
 
-	err := decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+	if !legacyDevice && !m.config.DecryptionDisabled {
+		hexKey := m.config.DefaultKey
+		if device.Manufacture != "" {
+			hexKey = device.Manufacture // Manufacture property from device model holds hex key
+		}
+		data, err = decryptNormal(data, hexKey)
+		if err != nil {
+			log.Errorf("error decrypting data: %s", err)
+			return
+		}
+	}
+
+	err = decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
 		return
 	}
 
-	rssi := decoder.DecodeRSSI(data)
-	snr := decoder.DecodeSNR(data)
+	rssi := endec.DecodeRSSI(data)
+	snr := endec.DecodeSNR(data)
 
-	_ = m.updateDevicePoint(decoder.RssiField, float64(rssi), device)
-	_ = m.updateDevicePoint(decoder.SnrField, float64(snr), device)
+	_ = m.updateDevicePoint(endec.RssiField, float64(rssi), device)
+	_ = m.updateDevicePoint(endec.SnrField, float64(snr), device)
 
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateDevicePointFunc,
-	updateDeviceMetaTagFn decoder.UpdateDeviceMetaTagsFunc) error {
-	devDesc := decoder.GetDeviceDescription(device)
-	if devDesc == &decoder.NilLoRaDeviceDescription {
+func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc,
+	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc) error {
+	devDesc := endec.GetDeviceDescription(device)
+	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
 		return errors.New("no device description found")
 	}
@@ -149,8 +205,33 @@ func decodeData(data string, device *model.Device, updatePointFn decoder.UpdateD
 		return errors.New("invalid payload length")
 	}
 
-	err := decoder.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn)
+	err := endec.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn)
 	return err
+}
+
+func decryptData(data string, hexKey string, decryptFunc func([]byte, []byte) ([]byte, error)) (string, error) {
+	byteKey, err := hex.DecodeString(hexKey)
+	if err != nil {
+		log.Errorf("error decoding device key: %s", err)
+		return "", err
+	}
+	byteData, err := hex.DecodeString(data)
+	if err != nil {
+		return "", err
+	}
+	decryptedData, err := decryptFunc(byteData[:len(byteData)-2], byteKey)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(decryptedData), nil
+}
+
+func decryptNormal(data string, hexKey string) (string, error) {
+	return decryptData(data, hexKey, aesutils.Decrypt)
+}
+
+func decryptLegacy(data string, hexKey string) (string, error) {
+	return decryptData(data, hexKey, aesutils.DecryptLegacy)
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {
@@ -176,7 +257,7 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 		return errors.New(errMsg)
 	}
 
-	points := decoder.GetDevicePointNames(deviceBody)
+	points := endec.GetDevicePointNames(deviceBody)
 	// TODO: should check this before the device is even added in the wizard
 	if len(points) == 0 {
 		log.Errorf("addDevicePoints() incorrect device model, try THLM %s", err)
@@ -202,7 +283,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 	for i := 0; i < pointsRefl.NumField(); i++ {
 		field := pointsRefl.Field(i)
 		if field.Kind() == reflect.Struct {
-			if _, ok := field.Interface().(decoder.CommonValues); !ok {
+			if _, ok := field.Interface().(endec.CommonValues); !ok {
 				m.addPointsFromStruct(deviceBody, pointsRefl.Field(i), postfix)
 			}
 			continue

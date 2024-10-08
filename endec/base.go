@@ -1,4 +1,4 @@
-package decoder
+package endec
 
 import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -8,13 +8,6 @@ import (
 const (
 	RssiField = "rssi"
 	SnrField  = "snr"
-)
-
-const (
-	LoraRawHeaderLen = 4
-	LoraRawCmacLen   = 4
-	RssiLen          = 1
-	SnrLen           = 1
 )
 
 type CommonValues struct {
