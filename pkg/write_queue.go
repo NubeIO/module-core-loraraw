@@ -7,8 +7,9 @@ import (
 )
 
 type PendingPointWrite struct {
-	MessageId uint8
-	Message   []byte
+	MessageId  uint8
+	Message    []byte
+	RetryCount int
 }
 
 type PointWriteQueue struct {
@@ -34,17 +35,33 @@ func (pwq *PointWriteQueue) EnqueueWriteQueue(ppWrite *PendingPointWrite) {
 	pwq.writeQueue = append(pwq.writeQueue, ppWrite)
 }
 
-func (pwq *PointWriteQueue) DequeueWriteQueue() *PendingPointWrite {
+func (pwq *PointWriteQueue) DequeueWriteQueue() {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
 
+	pwq.dequeue(nil)
+}
+
+func (pwq *PointWriteQueue) DequeueUsingMessageId(messageId uint8) {
+	pwq.mutex.Lock()
+	defer pwq.mutex.Unlock()
+
+	pwq.dequeue(&messageId)
+}
+
+func (pwq *PointWriteQueue) dequeue(messageId *uint8) {
 	if len(pwq.writeQueue) == 0 {
-		return nil
+		return
 	}
 
-	queueItem := pwq.writeQueue[0]
-	pwq.writeQueue = pwq.writeQueue[1:]
-	return queueItem
+	if messageId == nil {
+		pwq.writeQueue = pwq.writeQueue[1:]
+	} else {
+		queueItem := pwq.writeQueue[0]
+		if queueItem.MessageId == *messageId {
+			pwq.writeQueue = pwq.writeQueue[1:]
+		}
+	}
 }
 
 func (pwq *PointWriteQueue) Size() int {
@@ -67,11 +84,14 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(writeToLoRaRaw func([]byte) e
 		pendingPointWrite := pwq.writeQueue[0]
 		pwq.mutex.Unlock()
 
-		err := writeToLoRaRaw(pendingPointWrite.Message)
-		if err != nil {
-			log.Infof("Error writing to LoRa: %v\n", err)
-			time.Sleep(pwq.timeout)
-			continue
+		if pendingPointWrite.RetryCount <= pwq.maxRetry {
+			pendingPointWrite.RetryCount++
+			err := writeToLoRaRaw(pendingPointWrite.Message)
+			if err != nil {
+				log.Infof("Error writing to LoRa: %v\n", err)
+			}
+		} else {
+			pwq.DequeueWriteQueue()
 		}
 
 		// Wait for the set timeout before initiating another write

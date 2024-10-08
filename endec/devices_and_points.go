@@ -11,14 +11,21 @@ import (
 
 type UpdateDevicePointFunc func(name string, value float64, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
+type DequeuePointWriteFunc func(messageId uint8)
 
 type LoRaDeviceDescription struct {
 	DeviceName  string
 	Model       string
 	SensorCode  string
 	CheckLength func(data string) bool
-	Decode      func(data string, devDesc *LoRaDeviceDescription, device *model.Device,
-		updateDevPntFnc UpdateDevicePointFunc, updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc) error
+	Decode      func(
+		data string,
+		devDesc *LoRaDeviceDescription,
+		device *model.Device,
+		updateDevPntFnc UpdateDevicePointFunc,
+		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
+		dequeuePointWriteFunc DequeuePointWriteFunc,
+	) error
 	GetPointNames func() []string
 	IsLoRaRAW     bool
 }
@@ -36,8 +43,14 @@ func NilLoRaDeviceDescriptionCheckLength(data string) bool {
 	return false
 }
 
-func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription, device *model.Device,
-	f UpdateDevicePointFunc, _ UpdateDeviceMetaTagsFunc) error {
+func NilLoRaDeviceDescriptionDecode(
+	data string,
+	devDesc *LoRaDeviceDescription,
+	device *model.Device,
+	f UpdateDevicePointFunc,
+	_ UpdateDeviceMetaTagsFunc,
+	_ DequeuePointWriteFunc,
+) error {
 	return errors.New("nil decode function called")
 }
 

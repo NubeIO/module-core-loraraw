@@ -106,8 +106,14 @@ const (
 	PollData
 )
 
-func DecodeZHT(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc,
-	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc) error {
+func DecodeZHT(
+	data string,
+	devDesc *LoRaDeviceDescription,
+	device *model.Device,
+	updatePointFn UpdateDevicePointFunc,
+	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
+	_ DequeuePointWriteFunc,
+) error {
 	bytes, err := getPayloadBytes(data)
 	if err != nil {
 		return err

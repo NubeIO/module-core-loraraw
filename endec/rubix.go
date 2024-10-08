@@ -228,8 +228,14 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 
-func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc,
-	_ UpdateDeviceMetaTagsFunc) error {
+func DecodeRubix(
+	data string,
+	devDesc *LoRaDeviceDescription,
+	device *model.Device,
+	updatePointFn UpdateDevicePointFunc,
+	_ UpdateDeviceMetaTagsFunc,
+	dequeuePointWriteFunc DequeuePointWriteFunc,
+) error {
 	var (
 		temperature float32
 		rh          float32
@@ -275,6 +281,8 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 	hasPos := HasPositionalData(serialData)
 	var position uint8 = 0
 	if HasRequestData(serialData) || HasResponseData(serialData) {
+		messageId := GetMessageId(serialData)
+		dequeuePointWriteFunc(messageId)
 		UpdateBitPositionsForHeaderByte(serialData)
 	}
 

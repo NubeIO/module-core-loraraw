@@ -165,7 +165,7 @@ func (m *Module) handleSerialPayload(data string) {
 		}
 	}
 
-	err = decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+	err = decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags, m.pointWriteQueue.DequeueUsingMessageId)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
 		return
@@ -177,8 +177,13 @@ func (m *Module) handleSerialPayload(data string) {
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc,
-	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc) error {
+func decodeData(
+	data string,
+	device *model.Device,
+	updatePointFn endec.UpdateDevicePointFunc,
+	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc,
+	dequeuePointWriteFn endec.DequeuePointWriteFunc,
+) error {
 	devDesc := endec.GetDeviceDescription(device)
 	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
@@ -205,7 +210,7 @@ func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDev
 		return errors.New("invalid payload length")
 	}
 
-	err := endec.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn)
+	err := endec.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn, dequeuePointWriteFn)
 	return err
 }
 
