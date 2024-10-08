@@ -77,6 +77,13 @@ func SetMessageId(serialData *SerialData, id uint8) {
 	}
 }
 
+func GetMessageId(serialData *SerialData) uint8 {
+	if HasRequestData(serialData) || HasResponseData(serialData) {
+		return serialData.Buffer[1]
+	}
+	return 0
+}
+
 func GenerateRandomId() (uint8, error) {
 	// Create a new Rand instance with a seed
 	var b [1]byte
