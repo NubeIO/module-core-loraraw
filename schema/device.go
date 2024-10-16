@@ -12,6 +12,13 @@ const (
 	DeviceModelRubix        = "Rubix"
 )
 
+type DeviceKey struct {
+	Type  string `json:"type" default:"string"`
+	Title string `json:"title" default:"Device Key"`
+	Min   int    `json:"minLength" default:"32"`
+	Max   int    `json:"maxLength" default:"32"`
+}
+
 type DeviceSchema struct {
 	UUID          schema.UUID                     `json:"uuid"`
 	Name          schema.Name                     `json:"name"`
@@ -20,6 +27,7 @@ type DeviceSchema struct {
 	AddressUUID   schema.AddressUUID              `json:"address_uuid"`
 	Model         schema.Model                    `json:"model"`
 	HistoryEnable schema.HistoryEnableDefaultTrue `json:"history_enable"`
+	DeviceKey     DeviceKey                       `json:"manufacture" type:"secret"`
 }
 
 func GetDeviceSchema() *DeviceSchema {

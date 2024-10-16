@@ -13,6 +13,18 @@ type PointSchema struct {
 
 	IoType schema.IoType `json:"io_type"`
 
+	AddressId struct {
+		Type        string `json:"type" default:"number"`
+		Title       string `json:"title" default:"Point ID"`
+		Default     int    `json:"default" default:"1"`
+		Minimum     int    `json:"minimum" default:"1"`
+		Maximum     int    `json:"maximum" default:"256"`
+		ReadOnly    bool   `json:"readOnly" default:"false"`
+		Description string `json:"description" default:"Decimal format: 1-256"`
+	} `json:"address_id"`
+	DataType  DataType         `json:"data_type"`
+	WriteMode schema.WriteMode `json:"write_mode"`
+
 	MultiplicationFactor schema.MultiplicationFactor `json:"multiplication_factor"`
 	ScaleEnable          schema.ScaleEnable          `json:"scale_enable"`
 	ScaleInMin           schema.ScaleInMin           `json:"scale_in_min"`
