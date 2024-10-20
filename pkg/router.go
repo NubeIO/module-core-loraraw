@@ -1,23 +1,15 @@
 package pkg
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"net/http"
-	"strconv"
-
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
-	"github.com/NubeIO/lib-utils-go/nstring"
-	"github.com/NubeIO/module-core-loraraw/aesutils"
-	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
-	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 var route *router.Router
@@ -152,13 +144,6 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	return json.Marshal(pnt)
 }
 
-func SafeDereferenceUint8(ptr *int) (uint8, error) {
-	if ptr == nil {
-		return 0, errors.New("attempting to dereference a nil uint8 pointer")
-	}
-	return uint8(*ptr), nil
-}
-
 func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	var pw *dto.PointWriter
 	err := json.Unmarshal(r.Body, &pw)
@@ -166,86 +151,15 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	pnt, err := (*m).(*Module).grpcMarshaller.GetPoint(r.PathParams["uuid"])
+	point, err := (*m).(*Module).writePoint(r.PathParams["uuid"], pw)
 	if err != nil {
 		return nil, err
 	}
 
-	serialData := endec.NewSerialData()
-	endec.SetPositionalData(serialData, true)
-	endec.SetRequestData(serialData, true)
-	msgId, _ := endec.GenerateRandomId()
-	endec.SetMessageId(serialData, msgId)
-	endec.UpdateBitPositionsForHeaderByte(serialData)
-
-	log.Infof("Point Address UUID >>>>>>> %s ", nstring.DerefString(pnt.AddressUUID))
-
-	// If the PointWriter struct has fields, you can also print them individually
-	// Assuming pw has fields like `Name` and `Value`
-	for _, value := range *pw.Priority {
-		if value != nil {
-			floatValue := *value
-			pointDataType, err := strconv.Atoi(pnt.DataType) // As DataType is store as string
-			if err != nil {
-				return nil, err
-			}
-			addressID, err := SafeDereferenceUint8(pnt.AddressID)
-			if err != nil {
-				return nil, err
-			}
-			if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_8 {
-				endec.EncodeData(serialData, uint8(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_16 {
-				endec.EncodeData(serialData, uint16(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_32 {
-				endec.EncodeData(serialData, uint32(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_UINT_64 {
-				endec.EncodeData(serialData, uint64(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_8 {
-				endec.EncodeData(serialData, int8(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_16 {
-				endec.EncodeData(serialData, int16(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_32 {
-				endec.EncodeData(serialData, int32(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else if endec.MetaDataKey(pointDataType) == endec.MDK_INT_64 {
-				endec.EncodeData(serialData, int64(floatValue), endec.MetaDataKey(pointDataType), addressID)
-			} else {
-				endec.EncodeData(serialData, floatValue, endec.MetaDataKey(pointDataType), addressID)
-			}
-		}
-	}
-
-	device, err := (*m).(*Module).grpcMarshaller.GetDevice(pnt.DeviceUUID)
-	if err != nil {
-		return nil, err
-	}
-
-	hexKey := (*m).(*Module).config.DefaultKey
-	if device.Manufacture != "" {
-		hexKey = device.Manufacture // Manufacture property from device model holds hex key
-	}
-
-	key, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return nil, err
-	}
-
-	// Encrypt the encoded data by using aesutils.Encrypt method
-	encryptedData, err := aesutils.Encrypt(
-		nstring.DerefString(pnt.AddressUUID),
-		serialData.Buffer,
-		key,
-		0,
-	)
-
-	pendingPointWrite := &PendingPointWrite{MessageId: msgId, Message: encryptedData}
+	pendingPointWrite := &PendingPointWrite{Point: point}
 	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
 
-	pointWriteResponse, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(pointWriteResponse.Point)
+	return json.Marshal(point)
 }
 
 func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {

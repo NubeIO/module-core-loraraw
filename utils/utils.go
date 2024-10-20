@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -81,4 +82,11 @@ func ResetWriteableProperties(point *model.Point) *model.Point {
 	point.EnableWriteable = boolean.NewFalse()
 	point.WritePollRequired = boolean.NewFalse()
 	return point
+}
+
+func SafeDereferenceUint8(ptr *int) (uint8, error) {
+	if ptr == nil {
+		return 0, errors.New("attempting to dereference a nil uint8 pointer")
+	}
+	return uint8(*ptr), nil
 }

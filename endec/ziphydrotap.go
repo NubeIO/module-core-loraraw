@@ -108,11 +108,12 @@ const (
 
 func DecodeZHT(
 	data string,
-	devDesc *LoRaDeviceDescription,
+	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
+	_ InternalPointUpdate,
 ) error {
 	bytes, err := getPayloadBytes(data)
 	if err != nil {

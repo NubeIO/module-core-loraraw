@@ -230,11 +230,12 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 
 func DecodeRubix(
 	data string,
-	devDesc *LoRaDeviceDescription,
+	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
 	_ UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
+	internalPointUpdate InternalPointUpdate,
 ) error {
 	var (
 		temperature float32
@@ -282,7 +283,10 @@ func DecodeRubix(
 	var position uint8 = 0
 	if HasRequestData(serialData) || HasResponseData(serialData) {
 		messageId := GetMessageId(serialData)
-		dequeuePointWriteFunc(messageId)
+		point := dequeuePointWriteFunc(messageId)
+		if point != nil {
+			_, _ = internalPointUpdate(point)
+		}
 		UpdateBitPositionsForHeaderByte(serialData)
 	}
 

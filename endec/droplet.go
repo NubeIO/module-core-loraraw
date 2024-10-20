@@ -43,11 +43,12 @@ func CheckPayloadLengthDroplet(data string) bool {
 
 func DecodeDropletTH(
 	data string,
-	devDesc *LoRaDeviceDescription,
+	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
 	_ UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
+	_ InternalPointUpdate,
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
@@ -81,8 +82,17 @@ func DecodeDropletTHL(
 	updatePointFn UpdateDevicePointFunc,
 	updateDeviceMetaTagFn UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
+	internalPointUpdate InternalPointUpdate,
 ) error {
-	err := DecodeDropletTH(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn, dequeuePointWriteFunc)
+	err := DecodeDropletTH(
+		data,
+		devDesc,
+		device,
+		updatePointFn,
+		updateDeviceMetaTagFn,
+		dequeuePointWriteFunc,
+		internalPointUpdate,
+	)
 	if err != nil {
 		return err
 	}
@@ -101,8 +111,17 @@ func DecodeDropletTHLM(
 	updatePointFn UpdateDevicePointFunc,
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
+	internalPointUpdate InternalPointUpdate,
 ) error {
-	err := DecodeDropletTHL(data, devDesc, device, updatePointFn, updateDeviceMetaTagsFn, dequeuePointWriteFunc)
+	err := DecodeDropletTHL(
+		data,
+		devDesc,
+		device,
+		updatePointFn,
+		updateDeviceMetaTagsFn,
+		dequeuePointWriteFunc,
+		internalPointUpdate,
+	)
 	if err != nil {
 		return err
 	}
