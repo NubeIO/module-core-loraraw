@@ -8,10 +8,19 @@ import (
 	"time"
 )
 
+type PointWriteState string
+
+const (
+	PointWritePending PointWriteState = "point-write-pending"
+	PointWriteSuccess PointWriteState = "point-write-success"
+)
+
 type PendingPointWrite struct {
-	MessageId  uint8
-	Point      *model.Point
-	RetryCount int
+	MessageId        uint8
+	Message          []byte
+	Point            *model.Point
+	RetryCount       int
+	PointWriteStatus PointWriteState
 }
 
 type PointWriteQueue struct {
@@ -35,7 +44,7 @@ func (pwq *PointWriteQueue) LoadWriteQueue(points []*model.Point) {
 	defer pwq.mutex.Unlock()
 
 	for _, point := range points {
-		pendingPointWrite := &PendingPointWrite{Point: point}
+		pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
 		pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
 	}
 }
@@ -59,6 +68,10 @@ func (pwq *PointWriteQueue) DequeueUsingMessageId(messageId uint8) *model.Point 
 	defer pwq.mutex.Unlock()
 
 	pendingPointWrite := pwq.dequeue(&messageId)
+	if pendingPointWrite == nil {
+		log.Errorf("no pending point write found for messageId %v", messageId)
+		return nil
+	}
 	return pendingPointWrite.Point
 }
 
@@ -106,17 +119,13 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		pendingPointWrite := pwq.writeQueue[0]
 		pwq.mutex.Unlock()
 
-		if pendingPointWrite.RetryCount <= pwq.maxRetry {
-			pendingPointWrite.RetryCount++
-
+		if pendingPointWrite.Message == nil {
 			serialData := endec.NewSerialData()
 			endec.SetPositionalData(serialData, true)
 			endec.SetRequestData(serialData, true)
 			msgId, _ := endec.GenerateRandomId()
 			endec.SetMessageId(serialData, msgId)
 			endec.UpdateBitPositionsForHeaderByte(serialData)
-
-			pendingPointWrite.MessageId = msgId
 
 			encryptionKey, err := getEncryptionKey(pendingPointWrite.Point.DeviceUUID)
 			if err != nil {
@@ -127,12 +136,24 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			encryptedData, err := endec.EncodeAndEncrypt(pendingPointWrite.Point, serialData, encryptionKey)
 			if err != nil {
 				log.Errorf("error encrypting data: %s", err.Error())
+				// Removing the point from the queue as queued point may be invalid
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
-			err = writeToLoRaRaw(encryptedData)
-			if err != nil {
-				log.Infof("error writing to LoRa: %v\n", err)
+			pendingPointWrite.MessageId = msgId
+			pendingPointWrite.Message = encryptedData
+		}
+
+		if pendingPointWrite.RetryCount < pwq.maxRetry {
+			if pendingPointWrite.PointWriteStatus == PointWritePending {
+				err := writeToLoRaRaw(pendingPointWrite.Message)
+				if err != nil {
+					log.Infof("error writing to LoRa: %v\n", err)
+					pendingPointWrite.RetryCount++
+					continue
+				}
+				pendingPointWrite.PointWriteStatus = PointWriteSuccess
 			}
 		} else {
 			pwq.DequeueWriteQueue()

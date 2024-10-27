@@ -285,6 +285,7 @@ func DecodeRubix(
 		messageId := GetMessageId(serialData)
 		point := dequeuePointWriteFunc(messageId)
 		if point != nil {
+			// TODO: May be re-add to the queue if internal point update fails???
 			_, _ = internalPointUpdate(point)
 		}
 		UpdateBitPositionsForHeaderByte(serialData)

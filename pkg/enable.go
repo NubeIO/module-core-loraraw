@@ -3,6 +3,7 @@ package pkg
 import (
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
@@ -27,14 +28,16 @@ func (m *Module) Enable() error {
 		log.Warn(warnMsg)
 		_ = m.updatePluginMessage(dto.MessageLevel.Warning, warnMsg)
 	} else {
-		// TEST: Re-add points that are not written (is inside queue) during restart
 		network := networks[0]
 		points, err := m.grpcMarshaller.GetPoints(
-			&dto.Filter{Filter: nstring.New("point_state=api-update-pending")},
-			&nmodule.Opts{Args: &nargs.Args{NetworkUUID: nstring.New(network.UUID)}},
+			nil,
+			&nmodule.Opts{Args: &nargs.Args{
+				NetworkUUID: nstring.New(network.UUID),
+				PointState:  nstring.New(string(datatype.PointStateApiUpdatePending)),
+			}},
 		)
 		if err != nil {
-			log.Error("error getting pending points")
+			log.Errorf("error getting pending points: %s", err.Error())
 		} else {
 			m.pointWriteQueue.LoadWriteQueue(points)
 		}
