@@ -39,14 +39,11 @@ func NewPointWriteQueue(maxRetry int, timeout time.Duration) *PointWriteQueue {
 	return queue
 }
 
-func (pwq *PointWriteQueue) LoadWriteQueue(points []*model.Point) {
+func (pwq *PointWriteQueue) LoadWriteQueue(point *model.Point) {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
-
-	for _, point := range points {
-		pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
-		pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
-	}
+	pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
+	pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
 }
 
 func (pwq *PointWriteQueue) EnqueueWriteQueue(ppWrite *PendingPointWrite) {

@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"github.com/NubeIO/lib-module-go/nmodule"
-	"github.com/NubeIO/lib-utils-go/nstring"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
@@ -29,17 +28,17 @@ func (m *Module) Enable() error {
 		_ = m.updatePluginMessage(dto.MessageLevel.Warning, warnMsg)
 	} else {
 		network := networks[0]
-		points, err := m.grpcMarshaller.GetPoints(
-			nil,
-			&nmodule.Opts{Args: &nargs.Args{
-				NetworkUUID: nstring.New(network.UUID),
-				PointState:  nstring.New(string(datatype.PointStateApiUpdatePending)),
-			}},
-		)
+		net, err := m.grpcMarshaller.GetNetwork(network.UUID, &nmodule.Opts{Args: &nargs.Args{WithDevices: true, WithPoints: true}})
 		if err != nil {
-			log.Errorf("error getting pending points: %s", err.Error())
+			log.Errorf("error getting network: %s", err.Error())
 		} else {
-			m.pointWriteQueue.LoadWriteQueue(points)
+			for _, device := range net.Devices {
+				for _, point := range device.Points {
+					if point.PointState == datatype.PointStateApiUpdatePending {
+						m.pointWriteQueue.LoadWriteQueue(point)
+					}
+				}
+			}
 		}
 	}
 	_ = m.updatePluginMessage(dto.MessageLevel.Info, "")
