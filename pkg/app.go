@@ -149,6 +149,9 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
+	// Decode RSSI and SNR before decryption; otherwise, they will be lost.
+	rssi := endec.DecodeRSSI(data)
+	snr := endec.DecodeSNR(data)
 
 	if !legacyDevice && !m.config.DecryptionDisabled {
 		hexKey := m.config.DefaultKey
@@ -167,9 +170,6 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Errorf("decode error: %v\r\n", err)
 		return
 	}
-
-	rssi := endec.DecodeRSSI(data)
-	snr := endec.DecodeSNR(data)
 
 	_ = m.updateDevicePoint(endec.RssiField, float64(rssi), device)
 	_ = m.updateDevicePoint(endec.SnrField, float64(snr), device)
