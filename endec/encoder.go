@@ -1,7 +1,13 @@
 package endec
 
 import (
+	"errors"
+	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/aesutils"
+	"github.com/NubeIO/module-core-loraraw/utils"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"math"
+	"strconv"
 	"unsafe"
 
 	log "github.com/sirupsen/logrus"
@@ -53,8 +59,8 @@ func bitsToVector(data64 uint64, bitCount int, dataVector *[]byte) {
 
 	// Build byte vector from data64
 	for i := numberOfBytes - 1; i >= 0; i-- {
-		byte := byte((data64 >> uint(8*i)) & 0xFF)
-		*dataVector = append(*dataVector, byte)
+		byteVector := byte((data64 >> uint(8*i)) & 0xFF)
+		*dataVector = append(*dataVector, byteVector)
 	}
 }
 
@@ -105,7 +111,7 @@ func dataTypeToBits[T any](data T, metaData *MetaData, data64 *uint64, bitCount 
 	return true
 }
 
-func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, position uint8) bool {
+func encodeData[T any](serialData *SerialData, data T, header MetaDataKey, position uint8) bool {
 	metaData := getMetaData(header)
 	headerVector := make([]byte, 0)
 	dataVector := make([]byte, 0)
@@ -124,17 +130,17 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 		switch v := any(data).(type) {
 		case float64:
 			if !fixedPointToBits(v, &metaData, &dataBits, &bitCount) {
-				log.Errorf("EncodeData: fixedPointToBits failed for float64")
+				log.Errorf("encodeData: fixedPointToBits failed for float64")
 				return false
 			}
 		case float32:
 			if !fixedPointToBits(v, &metaData, &dataBits, &bitCount) {
-				log.Errorf("EncodeData: fixedPointToBits failed for float32")
+				log.Errorf("encodeData: fixedPointToBits failed for float32")
 				return false
 			}
 		default:
 			log.Errorf("%v", v)
-			log.Errorf("EncodeData: Unsupported type for FIXEDPOINT: %T", data)
+			log.Errorf("encodeData: Unsupported type for FIXEDPOINT: %T", data)
 			return false
 		}
 		// Add header to buffer
@@ -161,4 +167,53 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 	addVectorToBuffer(serialData, dataVector, bitCount)
 
 	return true
+}
+
+func EncodeAndEncrypt(point *model.Point, serialData *SerialData, key []byte) ([]byte, error) {
+	writeValue := point.WriteValue
+	if writeValue == nil {
+		return nil, errors.New("encoding failed for nil point")
+	}
+
+	pointDataType, err := strconv.Atoi(point.DataType)
+	if err != nil {
+		return nil, err
+	}
+
+	addressID, err := utils.SafeDereferenceUint8(point.AddressID)
+	if err != nil {
+		return nil, err
+	}
+
+	if MetaDataKey(pointDataType) == MDK_UINT_8 {
+		encodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
+		encodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
+		encodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
+		encodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_INT_8 {
+		encodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_INT_16 {
+		encodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_INT_32 {
+		encodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else if MetaDataKey(pointDataType) == MDK_INT_64 {
+		encodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
+	} else {
+		encodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
+	}
+
+	encryptedData, err := aesutils.Encrypt(
+		nstring.DerefString(point.AddressUUID),
+		serialData.Buffer,
+		key,
+		0,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return encryptedData, nil
 }

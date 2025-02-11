@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"reflect"
 	"strings"
 	"sync"
@@ -120,6 +121,31 @@ func (m *Module) deletePoint(_ *model.Point) (success bool, err error) {
 	return success, nil
 }
 
+func (m *Module) writePoint(pointUUID string, body *dto.PointWriter) (*model.Point, error) {
+	body.IgnorePresentValueUpdate = true
+	body.PollState = datatype.PointStateApiUpdatePending
+	pwResponse, err := m.grpcMarshaller.PointWrite(pointUUID, body)
+	if err != nil {
+		return nil, err
+	}
+	return &pwResponse.Point, nil
+}
+
+func (m *Module) internalPointUpdate(point *model.Point) (*model.Point, error) {
+	pointWriter := &dto.PointWriter{
+		OriginalValue: point.WriteValue,
+		Message:       "",
+		Fault:         false,
+		PollState:     datatype.PointStatePollOk,
+	}
+	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
+	if err != nil {
+		log.Errorf("internalPointUpdate() error: %s", err)
+		return nil, err
+	}
+	return &pwResponse.Point, nil
+}
+
 func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
@@ -165,7 +191,14 @@ func (m *Module) handleSerialPayload(data string) {
 		}
 	}
 
-	err = decodeData(data, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+	err = decodeData(
+		data,
+		device,
+		m.updateDevicePoint,
+		m.updateDeviceMetaTags,
+		m.pointWriteQueue.DequeueUsingMessageId,
+		m.internalPointUpdate,
+	)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
 		return
@@ -177,8 +210,14 @@ func (m *Module) handleSerialPayload(data string) {
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDevicePointFunc,
-	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc) error {
+func decodeData(
+	data string,
+	device *model.Device,
+	updatePointFn endec.UpdateDevicePointFunc,
+	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc,
+	dequeuePointWriteFn endec.DequeuePointWriteFunc,
+	internalPointUpdateFn endec.InternalPointUpdate,
+) error {
 	devDesc := endec.GetDeviceDescription(device)
 	if devDesc == &endec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
@@ -205,7 +244,15 @@ func decodeData(data string, device *model.Device, updatePointFn endec.UpdateDev
 		return errors.New("invalid payload length")
 	}
 
-	err := endec.DecodePayload(data, devDesc, device, updatePointFn, updateDeviceMetaTagFn)
+	err := endec.DecodePayload(
+		data,
+		devDesc,
+		device,
+		updatePointFn,
+		updateDeviceMetaTagFn,
+		dequeuePointWriteFn,
+		internalPointUpdateFn,
+	)
 	return err
 }
 
@@ -351,4 +398,23 @@ func (m *Module) updatePluginMessage(messageLevel, message string) error {
 		log.Errorf("updatePluginMessage() err: %s", err)
 	}
 	return err
+}
+
+func (m *Module) getEncryptionKey(deviceUUID string) ([]byte, error) {
+	device, err := m.grpcMarshaller.GetDevice(deviceUUID)
+	if err != nil {
+		return nil, err
+	}
+
+	hexKey := m.config.DefaultKey
+	if device.Manufacture != "" {
+		hexKey = device.Manufacture // Manufacture property from device model holds hex key
+	}
+
+	key, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return key, nil
 }
