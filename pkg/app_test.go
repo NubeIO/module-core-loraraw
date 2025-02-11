@@ -245,6 +245,18 @@ func TestDropletPayload(t *testing.T) {
 			},
 			[]*model.DeviceMetaTag{},
 		},
+		{"DropletNegativeTemp",
+			"B3B25D0193FF5E273F0000F2CC7D192D5F25",
+			[]TestPoint{
+				{"temperature", -1.09},
+				{"pressure", 1007.800000},
+				{"humidity", 63.000000},
+				{"voltage", 4.840000},
+				{"light", 0.000000},
+				{"motion", 0.000000},
+			},
+			[]*model.DeviceMetaTag{},
+		},
 	}
 
 	runTests(tests, mockDevice, t)
