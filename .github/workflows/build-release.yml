@@ -6,10 +6,12 @@ on:
     branches:
       - main
       - master
+      - develop
   push:
     branches:
       - main
       - master
+      - develop
     tags:
       - 'v*'
 
