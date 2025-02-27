@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.1-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.1-rc.1) (2025-02-27)
+
+- GEN1-20 Unique address transmission (#39)
+
 ## [v1.1.0](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0) (2025-02-12)
 
 - Fix droplet negative temperate decoding
