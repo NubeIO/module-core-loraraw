@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.0](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0) (2025-02-12)
+
+- Fix droplet negative temperate decoding
+
 ## [v1.1.0-rc.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.5) (2024-08-21)
 
 - Fix LoRaRAW and add tests

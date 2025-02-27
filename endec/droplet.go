@@ -138,7 +138,7 @@ func dropletTemp(data string) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	v_ := float64(v) / 100
+	v_ := float64(int16(v)) / 100
 	return v_, nil
 }
 
