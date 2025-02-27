@@ -1,8 +1,7 @@
-package decoder
+package endec
 
 import (
 	"errors"
-
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
@@ -11,14 +10,23 @@ import (
 
 type UpdateDevicePointFunc func(name string, value float64, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
+type DequeuePointWriteFunc func(messageId uint8) *model.Point
+type InternalPointUpdate func(point *model.Point) (*model.Point, error)
 
 type LoRaDeviceDescription struct {
 	DeviceName  string
 	Model       string
 	SensorCode  string
 	CheckLength func(data string) bool
-	Decode      func(data string, devDesc *LoRaDeviceDescription, device *model.Device,
-		updateDevPntFnc UpdateDevicePointFunc, updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc) error
+	Decode      func(
+		data string,
+		devDesc *LoRaDeviceDescription,
+		device *model.Device,
+		updateDevPntFnc UpdateDevicePointFunc,
+		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
+		dequeuePointWriteFunc DequeuePointWriteFunc,
+		internalPointWriteFunc InternalPointUpdate,
+	) error
 	GetPointNames func() []string
 	IsLoRaRAW     bool
 }
@@ -36,8 +44,15 @@ func NilLoRaDeviceDescriptionCheckLength(data string) bool {
 	return false
 }
 
-func NilLoRaDeviceDescriptionDecode(data string, devDesc *LoRaDeviceDescription, device *model.Device,
-	f UpdateDevicePointFunc, _ UpdateDeviceMetaTagsFunc) error {
+func NilLoRaDeviceDescriptionDecode(
+	_ string,
+	_ *LoRaDeviceDescription,
+	_ *model.Device,
+	_ UpdateDevicePointFunc,
+	_ UpdateDeviceMetaTagsFunc,
+	_ DequeuePointWriteFunc,
+	_ InternalPointUpdate,
+) error {
 	return errors.New("nil decode function called")
 }
 

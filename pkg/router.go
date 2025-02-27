@@ -137,7 +137,7 @@ func UpdatePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.UpdatePoint(r.PathParams["uuid"], point)
+	pnt, err := (*m).(*Module).updatePoint(r.PathParams["uuid"], point)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +150,16 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pnt, err := (*m).(*Module).grpcMarshaller.PointWrite(r.PathParams["uuid"], pw)
+
+	point, err := (*m).(*Module).writePoint(r.PathParams["uuid"], pw)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(pnt.Point)
+
+	pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
+	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
+
+	return json.Marshal(point)
 }
 
 func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {

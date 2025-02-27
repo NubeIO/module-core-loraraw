@@ -1,4 +1,4 @@
-package decoder
+package endec
 
 import (
 	"encoding/hex"
@@ -10,66 +10,6 @@ import (
 
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
-)
-
-const HEADER_BIT_COUNT = 6
-
-type DataType int
-type MetaDataKey int
-type BIT_TYPE uint64
-
-type MetaData struct {
-	dataType     DataType
-	lowValue     int
-	highValue    int
-	decimalPoint int
-	byteCount    int
-}
-
-const (
-	MDK_TEMP             = 1
-	MDK_RH               = 2
-	MDK_LUX              = 3
-	MDK_MOVEMENT         = 4
-	MDK_COUNTER          = 5
-	MDK_DIGITAL          = 6
-	MDK_VOLTAGE_0_10     = 7
-	MDK_MILLIAMPS_4_20   = 8
-	MDK_OHM              = 10
-	MDK_CO2              = 11
-	MDK_BATTERY_VOLTAGE  = 12
-	MDK_PUSH_FREQUENCY   = 13
-	MDK_RAW              = 16
-	MDK_UO               = 17
-	MDK_UI               = 18
-	MDK_DO               = 19
-	MDK_DI               = 20
-	MDK_FIRMWARE_VERSION = 61
-	MDK_HARDWARE_VERSION = 62
-	MDK_UINT_8           = 30
-	MDK_INT_8            = 31
-	MDK_UINT_16          = 32
-	MDK_INT_16           = 33
-	MDK_UINT_32          = 34
-	MDK_INT_32           = 35
-	MDK_UINT_64          = 36
-	MDK_INT_64           = 37
-	MDK_BOOL             = 38
-	MDK_CHAR             = 39
-	MDK_FLOAT            = 40
-	MDK_DOUBLE           = 41
-	MDK_STRING           = 42
-)
-
-const (
-	FIXEDPOINT = 1
-	DATAPOINT  = 2
-)
-
-const (
-	SERIAL_DATA_MIN_SIZE         = 1
-	SERIAL_DATA_DATA_OFFSET_BITS = 8
-	SERIAL_DATA_DEFAULT_SETTINGS = 0
 )
 
 const (
@@ -104,49 +44,15 @@ const (
 	Int64Field          = "int_64"
 	FloatField          = "float"
 	DoubleField         = "double"
+	ErrorField          = "error"
 )
-
-type SerialData struct {
-	Buffer     []byte
-	ReadBitPos int
-}
-
-func NewSerialData() *SerialData {
-	buffer := make([]byte, SERIAL_DATA_MIN_SIZE)
-	buffer[0] = SERIAL_DATA_DEFAULT_SETTINGS
-	return &SerialData{
-		Buffer:     buffer,
-		ReadBitPos: SERIAL_DATA_DATA_OFFSET_BITS,
-	}
-}
-
-func NewSerialDataWithBuffer(buffer []byte) *SerialData {
-	return &SerialData{
-		Buffer:     buffer,
-		ReadBitPos: SERIAL_DATA_DATA_OFFSET_BITS,
-	}
-}
 
 func canDecode(serialData *SerialData) bool {
 	return serialData.ReadBitPos < (len(serialData.Buffer)*8 - HEADER_BIT_COUNT)
 }
 
-func setPositionalData(serialData *SerialData, set bool) {
-	if set {
-		// Set the first bit in the first byte to 1
-		serialData.Buffer[0] |= 0x01
-	} else {
-		// Set the first bit in the first byte to 0
-		serialData.Buffer[0] &^= 0x01
-	}
-}
-
-func hasPositionalData(serialData *SerialData) bool {
-	return serialData.Buffer[0]&1 == 1
-}
-
 func getHeader(serialData *SerialData, position *uint8) MetaDataKey {
-	if hasPositionalData(serialData) {
+	if HasPositionalData(serialData) {
 		positionVector, shiftPos, bytesRequired := getVector(serialData, 8, serialData.ReadBitPos)
 		*position = uint8(vectorToBits(positionVector, 8, shiftPos, bytesRequired))
 	}
@@ -156,7 +62,7 @@ func getHeader(serialData *SerialData, position *uint8) MetaDataKey {
 
 func vectorToBits(dataVector []byte, bitCount, shiftPos, bytesRequired int) uint64 {
 	data64 := uint64(0)
-	shiftLeft := (bytesRequired*8 - bitCount - shiftPos)
+	shiftLeft := bytesRequired*8 - bitCount - shiftPos
 	for i := 0; i < len(dataVector)-1; i++ {
 		data64 |= uint64(dataVector[i])
 		if i != len(dataVector)-2 {
@@ -164,8 +70,8 @@ func vectorToBits(dataVector []byte, bitCount, shiftPos, bytesRequired int) uint
 		}
 	}
 	// Shift forward and add last bits
-	data64 <<= (8 - shiftLeft)
-	data64 |= (uint64(dataVector[len(dataVector)-1]) >> shiftLeft)
+	data64 <<= 8 - shiftLeft
+	data64 |= uint64(dataVector[len(dataVector)-1]) >> shiftLeft
 
 	// Mask out leading bits
 	if bitCount < 64 {
@@ -173,10 +79,6 @@ func vectorToBits(dataVector []byte, bitCount, shiftPos, bytesRequired int) uint
 	}
 
 	return data64
-}
-
-func getMetaData(header MetaDataKey) MetaData {
-	return serialMap[int(header)]
 }
 
 func getBitCount(low, high int, decimal int) int {
@@ -272,6 +174,7 @@ func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) er
 			} else {
 				return fmt.Errorf("invalid type for MDK_UINT_16: %T", data)
 			}
+
 		case MDK_INT_16:
 			if v, ok := data.(*int16); ok {
 				*v = int16(dataBits)
@@ -318,39 +221,6 @@ func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) er
 	return nil
 }
 
-var serialMap = map[int]MetaData{
-	MDK_TEMP:             {FIXEDPOINT, -45, 120, 2, 0},
-	MDK_RH:               {FIXEDPOINT, 0, 100, 2, 0},
-	MDK_LUX:              {FIXEDPOINT, 0, 65534, 0, 0},
-	MDK_MOVEMENT:         {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_COUNTER:          {FIXEDPOINT, 0, 1048576, 0, 0},
-	MDK_DIGITAL:          {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_VOLTAGE_0_10:     {FIXEDPOINT, 0, 10, 2, 0},
-	MDK_MILLIAMPS_4_20:   {FIXEDPOINT, 4, 20, 2, 0},
-	MDK_OHM:              {FIXEDPOINT, 0, 1048576, 0, 0},
-	MDK_CO2:              {FIXEDPOINT, 0, 400, 0, 0},
-	MDK_BATTERY_VOLTAGE:  {FIXEDPOINT, 0, 6, 1, 0},
-	MDK_PUSH_FREQUENCY:   {FIXEDPOINT, 0, 2000, 0, 0},
-	MDK_RAW:              {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_UO:               {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_UI:               {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_DO:               {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_DI:               {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_FIRMWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
-	MDK_HARDWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
-	MDK_UINT_8:           {DATAPOINT, 0, 0, 0, 1},
-	MDK_INT_8:            {DATAPOINT, 0, 0, 0, 1},
-	MDK_UINT_16:          {DATAPOINT, 0, 0, 0, 2},
-	MDK_INT_16:           {DATAPOINT, 0, 0, 0, 2},
-	MDK_UINT_32:          {DATAPOINT, 0, 0, 0, 4},
-	MDK_INT_32:           {DATAPOINT, 0, 0, 0, 4},
-	MDK_UINT_64:          {DATAPOINT, 0, 0, 0, 8},
-	MDK_INT_64:           {DATAPOINT, 0, 0, 0, 8},
-	MDK_BOOL:             {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_CHAR:             {DATAPOINT, 0, 0, 0, 1},
-	MDK_FLOAT:            {DATAPOINT, 0, 0, 0, 4},
-	MDK_DOUBLE:           {DATAPOINT, 0, 0, 0, 8}}
-
 func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	if !hasPosition {
 		*pos++
@@ -358,8 +228,15 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 	return baseName + "-" + strconv.Itoa(int(*pos))
 }
 
-func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Device, updatePointFn UpdateDevicePointFunc,
-	_ UpdateDeviceMetaTagsFunc) error {
+func DecodeRubix(
+	data string,
+	_ *LoRaDeviceDescription,
+	device *model.Device,
+	updatePointFn UpdateDevicePointFunc,
+	_ UpdateDeviceMetaTagsFunc,
+	dequeuePointWriteFunc DequeuePointWriteFunc,
+	internalPointUpdate InternalPointUpdate,
+) error {
 	var (
 		temperature float32
 		rh          float32
@@ -391,6 +268,7 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		char        byte
 		fl1         float32
 		b1          float32
+		error       uint16
 	)
 
 	dataBytes, err := hex.DecodeString(data)
@@ -401,8 +279,18 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 
 	serialData := NewSerialDataWithBuffer(dataBytes)
 
-	hasPos := hasPositionalData(serialData)
+	hasPos := HasPositionalData(serialData)
 	var position uint8 = 0
+	if HasRequestData(serialData) || HasResponseData(serialData) {
+		messageId := GetMessageId(serialData)
+		point := dequeuePointWriteFunc(messageId)
+		if point != nil {
+			// TODO: May be re-add to the queue if internal point update fails???
+			_, _ = internalPointUpdate(point)
+		}
+		UpdateBitPositionsForHeaderByte(serialData)
+	}
+
 	for canDecode(serialData) {
 		header := getHeader(serialData, &position)
 		switch header {
@@ -496,6 +384,9 @@ func DecodeRubix(data string, devDesc *LoRaDeviceDescription, device *model.Devi
 		case MDK_BOOL:
 			decodeData(serialData, header, &b1)
 			_ = updatePointFn(generateFieldName(BoolField, hasPos, &position), float64(b1), device)
+		case MDK_ERROR:
+			decodeData(serialData, header, &error)
+			_ = updatePointFn(generateFieldName(ErrorField, hasPos, &position), float64(error), device)
 		case 0:
 			log.Debug("reached end of data with some bits left over")
 		default:
