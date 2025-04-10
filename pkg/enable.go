@@ -34,7 +34,7 @@ func (m *Module) Enable() error {
 		} else {
 			for _, device := range net.Devices {
 				for _, point := range device.Points {
-					if point.PointState == datatype.PointStateApiUpdatePending {
+					if point.PointState == datatype.PointStateApiWritePending {
 						m.pointWriteQueue.LoadWriteQueue(point)
 					}
 				}

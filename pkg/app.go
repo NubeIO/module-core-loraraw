@@ -123,7 +123,7 @@ func (m *Module) deletePoint(_ *model.Point) (success bool, err error) {
 
 func (m *Module) writePoint(pointUUID string, body *dto.PointWriter) (*model.Point, error) {
 	body.IgnorePresentValueUpdate = true
-	body.PollState = datatype.PointStateApiUpdatePending
+	body.PollState = datatype.PointStateApiWritePending
 	pwResponse, err := m.grpcMarshaller.PointWrite(pointUUID, body)
 	if err != nil {
 		return nil, err
@@ -136,7 +136,7 @@ func (m *Module) internalPointUpdate(point *model.Point) (*model.Point, error) {
 		OriginalValue: point.WriteValue,
 		Message:       "",
 		Fault:         false,
-		PollState:     datatype.PointStatePollOk,
+		PollState:     datatype.PointStateWriteOk,
 	}
 	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
 	if err != nil {

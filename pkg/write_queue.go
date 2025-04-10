@@ -8,19 +8,11 @@ import (
 	"time"
 )
 
-type PointWriteState string
-
-const (
-	PointWritePending PointWriteState = "point-write-pending"
-	PointWriteSuccess PointWriteState = "point-write-success"
-)
-
 type PendingPointWrite struct {
-	MessageId        uint8
-	Message          []byte
-	Point            *model.Point
-	RetryCount       int
-	PointWriteStatus PointWriteState
+	MessageId  uint8
+	Message    []byte
+	Point      *model.Point
+	RetryCount int
 }
 
 type PointWriteQueue struct {
@@ -42,7 +34,7 @@ func NewPointWriteQueue(maxRetry int, timeout time.Duration) *PointWriteQueue {
 func (pwq *PointWriteQueue) LoadWriteQueue(point *model.Point) {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
-	pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
+	pendingPointWrite := &PendingPointWrite{Point: point}
 	pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
 }
 
@@ -143,20 +135,18 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		}
 
 		if pendingPointWrite.RetryCount < pwq.maxRetry {
-			if pendingPointWrite.PointWriteStatus == PointWritePending {
-				err := writeToLoRaRaw(pendingPointWrite.Message)
-				if err != nil {
-					log.Infof("error writing to LoRa: %v\n", err)
-					pendingPointWrite.RetryCount++
-					continue
-				}
-				pendingPointWrite.PointWriteStatus = PointWriteSuccess
+			err := writeToLoRaRaw(pendingPointWrite.Message)
+			if err != nil {
+				log.Errorf("error writing to LoRa serial port: %v\n", err)
+				time.Sleep(time.Second * 2)
+				continue
 			}
+			pendingPointWrite.RetryCount++
+
+			// Wait for the set timeout before initiating another write
+			time.Sleep(pwq.timeout)
 		} else {
 			pwq.DequeueWriteQueue()
 		}
-
-		// Wait for the set timeout before initiating another write
-		time.Sleep(pwq.timeout)
 	}
 }
