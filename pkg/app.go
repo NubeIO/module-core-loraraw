@@ -4,16 +4,19 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"reflect"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 
 	"github.com/NubeIO/module-core-loraraw/aesutils"
 
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
+	"github.com/NubeIO/lib-utils-go/nstring"
 	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
@@ -146,6 +149,28 @@ func (m *Module) internalPointUpdate(point *model.Point) (*model.Point, error) {
 	return &pwResponse.Point, nil
 }
 
+func (m *Module) sendAckToDevice(device *model.Device, messageId uint8) error {
+    serialData := endec.NewSerialData()
+    endec.SetPositionalData(serialData, true)
+    endec.SetResponseData(serialData, true)
+    endec.SetMessageId(serialData, messageId)
+    endec.UpdateBitPositionsForHeaderByte(serialData)
+    encryptionKey, err := m.getEncryptionKey(device.UUID)
+    if err != nil {
+        return fmt.Errorf("failed to get encryption key for ACK: %v", err)
+    }
+	
+	endec.EncodeData(serialData, uint8(1), endec.MDK_ERROR, 1)
+    encryptedData, err := aesutils.Encrypt(
+		nstring.DerefString(device.AddressUUID),
+		serialData.Buffer,
+		encryptionKey,
+		0,
+	)
+    log.Infof("Sending ACK to device %s for message ID: %d", device.UUID, messageId)
+    return m.WriteToLoRaRaw(encryptedData)
+}
+
 func (m *Module) handleSerialPayload(data string) {
 	if m.networkUUID == "" {
 		return
@@ -198,6 +223,7 @@ func (m *Module) handleSerialPayload(data string) {
 		m.updateDeviceMetaTags,
 		m.pointWriteQueue.DequeueUsingMessageId,
 		m.internalPointUpdate,
+		m.sendAckToDevice,
 	)
 	if err != nil {
 		log.Errorf("decode error: %v\r\n", err)
@@ -217,6 +243,8 @@ func decodeData(
 	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFn endec.DequeuePointWriteFunc,
 	internalPointUpdateFn endec.InternalPointUpdate,
+	sendAckMessageFn	endec.SendAckToDeviceFunc,
+
 ) error {
 	devDesc := endec.GetDeviceDescription(device)
 	if devDesc == &endec.NilLoRaDeviceDescription {
@@ -252,6 +280,7 @@ func decodeData(
 		updateDeviceMetaTagFn,
 		dequeuePointWriteFn,
 		internalPointUpdateFn,
+		sendAckMessageFn,
 	)
 	return err
 }
@@ -417,4 +446,44 @@ func (m *Module) getEncryptionKey(deviceUUID string) ([]byte, error) {
 	}
 
 	return key, nil
+}
+
+func (m *Module) initWriteQueue() {
+    m.writeQueueInit.Do(func() {
+        m.writeQueue = make(chan []byte, 100)
+        m.writeQueueDone = make(chan struct{})
+        
+        go m.processWriteQueue()
+    })
+}
+
+func (m *Module) processWriteQueue() {
+    defer func() {
+        if r := recover(); r != nil {
+            log.Errorf("Recovered panic in processWriteQueue: %v", r)
+            // Khởi động lại goroutine
+            go m.processWriteQueue()
+        }
+    }()
+    
+    for {
+        select {
+        case data := <-m.writeQueue:
+            if Port == nil {
+                log.Error("Serial port not connected")
+                continue
+            }
+            
+            _, err := Port.Write(data)
+            if err != nil {
+                log.Errorf("Error writing to serial port: %v", err)
+            }
+            
+            // Đợi một khoảng thời gian sau khi gửi để module LoRa xử lý
+            time.Sleep(50 * time.Millisecond)
+            
+        case <-m.writeQueueDone:
+            return
+        }
+    }
 }

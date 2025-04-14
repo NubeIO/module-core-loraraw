@@ -4,8 +4,9 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/NubeIO/lib-utils-go/nstring"
 	"strconv"
+
+	"github.com/NubeIO/lib-utils-go/nstring"
 
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -114,6 +115,7 @@ func DecodeZHT(
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
 	_ InternalPointUpdate,
+	_ SendAckToDeviceFunc,
 ) error {
 	bytes, err := getPayloadBytes(data)
 	if err != nil {

@@ -87,6 +87,7 @@ var serialMap = map[int]MetaData{
 	MDK_CHAR:             {DATAPOINT, 0, 0, 0, 1},
 	MDK_FLOAT:            {DATAPOINT, 0, 0, 0, 4},
 	MDK_DOUBLE:           {DATAPOINT, 0, 0, 0, 8},
+	MDK_ERROR:            {DATAPOINT, 0, 0, 0, 1},
 }
 
 func getMetaData(header MetaDataKey) MetaData {

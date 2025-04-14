@@ -1,11 +1,12 @@
 package endec
 
 import (
+	"strconv"
+
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"strconv"
 )
 
 const (
@@ -41,6 +42,7 @@ func DecodeME(
 	_ UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
 	_ InternalPointUpdate,
+	_ SendAckToDeviceFunc,
 ) error {
 	p, err := pulse(data)
 	if err != nil {

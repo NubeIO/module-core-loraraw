@@ -1,16 +1,18 @@
 package pkg
 
 import (
+	"sync"
+	"time"
+
 	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
-	"sync"
-	"time"
 )
 
 type PendingPointWrite struct {
 	MessageId  uint8
 	Message    []byte
+	MessageType bool
 	Point      *model.Point
 	RetryCount int
 }
@@ -135,6 +137,7 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		}
 
 		if pendingPointWrite.RetryCount < pwq.maxRetry {
+			log.Errorf("HAHAHAHAHAHAHAHAHAHAHAHAHA \n")
 			err := writeToLoRaRaw(pendingPointWrite.Message)
 			if err != nil {
 				log.Errorf("error writing to LoRa serial port: %v\n", err)

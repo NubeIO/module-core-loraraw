@@ -1,8 +1,9 @@
 package endec
 
 import (
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"strconv"
+
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
 
 const (
@@ -32,8 +33,9 @@ func DecodePayload(
 	mtFn UpdateDeviceMetaTagsFunc,
 	dequeueFn DequeuePointWriteFunc,
 	internalPointUpdateFn InternalPointUpdate,
+	sendAckMessageFn	SendAckToDeviceFunc,
 ) error {
-	err := devDesc.Decode(data, devDesc, device, fn, mtFn, dequeueFn, internalPointUpdateFn)
+	err := devDesc.Decode(data, devDesc, device, fn, mtFn, dequeueFn, internalPointUpdateFn, sendAckMessageFn)
 	return err
 }
 

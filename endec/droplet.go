@@ -1,9 +1,10 @@
 package endec
 
 import (
+	"strconv"
+
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"strconv"
 )
 
 const (
@@ -49,6 +50,7 @@ func DecodeDropletTH(
 	_ UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
 	_ InternalPointUpdate,
+	_ SendAckToDeviceFunc,
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
@@ -83,6 +85,7 @@ func DecodeDropletTHL(
 	updateDeviceMetaTagFn UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
 	internalPointUpdate InternalPointUpdate,
+	sendAck SendAckToDeviceFunc,
 ) error {
 	err := DecodeDropletTH(
 		data,
@@ -92,6 +95,7 @@ func DecodeDropletTHL(
 		updateDeviceMetaTagFn,
 		dequeuePointWriteFunc,
 		internalPointUpdate,
+		sendAck,
 	)
 	if err != nil {
 		return err
@@ -112,6 +116,7 @@ func DecodeDropletTHLM(
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
 	internalPointUpdate InternalPointUpdate,
+	sendAck SendAckToDeviceFunc,
 ) error {
 	err := DecodeDropletTHL(
 		data,
@@ -121,6 +126,7 @@ func DecodeDropletTHLM(
 		updateDeviceMetaTagsFn,
 		dequeuePointWriteFunc,
 		internalPointUpdate,
+		sendAck,
 	)
 	if err != nil {
 		return err

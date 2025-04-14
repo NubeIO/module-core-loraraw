@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"time"
+
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 	"go.bug.st/serial"
@@ -64,14 +66,14 @@ func (m *Module) SerialClose() error {
 }
 
 func (m *Module) WriteToLoRaRaw(data []byte) error {
-	if Port == nil {
-		return errors.New("serial connection error: port not set")
-	}
-	_, err := Port.Write(data)
-	if err != nil {
-		return err
-	}
-	return nil
+    m.initWriteQueue() // Đảm bảo hàng đợi được khởi tạo
+    
+    select {
+    case m.writeQueue <- data:
+        return nil
+    case <-time.After(1 * time.Second):
+        return errors.New("write queue full, timeout after 1 second")
+    }
 }
 
 func (s *SerialSetting) Loop(plChan chan<- string, errChan chan<- error) {

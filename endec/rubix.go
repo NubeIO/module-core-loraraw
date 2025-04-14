@@ -236,6 +236,7 @@ func DecodeRubix(
 	_ UpdateDeviceMetaTagsFunc,
 	dequeuePointWriteFunc DequeuePointWriteFunc,
 	internalPointUpdate InternalPointUpdate,
+	sendAckMessage SendAckToDeviceFunc,
 ) error {
 	var (
 		temperature float32
@@ -281,7 +282,9 @@ func DecodeRubix(
 
 	hasPos := HasPositionalData(serialData)
 	var position uint8 = 0
-	if HasRequestData(serialData) || HasResponseData(serialData) {
+	if HasRequestData(serialData) {
+		UpdateBitPositionsForHeaderByte(serialData)
+	} else if HasResponseData(serialData) {
 		messageId := GetMessageId(serialData)
 		point := dequeuePointWriteFunc(messageId)
 		if point != nil {
@@ -391,6 +394,16 @@ func DecodeRubix(
 			log.Debug("reached end of data with some bits left over")
 		default:
 			log.Errorf("Unknown header: %d", header)
+		}
+	}
+
+	if HasRequestData(serialData) {
+		respMsgId := GetMessageId(serialData)
+		if sendAckMessage != nil {
+			err := sendAckMessage(device, respMsgId);
+			if err != nil {
+				log.Errorf("Failed to send ACK: %v", err)
+			}
 		}
 	}
 	return nil

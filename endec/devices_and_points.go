@@ -2,6 +2,7 @@ package endec
 
 import (
 	"errors"
+
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
@@ -12,6 +13,7 @@ type UpdateDevicePointFunc func(name string, value float64, device *model.Device
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
 type DequeuePointWriteFunc func(messageId uint8) *model.Point
 type InternalPointUpdate func(point *model.Point) (*model.Point, error)
+type SendAckToDeviceFunc func(device *model.Device, messageId uint8) error
 
 type LoRaDeviceDescription struct {
 	DeviceName  string
@@ -26,6 +28,7 @@ type LoRaDeviceDescription struct {
 		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
 		dequeuePointWriteFunc DequeuePointWriteFunc,
 		internalPointWriteFunc InternalPointUpdate,
+		sendAck SendAckToDeviceFunc,
 	) error
 	GetPointNames func() []string
 	IsLoRaRAW     bool
@@ -52,6 +55,7 @@ func NilLoRaDeviceDescriptionDecode(
 	_ UpdateDeviceMetaTagsFunc,
 	_ DequeuePointWriteFunc,
 	_ InternalPointUpdate,
+	_ SendAckToDeviceFunc,
 ) error {
 	return errors.New("nil decode function called")
 }

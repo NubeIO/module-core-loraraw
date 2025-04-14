@@ -1,12 +1,13 @@
 package pkg
 
 import (
+	"time"
+
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
-	"time"
 )
 
 func (m *Module) Enable() error {
@@ -20,6 +21,7 @@ func (m *Module) Enable() error {
 		_ = m.updatePluginMessage(dto.MessageLevel.Fail, err.Error())
 	}
 
+	m.initWriteQueue()
 	m.pointWriteQueue = NewPointWriteQueue(m.config.WriteQueueMaxRetries, m.config.WriteQueueTimeout)
 
 	if len(networks) == 0 {
@@ -57,6 +59,13 @@ func (m *Module) Disable() error {
 	defer m.mutex.Unlock()
 	log.Info("plugin is disabling...")
 	m.interruptChan <- struct{}{}
+	if m.writeQueue != nil {
+        m.writeQueueDone <- struct{}{}
+        close(m.writeQueueDone)
+        close(m.writeQueue)
+        m.writeQueue = nil
+    }
+	
 	time.Sleep(m.config.ReIterationTime + 1*time.Second) // we need to do this because, before disable it could possibly be restarted
 	log.Info("plugin is disabled")
 	return nil
