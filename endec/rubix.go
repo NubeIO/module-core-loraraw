@@ -400,7 +400,7 @@ func DecodeRubix(
 	if HasRequestData(serialData) {
 		respMsgId := GetMessageId(serialData)
 		if sendAckMessage != nil {
-			err := sendAckMessage(device, respMsgId);
+			err := sendAckMessage(device, respMsgId)
 			if err != nil {
 				log.Errorf("Failed to send ACK: %v", err)
 			}

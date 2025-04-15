@@ -66,14 +66,14 @@ func (m *Module) SerialClose() error {
 }
 
 func (m *Module) WriteToLoRaRaw(data []byte) error {
-    m.initWriteQueue() // Đảm bảo hàng đợi được khởi tạo
-    
-    select {
-    case m.writeQueue <- data:
-        return nil
-    case <-time.After(1 * time.Second):
-        return errors.New("write queue full, timeout after 1 second")
-    }
+	m.initWriteQueue() // Đảm bảo hàng đợi được khởi tạo
+
+	select {
+	case m.writeQueue <- data:
+		return nil
+	case <-time.After(1 * time.Second):
+		return errors.New("write queue full, timeout after 1 second")
+	}
 }
 
 func (s *SerialSetting) Loop(plChan chan<- string, errChan chan<- error) {

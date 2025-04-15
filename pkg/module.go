@@ -15,9 +15,9 @@ type Module struct {
 	interruptChan   chan struct{}
 	mutex           *sync.RWMutex
 	pointWriteQueue *PointWriteQueue
-	writeQueue     chan []byte
-    writeQueueDone chan struct{}
-    writeQueueInit sync.Once
+	writeQueue      chan []byte
+	writeQueueDone  chan struct{}
+	writeQueueInit  sync.Once
 }
 
 func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {

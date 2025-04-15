@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/NubeIO/lib-utils-go/nstring"
-
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )

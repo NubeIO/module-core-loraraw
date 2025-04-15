@@ -33,7 +33,7 @@ func DecodePayload(
 	mtFn UpdateDeviceMetaTagsFunc,
 	dequeueFn DequeuePointWriteFunc,
 	internalPointUpdateFn InternalPointUpdate,
-	sendAckMessageFn	SendAckToDeviceFunc,
+	sendAckMessageFn SendAckToDeviceFunc,
 ) error {
 	err := devDesc.Decode(data, devDesc, device, fn, mtFn, dequeueFn, internalPointUpdateFn, sendAckMessageFn)
 	return err

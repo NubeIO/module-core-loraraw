@@ -60,12 +60,12 @@ func (m *Module) Disable() error {
 	log.Info("plugin is disabling...")
 	m.interruptChan <- struct{}{}
 	if m.writeQueue != nil {
-        m.writeQueueDone <- struct{}{}
-        close(m.writeQueueDone)
-        close(m.writeQueue)
-        m.writeQueue = nil
-    }
-	
+		m.writeQueueDone <- struct{}{}
+		close(m.writeQueueDone)
+		close(m.writeQueue)
+		m.writeQueue = nil
+	}
+
 	time.Sleep(m.config.ReIterationTime + 1*time.Second) // we need to do this because, before disable it could possibly be restarted
 	log.Info("plugin is disabled")
 	return nil
