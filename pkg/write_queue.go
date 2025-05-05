@@ -10,11 +10,11 @@ import (
 )
 
 type PendingPointWrite struct {
-	MessageId  uint8
-	Message    []byte
+	MessageId   uint8
+	Message     []byte
 	MessageType bool
-	Point      *model.Point
-	RetryCount int
+	Point       *model.Point
+	RetryCount  int
 }
 
 type PointWriteQueue struct {
@@ -137,7 +137,6 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		}
 
 		if pendingPointWrite.RetryCount < pwq.maxRetry {
-			log.Errorf("HAHAHAHAHAHAHAHAHAHAHAHAHA \n")
 			err := writeToLoRaRaw(pendingPointWrite.Message)
 			if err != nil {
 				log.Errorf("error writing to LoRa serial port: %v\n", err)

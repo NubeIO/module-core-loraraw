@@ -66,7 +66,7 @@ func (m *Module) SerialClose() error {
 }
 
 func (m *Module) WriteToLoRaRaw(data []byte) error {
-	m.initWriteQueue() // Đảm bảo hàng đợi được khởi tạo
+	m.initWriteQueue() // Make sure the queue is initialized
 
 	select {
 	case m.writeQueue <- data:

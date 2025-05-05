@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -21,6 +22,16 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	LORA_RAW_VERSION          = 1
+	LORA_RAW_OPTS_CONF        = 2
+	LORA_RAW_OPTS_ACK         = 3
+	LORA_RAW_VERSION_POSITION = 0
+	LORA_RAW_OPTS_POSITION    = 1
+	LORA_RAW_NONCE_POSITION   = 2
+	LORA_RAW_HEADER_LEN       = 3
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
@@ -198,6 +209,7 @@ func (m *Module) handleSerialPayload(data string) {
 		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
 		return
 	}
+
 	// Decode RSSI and SNR before decryption; otherwise, they will be lost.
 	rssi := endec.DecodeRSSI(data)
 	snr := endec.DecodeSNR(data)
@@ -205,12 +217,17 @@ func (m *Module) handleSerialPayload(data string) {
 	if !legacyDevice && !m.config.DecryptionDisabled {
 		hexKey := m.config.DefaultKey
 		if device.Manufacture != "" {
-			hexKey = device.Manufacture // Manufacture property from device model holds hex key
+			hexKey = device.Manufacture // Manufacture property from the device model holds hex key
 		}
 		data, err = decryptNormal(data, hexKey)
 		if err != nil {
 			log.Errorf("error decrypting data: %s", err)
 			return
+		}
+
+		err := m.sendAcknowledgement(data, hexKey)
+		if err != nil {
+			log.Errorf("error sending acknowledgement: %s", err)
 		}
 	}
 
@@ -232,6 +249,62 @@ func (m *Module) handleSerialPayload(data string) {
 	_ = m.updateDevicePoint(endec.SnrField, float64(snr), device)
 
 	m.updateDeviceFault(device.Model, device.UUID)
+}
+
+func (m *Module) sendAcknowledgement(data, hexKey string) error {
+	byteKey, err := hex.DecodeString(hexKey)
+	if err != nil {
+		return err
+	}
+	byteData, err := hex.DecodeString(data)
+	if err != nil {
+		return err
+	}
+	ack, err := prepareAcknowledgement(byteData, byteKey)
+	if err != nil {
+		return err
+	}
+	return m.WriteToLoRaRaw(ack)
+}
+
+func prepareAcknowledgement(data, key []byte) ([]byte, error) {
+	if len(data) < LORA_RAW_HEADER_LEN {
+		return nil, errors.New("invalid data length")
+	}
+	if data[LORA_RAW_VERSION_POSITION] != LORA_RAW_VERSION {
+		return nil, errors.New("invalid version")
+	}
+	opts := getOpts(data)
+	if opts == LORA_RAW_OPTS_CONF {
+		ack := createAck(data[:LORA_RAW_HEADER_LEN], key, getNonce(data))
+		return ack, nil
+	}
+	return nil, errors.New("invalid opts")
+}
+
+func getOpts(data []byte) int {
+	return int(data[LORA_RAW_OPTS_POSITION])
+}
+
+func getNonce(data []byte) int {
+	return int(data[LORA_RAW_NONCE_POSITION])
+}
+
+func createAck(address, key []byte, nonce int) []byte {
+	optB := []byte{byte(LORA_RAW_OPTS_ACK)}
+	nonceB := []byte{byte(nonce)}
+	var buffer bytes.Buffer
+	buffer.Write(address)
+	buffer.Write(optB)
+	buffer.Write(nonceB)
+	fullData := buffer.Bytes()
+	unCmac, err := aesutils.CmacUnencrypted(fullData, key)
+	if err != nil {
+		log.Errorf("error creating ack: %s", err)
+		return nil
+	}
+	fullData = append(fullData, unCmac...)
+	return fullData
 }
 
 func decodeData(
@@ -458,7 +531,7 @@ func (m *Module) processWriteQueue() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("Recovered panic in processWriteQueue: %v", r)
-			// Khởi động lại goroutine
+			// Restart goroutine
 			go m.processWriteQueue()
 		}
 	}()
@@ -476,7 +549,7 @@ func (m *Module) processWriteQueue() {
 				log.Errorf("Error writing to serial port: %v", err)
 			}
 
-			// Đợi một khoảng thời gian sau khi gửi để module LoRa xử lý
+			// Wait a while after sending for the LoRa module to process
 			time.Sleep(50 * time.Millisecond)
 
 		case <-m.writeQueueDone:
