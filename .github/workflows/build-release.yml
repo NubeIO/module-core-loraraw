@@ -18,12 +18,12 @@ on:
 env:
   APP_NAME: module-core-loraraw
   GHCR_IMAGE: ghcr.io/nubeio/module-core-loraraw
-  PLATFORMS: linux/amd64,linux/arm/v7
+  PLATFORMS: linux/amd64
 
 jobs:
 
   context:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     outputs:
       shouldBuild: ${{ steps.context.outputs.decision_build }}
@@ -36,7 +36,7 @@ jobs:
       fqn: ${{ env.APP_NAME }}-${{ steps.context.outputs.version }}-${{ steps.context.outputs.shortCommitId }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.NUBEIO_CI_GITHUBPROJECT_TOKEN }}
 
@@ -58,7 +58,7 @@ jobs:
           defaultBranch: master
 
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     needs: context
     if: needs.context.outputs.shouldBuild == 'true'
     env:
@@ -72,37 +72,22 @@ jobs:
           -v /home/runner:/var/lib/registry
           --name registry
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '^1.16.6'
+      - uses: actions/checkout@v4
 
       - name: Set current date as env variable
         id: date
         run: echo "::set-output name=date::$(date +'%Y-%m-%dT%H:%M:%S')"
 
-      - name: Edit main.go for environment
-        env:
-          VERSION: ${{ needs.context.outputs.version }}
-          COMMIT: ${{ needs.context.outputs.shortCommitId }}
-          BUILD_DATE: ${{ steps.date.outputs.date }}
+      - name: Build inside Docker
         run: |
-          sed -i -e 's,<version>,'"${VERSION}"',' main.go
-          sed -i -e 's/<commit>/'"${COMMIT}"'/' main.go
-          sed -i -e 's/<build_date>/'"${BUILD_DATE}"'/' main.go
+          docker build \
+          -f Dockerfile \
+          -t build-image .
 
-      - name: Build amd64
-        run: |
-          git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/NubeIO".insteadOf "https://github.com/NubeIO"
-          go mod tidy
-          go build -o module-core-loraraw-amd64
-
-      - name: Build armv7
-        if: ${{ needs.context.outputs.isRelease == 'true' }}
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
-          env GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=1 CC=arm-linux-gnueabihf-gcc  CXX=arm-linux-gnueabihf-g++ go build -o module-core-loraraw-armv7
+          container_id=$(docker create build-image)
+          docker cp $container_id:/app/module-core-loraraw-amd64 ./module-core-loraraw-amd64
+          docker cp $container_id:/app/module-core-loraraw-armv7 ./module-core-loraraw-armv7
+          docker rm $container_id
 
       - name: Zip artifacts
         if: ${{ needs.context.outputs.isRelease == 'true' }}
