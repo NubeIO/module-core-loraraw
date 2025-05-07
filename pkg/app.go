@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	LORA_RAW_VERSION          = 1
-	LORA_RAW_OPTS_CONF        = 2
-	LORA_RAW_OPTS_ACK         = 3
-	LORA_RAW_VERSION_POSITION = 0
-	LORA_RAW_OPTS_POSITION    = 1
-	LORA_RAW_NONCE_POSITION   = 2
-	LORA_RAW_HEADER_LEN       = 3
+	LORA_RAW_VERSION          = 0xC0
+	LORA_RAW_OPTS_CONF        = 1
+	LORA_RAW_OPTS_ACK         = 2
+	LORA_RAW_VERSION_POSITION = 1
+	LORA_RAW_OPTS_POSITION    = 4
+	LORA_RAW_NONCE_POSITION   = 5
+	LORA_RAW_HEADER_LEN       = 4
 )
 
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
