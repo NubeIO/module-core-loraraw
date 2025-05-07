@@ -24,16 +24,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const (
-	LORA_RAW_VERSION          = 1
-	LORA_RAW_OPTS_CONF        = 2
-	LORA_RAW_OPTS_ACK         = 3
-	LORA_RAW_VERSION_POSITION = 0
-	LORA_RAW_OPTS_POSITION    = 1
-	LORA_RAW_NONCE_POSITION   = 2
-	LORA_RAW_HEADER_LEN       = 3
-)
-
 func (m *Module) addNetwork(body *model.Network) (network *model.Network, err error) {
 	nets, err := m.grpcMarshaller.GetNetworksByPluginName(body.PluginName)
 	if err != nil {
@@ -143,21 +133,6 @@ func (m *Module) writePoint(pointUUID string, body *dto.PointWriter) (*model.Poi
 	return &pwResponse.Point, nil
 }
 
-func (m *Module) internalPointUpdate(point *model.Point) (*model.Point, error) {
-	pointWriter := &dto.PointWriter{
-		OriginalValue: point.WriteValue,
-		Message:       "",
-		Fault:         false,
-		PollState:     datatype.PointStateWriteOk,
-	}
-	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
-	if err != nil {
-		log.Errorf("internalPointUpdate() error: %s", err)
-		return nil, err
-	}
-	return &pwResponse.Point, nil
-}
-
 func (m *Module) sendAckToDevice(device *model.Device, messageId uint8) error {
 	serialData := endec.NewSerialData()
 	endec.SetPositionalData(serialData, true)
@@ -180,118 +155,131 @@ func (m *Module) sendAckToDevice(device *model.Device, messageId uint8) error {
 	return m.WriteToLoRaRaw(encryptedData)
 }
 
-func (m *Module) handleSerialPayload(data string) {
+func (m *Module) handleSerialPayload(dataHex string) {
 	if m.networkUUID == "" {
 		return
 	}
 
-	if !endec.ValidPayload(data) {
+	if !endec.ValidPayload(dataHex) {
 		return
 	}
 
 	var err error
-	log.Debugf("uplink: %s", data)
+	log.Debugf("uplink: %s", dataHex)
 	legacyDevice := false
-	device := m.getDeviceByLoRaAddress(endec.DecodeAddress(data))
+	address := endec.DecodeAddressHex(dataHex)
+	device := m.getDeviceByLoRaAddress(address)
+
+	dataBytes, err := hex.DecodeString(dataHex)
+	if err != nil {
+		log.Errorf("error decoding data: (address: %s) %s", address, err)
+		return
+	}
 
 	if device == nil && !m.config.DecryptionDisabled {
-		// maybe it's a legacy device (droplet, microedge)
-		dataLegacy, err := decryptLegacy(data, m.config.DefaultKey)
-		if err == nil {
-			device = m.getDeviceByLoRaAddress(endec.DecodeAddress(dataLegacy))
-			legacyDevice = true
-			data = dataLegacy
-		}
-	}
-	if device == nil {
-		id := endec.DecodeAddress(data) // show user messages from lora
-		rssi := endec.DecodeRSSI(data)
-		log.Infof("message from non-added sensor. ID: %s, RSSI: %d", id, rssi)
-		return
-	}
-
-	// Decode RSSI and SNR before decryption; otherwise, they will be lost.
-	rssi := endec.DecodeRSSI(data)
-	snr := endec.DecodeSNR(data)
-
-	if !legacyDevice && !m.config.DecryptionDisabled {
-		hexKey := m.config.DefaultKey
-		if device.Manufacture != "" {
-			hexKey = device.Manufacture // Manufacture property from the device model holds hex key
-		}
-		data, err = decryptNormal(data, hexKey)
+		// maybe it's a legacy device (droplet, microedge, ziphydrotap)
+		keyBytes, err := hex.DecodeString(m.config.DefaultKey)
 		if err != nil {
-			log.Errorf("error decrypting data: %s", err)
+			log.Errorf("error decoding default key: %s", err)
 			return
 		}
-
-		err := m.sendAcknowledgement(data, hexKey)
-		if err != nil {
-			log.Errorf("error sending acknowledgement: %s", err)
+		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
+		if err == nil {
+			address = endec.DecodeAddressBytes(dataLegacy)
+			device = m.getDeviceByLoRaAddress(address)
+			legacyDevice = true
+			dataHex = hex.EncodeToString(dataLegacy)
+			dataBytes = dataLegacy
 		}
 	}
 
-	err = decodeData(
-		data,
-		device,
-		m.updateDevicePoint,
-		m.updateDeviceMetaTags,
-		m.pointWriteQueue.DequeueUsingMessageId,
-		m.internalPointUpdate,
-		m.sendAckToDevice,
-	)
-	if err != nil {
-		log.Errorf("decode error: %v\r\n", err)
+	rssi := endec.DecodeRSSI(dataHex)
+	snr := endec.DecodeSNR(dataHex)
+
+	if device == nil {
+		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %d", address, rssi, snr)
+		return
+	}
+	devDesc := endec.GetDeviceDescription(device)
+	if devDesc == &endec.NilLoRaDeviceDescription {
+		log.Errorln("nil device description found")
 		return
 	}
 
-	_ = m.updateDevicePoint(endec.RssiField, float64(rssi), device)
-	_ = m.updateDevicePoint(endec.SnrField, float64(snr), device)
+	if !legacyDevice && !m.config.DecryptionDisabled {
+		keyHex := m.config.DefaultKey
+		if device.Manufacture != "" {
+			keyHex = device.Manufacture // Manufacture property from the device model holds hex key
+		}
+		keyBytes, err := hex.DecodeString(keyHex)
+		if err != nil {
+			log.Errorf("error decoding default key: %s", err)
+			return
+		}
+		dataBytes, err = decryptLoRaRAWPkt(dataBytes, keyBytes)
+		if err != nil {
+			log.Errorf("error decrypting data: (address: %s) %s", address, err)
+			return
+		}
+		m.handleLoRaRAWDevice(device, devDesc, dataHex, dataBytes, keyBytes)
+	} else {
+		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
+	}
 
+	m.updateDevicePoint(endec.RssiField, float64(rssi), device)
+	m.updateDevicePoint(endec.SnrField, float64(snr), device)
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func (m *Module) sendAcknowledgement(data, hexKey string) error {
-	byteKey, err := hex.DecodeString(hexKey)
-	if err != nil {
-		return err
+func (m *Module) handleLegacyDevice(device *model.Device, devDesc *endec.LoRaDeviceDescription, dataHex string, dataBytes []byte) {
+	if !devDesc.CheckLength(dataHex) {
+		log.Errorf("invalid legacy payload length")
+		return
 	}
-	byteData, err := hex.DecodeString(data)
+
+	err := devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePoint, m.updateDeviceMetaTags)
 	if err != nil {
-		return err
+		log.Errorf("error decoding legacy uplink: %v", err)
 	}
-	ack, err := prepareAcknowledgement(byteData, byteKey)
-	if err != nil {
-		return err
-	}
-	return m.WriteToLoRaRaw(ack)
 }
 
-func prepareAcknowledgement(data, key []byte) ([]byte, error) {
-	if len(data) < LORA_RAW_HEADER_LEN {
-		return nil, errors.New("invalid data length")
+func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *endec.LoRaDeviceDescription, dataHex string, dataBytes []byte, keyBytes []byte) {
+	if !utils.CheckLoRaRAWPayloadLength(dataBytes) {
+		log.Errorf("LoRaRaw payload length mismatched")
+		return
 	}
-	if data[LORA_RAW_VERSION_POSITION] != LORA_RAW_VERSION {
-		return nil, errors.New("invalid version")
+	dataBytes = utils.StripLoRaRAWPayload(dataBytes)
+
+	opts := getOpts(dataBytes)
+	switch opts {
+	case utils.LORARAW_OPTS_CONFIRMED_UPLINK:
+		m.handleConfirmedOpt(dataBytes, keyBytes)
+		devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+	case utils.LORARAW_OPTS_RESPONSE:
+		devDesc.DecodeResponse(dataHex, dataBytes, devDesc, device, m.updateDeviceWrittenPoint, m.updateDeviceMetaTags)
+	default:
+		log.Warnf("unhandled LoRaRAW option: %d", opts)
 	}
-	opts := getOpts(data)
-	if opts == LORA_RAW_OPTS_CONF {
-		ack := createAck(data[:LORA_RAW_HEADER_LEN], key, getNonce(data))
-		return ack, nil
-	}
-	return nil, errors.New("invalid opts")
 }
 
-func getOpts(data []byte) int {
-	return int(data[LORA_RAW_OPTS_POSITION])
+func getOpts(dataBytes []byte) utils.LoRaRAWOpts {
+	return utils.LoRaRAWOpts(dataBytes[utils.LORARAW_OPTS_POSITION])
 }
 
-func getNonce(data []byte) int {
-	return int(data[LORA_RAW_NONCE_POSITION])
+func getNonce(dataBytes []byte) int {
+	return int(dataBytes[utils.LORARAW_NONCE_POSITION])
+}
+
+func (m *Module) handleConfirmedOpt(dataBytes []byte, byteKey []byte) {
+	ack := createAck(dataBytes[:utils.LORARAW_HEADER_LEN], byteKey, getNonce(dataBytes))
+	err := m.WriteToLoRaRaw(ack)
+	if err != nil {
+		log.Errorf("error sending acknowledgement: %s", err)
+	}
 }
 
 func createAck(address, key []byte, nonce int) []byte {
-	optB := []byte{byte(LORA_RAW_OPTS_ACK)}
+	optB := []byte{byte(utils.LORARAW_OPTS_ACK)}
 	nonceB := []byte{byte(nonce)}
 	var buffer bytes.Buffer
 	buffer.Write(address)
@@ -307,77 +295,20 @@ func createAck(address, key []byte, nonce int) []byte {
 	return fullData
 }
 
-func decodeData(
-	data string,
-	device *model.Device,
-	updatePointFn endec.UpdateDevicePointFunc,
-	updateDeviceMetaTagFn endec.UpdateDeviceMetaTagsFunc,
-	dequeuePointWriteFn endec.DequeuePointWriteFunc,
-	internalPointUpdateFn endec.InternalPointUpdate,
-	sendAckMessageFn endec.SendAckToDeviceFunc,
-) error {
-	devDesc := endec.GetDeviceDescription(device)
-	if devDesc == &endec.NilLoRaDeviceDescription {
-		log.Errorln("nil device description found")
-		return errors.New("no device description found")
+func decryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
+	decryptedData, err := aesutils.Decrypt(dataBytes[:len(dataBytes)-2], byteKey) // remove RSSI and SNR
+	if err != nil {
+		return nil, err
 	}
-
-	if devDesc.IsLoRaRAW {
-		/*
-		 * Data Structure:
-		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		 * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length | Payload           | 4 bytes CMAC              | 1 bytes RSSI              |   1 bytes SNR           |
-		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		 * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
-		 * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		 */
-
-		if !utils.CheckLoRaRAWPayloadLength(data) {
-			return errors.New("LoRaRaw payload length mismatched")
-		}
-		data = utils.StripLoRaRAWPayload(data)
-	}
-
-	if !devDesc.CheckLength(data) {
-		return errors.New("invalid payload length")
-	}
-
-	err := endec.DecodePayload(
-		data,
-		devDesc,
-		device,
-		updatePointFn,
-		updateDeviceMetaTagFn,
-		dequeuePointWriteFn,
-		internalPointUpdateFn,
-		sendAckMessageFn,
-	)
-	return err
+	return decryptedData, nil
 }
 
-func decryptData(data string, hexKey string, decryptFunc func([]byte, []byte) ([]byte, error)) (string, error) {
-	byteKey, err := hex.DecodeString(hexKey)
+func decryptLegacy(dataBytes []byte, byteKey []byte) ([]byte, error) {
+	decryptedData, err := aesutils.DecryptLegacy(dataBytes[:len(dataBytes)-2], byteKey) // remove RSSI and SNR
 	if err != nil {
-		log.Errorf("error decoding device key: %s", err)
-		return "", err
+		return nil, err
 	}
-	byteData, err := hex.DecodeString(data)
-	if err != nil {
-		return "", err
-	}
-	decryptedData, err := decryptFunc(byteData[:len(byteData)-2], byteKey)
-	if err != nil {
-		return "", err
-	}
-	return strings.ToUpper(hex.EncodeToString(decryptedData)), nil
-}
-
-func decryptNormal(data string, hexKey string) (string, error) {
-	return decryptData(data, hexKey, aesutils.Decrypt)
-}
-
-func decryptLegacy(data string, hexKey string) (string, error) {
-	return decryptData(data, hexKey, aesutils.DecryptLegacy)
+	return decryptedData, nil
 }
 
 func (m *Module) getDeviceByLoRaAddress(address string) *model.Device {

@@ -31,7 +31,7 @@ func runEncryptedRubixTests(tests []TestStruct, mockDevice *model.Device, t *tes
 		t.Run(tt.Name, func(t *testing.T) {
 			currTest = &tt
 			currIndex = 0
-			dataLegacy, err := decryptNormal(tt.Data, "0301021604050F07E6095A0B0C12630F")
+			dataLegacy, err := decryptLoRaRAWPkt(tt.Data, "0301021604050F07E6095A0B0C12630F")
 			if err != nil {
 				log.Errorf("error decrypting data: %s", err)
 			}

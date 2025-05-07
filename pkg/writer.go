@@ -37,6 +37,15 @@ func (m *Module) updateDevicePoint(name string, value float64, device *model.Dev
 	return nil
 }
 
+func (m *Module) updateDeviceWrittenPoint(name string, value float64, err error, messageId uint8, device *model.Device) error {
+	point := m.pointWriteQueue.DequeueUsingMessageId(messageId)
+	if err != nil {
+		_, _ = m.updateWrittenPointError(point, err)
+	}
+	_, _ = m.updateWrittenPointSuccess(point)
+	return nil
+}
+
 func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
 	for _, pnt := range device.Points {
 		if pnt.IoNumber == ioNumber {
@@ -86,6 +95,35 @@ func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel s
 		return err
 	}
 	return err
+}
+
+func (m *Module) updateWrittenPointSuccess(point *model.Point) (*model.Point, error) {
+	pointWriter := &dto.PointWriter{
+		OriginalValue: point.WriteValue,
+		Message:       "",
+		Fault:         false,
+		PollState:     datatype.PointStateWriteOk,
+	}
+	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
+	if err != nil {
+		log.Errorf("internalPointUpdate() error: %s", err)
+		return nil, err
+	}
+	return &pwResponse.Point, nil
+}
+
+func (m *Module) updateWrittenPointError(point *model.Point, err error) (*model.Point, error) {
+	pointWriter := &dto.PointWriter{
+		Message:   err.Error(),
+		Fault:     true,
+		PollState: datatype.PointStateWriteOk,
+	}
+	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
+	if err != nil {
+		log.Errorf("internalPointUpdate() error: %s", err)
+		return nil, err
+	}
+	return &pwResponse.Point, nil
 }
 
 func (m *Module) updateDeviceMetaTags(uuid string, metaTags []*model.DeviceMetaTag) error {

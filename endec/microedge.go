@@ -36,13 +36,11 @@ func CheckPayloadLengthME(data string) bool {
 
 func DecodeME(
 	data string,
+	_ []byte,
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
 	_ UpdateDeviceMetaTagsFunc,
-	_ DequeuePointWriteFunc,
-	_ InternalPointUpdate,
-	_ SendAckToDeviceFunc,
 ) error {
 	p, err := pulse(data)
 	if err != nil {

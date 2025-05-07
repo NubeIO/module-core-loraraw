@@ -2,12 +2,40 @@ package utils
 
 import (
 	"errors"
+	"reflect"
+	"strings"
+
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"reflect"
-	"strconv"
-	"strings"
+)
+
+/*
+ * Data Structure:
+ * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ * | 4 bytes address | 1 byte opts  | 1 byte nonce  | 1 byte length | Payload           | 4 bytes CMAC              | 1 bytes RSSI              |   1 bytes SNR           |
+ * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ * | data[0:3]       | data[4]      | data[5]       | data[6]       | data[7:dataLen-6] | data[dataLen-6:dataLen-2] | data[dataLen-2:dataLen-1] | data[dataLen-1:dataLen] |
+ * ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ */
+const (
+	LORARAW_VERSION          = 0xC0
+	LORARAW_VERSION_POSITION = 1
+	LORARAW_OPTS_POSITION    = 4
+	LORARAW_NONCE_POSITION   = 5
+	LORARAW_LENGTH_POSITION  = 6
+	LORARAW_PAYLOAD_START    = 7
+	LORARAW_HEADER_LEN       = 4
+)
+
+type LoRaRAWOpts int
+
+const (
+	LORARAW_OPTS_UNCONFIRMED_UPLINK LoRaRAWOpts = 0
+	LORARAW_OPTS_CONFIRMED_UPLINK   LoRaRAWOpts = 1
+	LORARAW_OPTS_ACK                LoRaRAWOpts = 2
+	LORARAW_OPTS_REQUEST            LoRaRAWOpts = 3
+	LORARAW_OPTS_RESPONSE           LoRaRAWOpts = 4
 )
 
 func BoolToFloat(b bool) float64 {
@@ -43,10 +71,10 @@ func GetReflectFieldJSONName(field reflect.StructField) string {
 	}
 }
 
-func CheckLoRaRAWPayloadLength(data string) bool {
+func CheckLoRaRAWPayloadLength(data []byte) bool {
 	// 4 bytes address | 1 byte opts | 1 byte nonce | 1 byte length | 1 byte rssi | 1 byte snr
 	// NOTE CMAC is not sent when it's already decrypted by the driver
-	payloadLength := len(data) / 2
+	payloadLength := len(data)
 	payloadLength -= 9
 	innerDataLength := GetLoRaRAWInnerPayloadLength(data)
 
@@ -54,13 +82,12 @@ func CheckLoRaRAWPayloadLength(data string) bool {
 	return innerDataLength <= payloadLength
 }
 
-func StripLoRaRAWPayload(data string) string {
-	return data[14 : 14+(GetLoRaRAWInnerPayloadLength(data)*2)]
+func StripLoRaRAWPayload(data []byte) []byte {
+	return data[LORARAW_PAYLOAD_START : LORARAW_PAYLOAD_START+GetLoRaRAWInnerPayloadLength(data)]
 }
 
-func GetLoRaRAWInnerPayloadLength(data string) int {
-	dataLength, _ := strconv.ParseInt(data[12:14], 16, 0)
-	return int(dataLength)
+func GetLoRaRAWInnerPayloadLength(data []byte) int {
+	return int(data[LORARAW_LENGTH_POSITION])
 }
 
 func IsWriteable(writeMode datatype.WriteMode) bool {
