@@ -19,21 +19,21 @@ func (m *Module) updateDeviceFault(sensor, deviceUUID string) {
 	})
 }
 
-func (m *Module) updateDevicePointSuccess(name string, value float64, device *model.Device) error {
-	return m.updateDevicePoint(name, value, nil, device)
+func (m *Module) updateDevicePointSuccess(pointIDStr string, value float64, device *model.Device) error {
+	return m.updateDevicePoint(pointIDStr, value, nil, device)
 }
 
-func (m *Module) updateDevicePointError(name string, err error, device *model.Device) error {
-	return m.updateDevicePoint(name, 0, err, device)
+func (m *Module) updateDevicePointError(pointIDStr string, err error, device *model.Device) error {
+	return m.updateDevicePoint(pointIDStr, 0, err, device)
 }
 
-func (m *Module) updateDevicePoint(name string, value float64, err error, device *model.Device) error {
-	pnt := selectPointByIoNumber(name, device)
+func (m *Module) updateDevicePoint(pointIDStr string, value float64, err error, device *model.Device) error {
+	pnt := selectPointByIoNumber(pointIDStr, device)
 	if pnt == nil {
-		log.Debugf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
-		newPoint, err := m.addPointFromName(device, name)
+		log.Debugf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, pointIDStr)
+		newPoint, err := m.addPointFromName(device, pointIDStr)
 		if err != nil {
-			log.Errorf("failed to create point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
+			log.Errorf("failed to create point with address_uuid: %s and io_number: %s", *device.AddressUUID, pointIDStr)
 			return err
 		}
 		pnt = newPoint
@@ -49,15 +49,15 @@ func (m *Module) updateDevicePoint(name string, value float64, err error, device
 	return nil
 }
 
-func (m *Module) updateDeviceWrittenPointSuccess(name string, value float64, messageId uint8, device *model.Device) error {
-	return m.updateDeviceWrittenPoint(name, value, nil, messageId, device)
+func (m *Module) updateDeviceWrittenPointSuccess(pointIDStr string, value float64, messageId uint8, device *model.Device) error {
+	return m.updateDeviceWrittenPoint(pointIDStr, value, nil, messageId, device)
 }
 
-func (m *Module) updateDeviceWrittenPointError(name string, err error, messageId uint8, device *model.Device) error {
-	return m.updateDeviceWrittenPoint(name, 0, err, messageId, device)
+func (m *Module) updateDeviceWrittenPointError(pointIDStr string, err error, messageId uint8, device *model.Device) error {
+	return m.updateDeviceWrittenPoint(pointIDStr, 0, err, messageId, device)
 }
 
-func (m *Module) updateDeviceWrittenPoint(name string, value float64, err error, messageId uint8, device *model.Device) error {
+func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err error, messageId uint8, device *model.Device) error {
 	point := m.pointWriteQueue.DequeueUsingMessageId(messageId)
 	if err != nil {
 		_, _ = m.updateWrittenPointError(point, err)
@@ -75,9 +75,9 @@ func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
 	return nil
 }
 
-func (m *Module) addPointFromName(deviceBody *model.Device, name string) (*model.Point, error) {
+func (m *Module) addPointFromName(deviceBody *model.Device, pointIDStr string) (*model.Point, error) {
 	point := new(model.Point)
-	setNewPointFields(deviceBody, point, name)
+	setNewPointFields(deviceBody, point, pointIDStr)
 	point.EnableWriteable = boolean.NewFalse()
 	pnt, err := m.savePoint(point)
 	return pnt, err
@@ -89,13 +89,13 @@ func (m *Module) savePoint(point *model.Point) (*model.Point, error) {
 	return pnt, err
 }
 
-func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name string) {
+func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, pointIDStr string) {
 	pointBody.Enable = boolean.NewTrue()
 	pointBody.DeviceUUID = deviceBody.UUID
 	pointBody.AddressUUID = deviceBody.AddressUUID
 	pointBody.IsOutput = boolean.NewFalse()
-	pointBody.Name = cases.Title(language.English).String(name)
-	pointBody.IoNumber = name
+	pointBody.Name = cases.Title(language.English).String(pointIDStr)
+	pointBody.IoNumber = pointIDStr
 	pointBody.ThingType = "point"
 	pointBody.WriteMode = datatype.ReadOnly
 }
