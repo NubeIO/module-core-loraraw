@@ -226,8 +226,8 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
 	}
 
-	m.updateDevicePoint(endec.RssiField, float64(rssi), device)
-	m.updateDevicePoint(endec.SnrField, float64(snr), device)
+	m.updateDevicePointSuccess(endec.RssiField, float64(rssi), device)
+	m.updateDevicePointSuccess(endec.SnrField, float64(snr), device)
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
@@ -237,7 +237,7 @@ func (m *Module) handleLegacyDevice(device *model.Device, devDesc *endec.LoRaDev
 		return
 	}
 
-	err := devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+	err := devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
 	if err != nil {
 		log.Errorf("error decoding legacy uplink: %v", err)
 	}
@@ -254,9 +254,9 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *endec.LoRaDe
 	switch opts {
 	case utils.LORARAW_OPTS_CONFIRMED_UPLINK:
 		m.handleConfirmedOpt(dataBytes, keyBytes)
-		devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePoint, m.updateDeviceMetaTags)
+		devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
 	case utils.LORARAW_OPTS_RESPONSE:
-		devDesc.DecodeResponse(dataHex, dataBytes, devDesc, device, m.updateDeviceWrittenPoint, m.updateDeviceMetaTags)
+		devDesc.DecodeResponse(dataHex, dataBytes, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
 	default:
 		log.Warnf("unhandled LoRaRAW option: %d", opts)
 	}

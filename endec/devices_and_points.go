@@ -9,7 +9,9 @@ import (
 )
 
 type UpdateDevicePointFunc func(name string, value float64, device *model.Device) error
-type UpdateDeviceWrittenPointFunc func(name string, value float64, err error, messageId uint8, device *model.Device) error
+type UpdateDevicePointErrorFunc func(name string, err error, device *model.Device) error
+type UpdateDeviceWrittenPointFunc func(name string, value float64, messageId uint8, device *model.Device) error
+type UpdateDeviceWrittenPointErrorFunc func(name string, err error, messageId uint8, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
 
 type SendAckToDeviceFunc func(device *model.Device, messageId uint8) error
@@ -27,6 +29,7 @@ type LoRaDeviceDescription struct {
 		devDesc *LoRaDeviceDescription,
 		device *model.Device,
 		updateDevPntFnc UpdateDevicePointFunc,
+		updateDevPntErrFnc UpdateDevicePointErrorFunc,
 		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
 	) error
 	DecodeResponse func(
@@ -35,6 +38,7 @@ type LoRaDeviceDescription struct {
 		devDesc *LoRaDeviceDescription,
 		device *model.Device,
 		updateDevPntFnc UpdateDeviceWrittenPointFunc,
+		updateDevPntErrFnc UpdateDeviceWrittenPointErrorFunc,
 		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
 	) error
 	GetPointNames func() []string
@@ -61,6 +65,7 @@ func NilLoRaDeviceDescriptionDecode(
 	_ *LoRaDeviceDescription,
 	_ *model.Device,
 	_ UpdateDevicePointFunc,
+	_ UpdateDevicePointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
 	return errors.New("nil decode function called")
@@ -72,6 +77,7 @@ func NilLoRaDeviceDescriptionDecodeResponse(
 	_ *LoRaDeviceDescription,
 	_ *model.Device,
 	_ UpdateDeviceWrittenPointFunc,
+	_ UpdateDeviceWrittenPointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
 	return errors.New("nil decode function called")

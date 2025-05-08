@@ -40,27 +40,28 @@ func DecodeME(
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
 	p, err := pulse(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(PulseField, err, device)
 	}
 	vol, err := voltage(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(MEVoltageField, err, device)
 	}
 	a1, err := ai1(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI1Field, err, device)
 	}
 	a2, err := ai2(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI2Field, err, device)
 	}
 	a3, err := ai3(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI3Field, err, device)
 	}
 
 	_ = updatePointFn(PulseField, float64(p), device)

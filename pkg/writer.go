@@ -19,7 +19,15 @@ func (m *Module) updateDeviceFault(sensor, deviceUUID string) {
 	})
 }
 
-func (m *Module) updateDevicePoint(name string, value float64, device *model.Device) error {
+func (m *Module) updateDevicePointSuccess(name string, value float64, device *model.Device) error {
+	return m.updateDevicePoint(name, value, nil, device)
+}
+
+func (m *Module) updateDevicePointError(name string, err error, device *model.Device) error {
+	return m.updateDevicePoint(name, 0, err, device)
+}
+
+func (m *Module) updateDevicePoint(name string, value float64, err error, device *model.Device) error {
 	pnt := selectPointByIoNumber(name, device)
 	if pnt == nil {
 		log.Debugf("failed to find point with address_uuid: %s and io_number: %s", *device.AddressUUID, name)
@@ -30,11 +38,23 @@ func (m *Module) updateDevicePoint(name string, value float64, device *model.Dev
 		}
 		pnt = newPoint
 	}
-	err := m.updatePointValue(pnt, value, device.Model)
+	if err != nil {
+		err = m.updatePointValueError(pnt, err)
+	} else {
+		err = m.updatePointValueSuccess(pnt, value, device.Model)
+	}
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (m *Module) updateDeviceWrittenPointSuccess(name string, value float64, messageId uint8, device *model.Device) error {
+	return m.updateDeviceWrittenPoint(name, value, nil, messageId, device)
+}
+
+func (m *Module) updateDeviceWrittenPointError(name string, err error, messageId uint8, device *model.Device) error {
+	return m.updateDeviceWrittenPoint(name, 0, err, messageId, device)
 }
 
 func (m *Module) updateDeviceWrittenPoint(name string, value float64, err error, messageId uint8, device *model.Device) error {
@@ -80,7 +100,7 @@ func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, name st
 	pointBody.WriteMode = datatype.ReadOnly
 }
 
-func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel string) error {
+func (m *Module) updatePointValueSuccess(pnt *model.Point, value float64, deviceModel string) error {
 	if pnt.IoType != "" && pnt.IoType != string(datatype.IOTypeRAW) {
 		value = endec.MicroEdgePointType(pnt.IoType, value, deviceModel)
 	}
@@ -90,6 +110,19 @@ func (m *Module) updatePointValue(pnt *model.Point, value float64, deviceModel s
 		Priority:      &priority,
 	}
 	_, err := m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
+	if err != nil {
+		log.Error(err)
+		return err
+	}
+	return err
+}
+
+func (m *Module) updatePointValueError(pnt *model.Point, err error) error {
+	pointWriter := dto.PointWriter{
+		Message: err.Error(),
+		Fault:   true,
+	}
+	_, err = m.grpcMarshaller.PointWrite(pnt.UUID, &pointWriter)
 	if err != nil {
 		log.Error(err)
 		return err

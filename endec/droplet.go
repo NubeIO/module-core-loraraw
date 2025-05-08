@@ -48,23 +48,24 @@ func DecodeDropletTH(
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(TemperatureField, err, device)
 	}
 	pressure, err := dropletPressure(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(PressureField, err, device)
 	}
 	humidity, err := dropletHumidity(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(HumidityField, err, device)
 	}
 	voltage, err := dropletVoltage(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(DropletVoltageField, err, device)
 	}
 
 	_ = updatePointFn(TemperatureField, temperature, device)
@@ -81,6 +82,7 @@ func DecodeDropletTHL(
 	devDesc *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	updateDeviceMetaTagFn UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTH(
@@ -89,6 +91,7 @@ func DecodeDropletTHL(
 		devDesc,
 		device,
 		updatePointFn,
+		updatePointErrFn,
 		updateDeviceMetaTagFn,
 	)
 	if err != nil {
@@ -96,7 +99,7 @@ func DecodeDropletTHL(
 	}
 	light, err := dropletLight(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(LightField, err, device)
 	}
 	_ = updatePointFn(LightField, float64(light), device)
 	return nil
@@ -108,6 +111,7 @@ func DecodeDropletTHLM(
 	devDesc *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTHL(
@@ -116,6 +120,7 @@ func DecodeDropletTHLM(
 		devDesc,
 		device,
 		updatePointFn,
+		updatePointErrFn,
 		updateDeviceMetaTagsFn,
 	)
 	if err != nil {
@@ -123,7 +128,7 @@ func DecodeDropletTHLM(
 	}
 	motion, err := dropletMotion(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(MotionField, err, device)
 	}
 	_ = updatePointFn(MotionField, utils.BoolToFloat(motion), device)
 	return nil

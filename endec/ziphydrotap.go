@@ -112,6 +112,7 @@ func DecodeZHT(
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
 ) error {
 	bytes, err := getPayloadBytes(data)

@@ -117,13 +117,13 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 	headerVector := make([]byte, 0)
 	dataVector := make([]byte, 0)
 	var bitCount int
-	headerBitCount := HEADER_BIT_COUNT
+	headerBitCount := DATA_TYPE_BIT_COUNT
 	// Build header vector
 	if HasPositionalData(serialData) {
 		headerVector = append(headerVector, position)
 		headerBitCount += 8
 	}
-	bitsToVector(uint64(header), HEADER_BIT_COUNT, &headerVector)
+	bitsToVector(uint64(header), DATA_TYPE_BIT_COUNT, &headerVector)
 	switch metaData.dataType {
 	case FIXEDPOINT:
 		var dataBits uint64

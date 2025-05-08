@@ -47,16 +47,16 @@ const (
 )
 
 func canDecode(serialData *SerialData) bool {
-	return serialData.ReadBitPos < (len(serialData.Buffer)*8 - HEADER_BIT_COUNT)
+	return serialData.ReadBitPos < (len(serialData.Buffer)*8 - DATA_TYPE_BIT_COUNT)
 }
 
-func getHeader(serialData *SerialData, position *uint8) MetaDataKey {
+func getMetaDataKey(serialData *SerialData, position *uint8) MetaDataKey {
 	if HasPositionalData(serialData) {
 		positionVector, shiftPos, bytesRequired := getVector(serialData, 8, serialData.ReadBitPos)
 		*position = uint8(vectorToBits(positionVector, 8, shiftPos, bytesRequired))
 	}
-	typeVector, shiftPos, bytesRequired := getVector(serialData, HEADER_BIT_COUNT, serialData.ReadBitPos)
-	return MetaDataKey(vectorToBits(typeVector, HEADER_BIT_COUNT, shiftPos, bytesRequired))
+	typeVector, shiftPos, bytesRequired := getVector(serialData, DATA_TYPE_BIT_COUNT, serialData.ReadBitPos)
+	return MetaDataKey(vectorToBits(typeVector, DATA_TYPE_BIT_COUNT, shiftPos, bytesRequired))
 }
 
 func vectorToBits(dataVector []byte, bitCount, shiftPos, bytesRequired int) uint64 {
@@ -124,11 +124,11 @@ func getVector(serialData *SerialData, bitCount, pos int) (dataVector []byte, sh
 	return dataVector, shiftPos, bytesRequired
 }
 
-func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) error {
-	if header == 0 {
-		return errors.New("invalid header")
+func decodeData(serialData *SerialData, metaDataKey MetaDataKey, data interface{}) error {
+	if metaDataKey == 0 {
+		return errors.New("invalid MetaDataKey")
 	}
-	metaData := getMetaData(header)
+	metaData := getMetaData(metaDataKey)
 	var shiftPos, bytesRequired, bitCount int
 	var dataBits BIT_TYPE
 	var dataVector []byte
@@ -148,7 +148,7 @@ func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) er
 		bitCount = metaData.byteCount * 8
 		dataVector, shiftPos, bytesRequired = getVector(serialData, bitCount, serialData.ReadBitPos)
 		dataBits = BIT_TYPE(vectorToBits(dataVector, bitCount, shiftPos, bytesRequired))
-		switch header {
+		switch metaDataKey {
 		case MDK_CHAR:
 			if v, ok := data.(*byte); ok {
 				*v = byte(dataBits)
@@ -211,8 +211,14 @@ func decodeData(serialData *SerialData, header MetaDataKey, data interface{}) er
 			} else {
 				return fmt.Errorf("invalid type for MDK_FLOAT: %T", data)
 			}
+		case MDK_ERROR:
+			if v, ok := data.(*uint8); ok {
+				*v = uint8(dataBits)
+			} else {
+				return fmt.Errorf("invalid type for MDK_ERROR: %T", data)
+			}
 		default:
-			return fmt.Errorf("unsupported header: %v", header)
+			return fmt.Errorf("unsupported MetaDataKey: %v", metaDataKey)
 		}
 	default:
 		return fmt.Errorf("unsupported data type1: %v", metaData.dataType)
@@ -233,9 +239,10 @@ func DecodeRubixUplink(
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, updatePointFn, nil)
+	return DecodeRubix(payloadBytes, device, updatePointFn, updatePointErrFn, nil, nil)
 }
 
 func DecodeRubixResponse(
@@ -244,16 +251,19 @@ func DecodeRubixResponse(
 	_ *LoRaDeviceDescription,
 	device *model.Device,
 	updateWrittenPointFn UpdateDeviceWrittenPointFunc,
+	updateWrittenPointErrFn UpdateDeviceWrittenPointErrorFunc,
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, nil, updateWrittenPointFn)
+	return DecodeRubix(payloadBytes, device, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
 }
 
 func DecodeRubix(
 	payloadBytes []byte,
 	device *model.Device,
 	updatePointFn UpdateDevicePointFunc,
+	updatePointErrFn UpdateDevicePointErrorFunc,
 	updateWrittenPointFn UpdateDeviceWrittenPointFunc,
+	updateWrittenPointErrFn UpdateDeviceWrittenPointErrorFunc,
 ) error {
 	serialData := NewSerialDataWithBuffer(payloadBytes)
 
@@ -261,165 +271,174 @@ func DecodeRubix(
 	var position uint8 = 0
 
 	for canDecode(serialData) {
-		header := getHeader(serialData, &position)
-		name, value := decodePointRubix(serialData, header, hasPos, &position, device, updatePointFn)
+		metaDataKey := getMetaDataKey(serialData, &position)
+		name, value, err := decodePointRubix(serialData, metaDataKey, hasPos, &position, device, updatePointFn)
 		if updatePointFn != nil {
-			updatePointFn(name, value, device)
+			if err != nil {
+				updatePointErrFn(name, err, device)
+			} else {
+				updatePointFn(name, value, device)
+			}
 		} else {
-			updateWrittenPointFn(name, value, nil, 0, device)
+			if err != nil {
+				updateWrittenPointErrFn(name, err, 0, device)
+			} else {
+				updateWrittenPointFn(name, value, 0, device)
+			}
 		}
 	}
 
 	return nil
 }
 
-func decodePointRubix(serialData *SerialData, header MetaDataKey, hasPos bool, position *uint8, device *model.Device, updatePointFn UpdateDevicePointFunc) (name string, value float64) {
+func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bool, position *uint8, device *model.Device, updatePointFn UpdateDevicePointFunc) (name string, value float64, err error) {
 	var (
-		f32   float32
-		u8    uint8
-		i8    int8
-		u16   uint16
-		i16   int16
-		u32   uint32
-		i32   int32
-		u64   uint64
-		i64   int64
-		char  byte
-		error uint16
+		f32  float32
+		u8   uint8
+		i8   int8
+		u16  uint16
+		i16  int16
+		u32  uint32
+		i32  int32
+		u64  uint64
+		i64  int64
+		char byte
 	)
 
-	switch header {
+	switch metaDataKey {
 	case MDK_TEMP:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(TempField, hasPos, position)
 		value = float64(f32)
 	case MDK_RH:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(RHField, hasPos, position)
 		value = float64(f32)
 	case MDK_LUX:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(LuxField, hasPos, position)
 		value = float64(f32)
 	case MDK_MOVEMENT:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(MovementField, hasPos, position)
 		value = float64(f32)
 	case MDK_COUNTER:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(CounterField, hasPos, position)
 		value = float64(f32)
 	case MDK_DIGITAL:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(DigitalField, hasPos, position)
 		value = float64(f32)
 	case MDK_VOLTAGE_0_10:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(VoltageField, hasPos, position)
 		value = float64(f32)
 	case MDK_MILLIAMPS_4_20:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(MilliampsField, hasPos, position)
 		value = float64(f32)
 	case MDK_OHM:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(OhmField, hasPos, position)
 		value = float64(f32)
 	case MDK_CO2:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(CO2Field, hasPos, position)
 		value = float64(f32)
 	case MDK_BATTERY_VOLTAGE:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(BatteryVoltageField, hasPos, position)
 		value = float64(f32)
 	case MDK_PUSH_FREQUENCY:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(PushFrequencyField, hasPos, position)
 		value = float64(f32)
 	case MDK_RAW:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(RawField, hasPos, position)
 		value = float64(f32)
 	case MDK_UO:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(UOField, hasPos, position)
 		value = float64(f32)
 	case MDK_UI:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(UIField, hasPos, position)
 		value = float64(f32)
 	case MDK_DO:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(DOField, hasPos, position)
 		value = float64(f32)
 	case MDK_DI:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(DIField, hasPos, position)
 		value = float64(f32)
 	case MDK_FIRMWARE_VERSION:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(FwVersionField, hasPos, position)
 		value = float64(f32)
 	case MDK_HARDWARE_VERSION:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(HwVersionField, hasPos, position)
 		value = float64(f32)
 	case MDK_UINT_8:
-		decodeData(serialData, header, &u8)
+		decodeData(serialData, metaDataKey, &u8)
 		name = generateFieldName(UInt8Field, hasPos, position)
 		value = float64(u8)
 	case MDK_INT_8:
-		decodeData(serialData, header, &i8)
+		decodeData(serialData, metaDataKey, &i8)
 		name = generateFieldName(Int8Field, hasPos, position)
 		value = float64(i8)
 	case MDK_UINT_16:
-		decodeData(serialData, header, &u16)
+		decodeData(serialData, metaDataKey, &u16)
 		name = generateFieldName(UInt16Field, hasPos, position)
 		value = float64(u16)
 	case MDK_INT_16:
-		decodeData(serialData, header, &i16)
+		decodeData(serialData, metaDataKey, &i16)
 		name = generateFieldName(Int16Field, hasPos, position)
 		value = float64(i16)
 	case MDK_UINT_32:
-		decodeData(serialData, header, &u32)
+		decodeData(serialData, metaDataKey, &u32)
 		name = generateFieldName(UInt32Field, hasPos, position)
 		value = float64(u32)
 	case MDK_INT_32:
-		decodeData(serialData, header, &i32)
+		decodeData(serialData, metaDataKey, &i32)
 		name = generateFieldName(Int32Field, hasPos, position)
 		value = float64(i32)
 	case MDK_UINT_64:
-		decodeData(serialData, header, &u64)
+		decodeData(serialData, metaDataKey, &u64)
 		name = generateFieldName(UInt64Field, hasPos, position)
 		value = float64(u64)
 	case MDK_INT_64:
-		decodeData(serialData, header, &i64)
+		decodeData(serialData, metaDataKey, &i64)
 		name = generateFieldName(Int64Field, hasPos, position)
 		value = float64(i64)
 	case MDK_CHAR:
-		decodeData(serialData, header, &char)
+		decodeData(serialData, metaDataKey, &char)
 		name = generateFieldName(CharField, hasPos, position)
 		value = float64(char)
 	case MDK_FLOAT:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(FloatField, hasPos, position)
 		value = float64(f32)
 	case MDK_BOOL:
-		decodeData(serialData, header, &f32)
+		decodeData(serialData, metaDataKey, &f32)
 		name = generateFieldName(BoolField, hasPos, position)
 		value = float64(f32)
 	case MDK_ERROR:
-		decodeData(serialData, header, &error)
 		name = generateFieldName(ErrorField, hasPos, position)
-		value = float64(error)
+		var errCode uint8 = 0
+		decodeData(serialData, metaDataKey, &errCode)
+		// TODO: add error code to string conversion for known common errors
+		return name, 0, errors.New("RDE error: " + strconv.Itoa(int(errCode)))
 	case 0:
 		log.Debug("reached end of data with some bits left over")
 	default:
-		log.Errorf("Unknown header: %d", header)
+		log.Errorf("Unknown MetaDataKey: %d", metaDataKey)
 	}
 
-	return name, value
+	return name, value, nil
 }
 
 func GetRubixPointNames() []string {

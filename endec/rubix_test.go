@@ -7,7 +7,7 @@ import (
 
 func testHeader(t *testing.T, serialData *SerialData, expectedHeader MetaDataKey) {
 	var pos uint8
-	header := getHeader(serialData, &pos)
+	header := getMetaDataKey(serialData, &pos)
 	if header != expectedHeader {
 		t.Fatalf("Expected header %v, but got %v", expectedHeader, header)
 	}
