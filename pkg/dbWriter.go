@@ -139,7 +139,7 @@ func (m *Module) updateWrittenPointSuccess(point *model.Point) (*model.Point, er
 	}
 	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
 	if err != nil {
-		log.Errorf("internalPointUpdate() error: %s", err)
+		log.Errorf("updateWrittenPointSuccess() error: %s", err)
 		return nil, err
 	}
 	return &pwResponse.Point, nil
@@ -153,7 +153,7 @@ func (m *Module) updateWrittenPointError(point *model.Point, err error) (*model.
 	}
 	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
 	if err != nil {
-		log.Errorf("internalPointUpdate() error: %s", err)
+		log.Errorf("updateWrittenPointError() error: %s", err)
 		return nil, err
 	}
 	return &pwResponse.Point, nil

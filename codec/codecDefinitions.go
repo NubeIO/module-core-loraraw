@@ -13,9 +13,6 @@ type UpdateDeviceWrittenPointFunc func(name string, value float64, messageId uin
 type UpdateDeviceWrittenPointErrorFunc func(name string, err error, messageId uint8, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
 
-type InternalPointUpdate func(point *model.Point) (*model.Point, error)
-type DequeuePointWriteFunc func(messageId uint8) *model.Point
-
 type LoRaDeviceDescription struct {
 	DeviceName   string
 	Model        string
