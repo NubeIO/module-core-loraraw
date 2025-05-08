@@ -45,7 +45,7 @@ func (m *Module) Enable() error {
 	}
 	_ = m.updatePluginMessage(dto.MessageLevel.Info, "")
 
-	go m.pointWriteQueue.ProcessPointWriteQueue(m.getEncryptionKey, m.WriteToLoRaRaw)
+	go m.pointWriteQueue.ProcessPointWriteQueue(m.getDevice, m.getEncryptionKey, m.WriteToLoRaRaw)
 
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()

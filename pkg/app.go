@@ -185,11 +185,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	}
 
 	if !legacyDevice && !m.config.DecryptionDisabled {
-		keyHex := m.config.DefaultKey
-		if device.Manufacture != "" {
-			keyHex = device.Manufacture // Manufacture property from the device model holds hex key
-		}
-		keyBytes, err := hex.DecodeString(keyHex)
+		keyBytes, err := m.getEncryptionKey(device)
 		if err != nil {
 			log.Errorf("error decoding default key: %s", err)
 			return
@@ -408,12 +404,15 @@ func (m *Module) updatePluginMessage(messageLevel, message string) error {
 	return err
 }
 
-func (m *Module) getEncryptionKey(deviceUUID string) ([]byte, error) {
-	device, err := m.grpcMarshaller.GetDevice(deviceUUID)
+func (m *Module) getDevice(uuid string) (*model.Device, error) {
+	device, err := m.grpcMarshaller.GetDevice(uuid)
 	if err != nil {
 		return nil, err
 	}
+	return device, nil
+}
 
+func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
 	hexKey := m.config.DefaultKey
 	if device.Manufacture != "" {
 		hexKey = device.Manufacture // Manufacture property from device model holds hex key

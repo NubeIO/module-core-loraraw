@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"crypto/rand"
 	"errors"
 	"reflect"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
@@ -116,4 +118,14 @@ func SafeDereferenceUint8(ptr *int) (uint8, error) {
 		return 0, errors.New("attempting to dereference a nil uint8 pointer")
 	}
 	return uint8(*ptr), nil
+}
+
+func GenerateRandomId() uint8 {
+	// Create a new Rand instance with a seed
+	var b [1]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		log.Errorf("error generating random id: %s", err.Error())
+	}
+	return b[0]
 }

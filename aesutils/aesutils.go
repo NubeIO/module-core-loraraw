@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/enceve/crypto/cmac"
 )
 
@@ -16,12 +17,11 @@ const (
 	LoraRawHeaderLen = 4
 )
 
-var nonce byte = 0
 var iv = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-func Encrypt(address string, data, key []byte, opts byte) ([]byte, error) {
+func Encrypt(address string, data, key []byte, opts utils.LoRaRAWOpts, nonce byte) ([]byte, error) {
 	lengthInByte := []byte{byte(len(data))}
-	optsInByte := []byte{opts}
+	optsInByte := []byte{byte(opts)}
 	nonceInByte := []byte{nonce}
 	nonce = (nonce + 1) & 0xFF
 

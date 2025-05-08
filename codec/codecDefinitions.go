@@ -13,41 +13,47 @@ type UpdateDeviceWrittenPointFunc func(name string, value float64, messageId uin
 type UpdateDeviceWrittenPointErrorFunc func(name string, err error, messageId uint8, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
 
+type DecodeUplinkFunc func(
+	dataHex string,
+	payloadBytes []byte,
+	devDesc *LoRaDeviceDescription,
+	device *model.Device,
+	updateDevPntFnc UpdateDevicePointFunc,
+	updateDevPntErrFnc UpdateDevicePointErrorFunc,
+	updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
+) error
+type DecodeResponseFunc func(
+	dataHex string,
+	payloadBytes []byte,
+	devDesc *LoRaDeviceDescription,
+	device *model.Device,
+	updateDevPntFnc UpdateDeviceWrittenPointFunc,
+	updateDevPntErrFnc UpdateDeviceWrittenPointErrorFunc,
+	updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
+) error
+type EncodeRequestMessageFunc func(points []*model.Point) ([]byte, error)
+
 type LoRaDeviceDescription struct {
-	DeviceName   string
-	Model        string
-	SensorCode   string
-	CheckLength  func(data string) bool
-	DecodeUplink func(
-		dataHex string,
-		payloadBytes []byte,
-		devDesc *LoRaDeviceDescription,
-		device *model.Device,
-		updateDevPntFnc UpdateDevicePointFunc,
-		updateDevPntErrFnc UpdateDevicePointErrorFunc,
-		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
-	) error
-	DecodeResponse func(
-		dataHex string,
-		payloadBytes []byte,
-		devDesc *LoRaDeviceDescription,
-		device *model.Device,
-		updateDevPntFnc UpdateDeviceWrittenPointFunc,
-		updateDevPntErrFnc UpdateDeviceWrittenPointErrorFunc,
-		updateDevMetaTagsFnc UpdateDeviceMetaTagsFunc,
-	) error
-	GetPointNames func() []string
-	IsLoRaRAW     bool
+	DeviceName           string
+	Model                string
+	SensorCode           string
+	CheckLength          func(data string) bool
+	DecodeUplink         DecodeUplinkFunc
+	DecodeResponse       DecodeResponseFunc
+	EncodeRequestMessage EncodeRequestMessageFunc
+	GetPointNames        func() []string
+	IsLoRaRAW            bool
 }
 
 var NilLoRaDeviceDescription = LoRaDeviceDescription{
-	DeviceName:     "",
-	Model:          "",
-	SensorCode:     "",
-	CheckLength:    NilLoRaDeviceDescriptionCheckLength,
-	DecodeUplink:   NilLoRaDeviceDescriptionDecode,
-	DecodeResponse: NilLoRaDeviceDescriptionDecodeResponse,
-	GetPointNames:  NilLoRaDeviceDescriptionGetPointsStruct,
+	DeviceName:           "",
+	Model:                "",
+	SensorCode:           "",
+	CheckLength:          NilLoRaDeviceDescriptionCheckLength,
+	DecodeUplink:         NilLoRaDeviceDescriptionDecode,
+	DecodeResponse:       NilLoRaDeviceDescriptionDecodeResponse,
+	EncodeRequestMessage: NilLoRaDeviceDescriptionEncodeRequestMessage,
+	GetPointNames:        NilLoRaDeviceDescriptionGetPointsStruct,
 }
 
 func NilLoRaDeviceDescriptionCheckLength(data string) bool {
@@ -76,6 +82,10 @@ func NilLoRaDeviceDescriptionDecodeResponse(
 	_ UpdateDeviceMetaTagsFunc,
 ) error {
 	return errors.New("nil decode function called")
+}
+
+func NilLoRaDeviceDescriptionEncodeRequestMessage(points []*model.Point) ([]byte, error) {
+	return nil, errors.New("nil encode function called")
 }
 
 func NilLoRaDeviceDescriptionGetPointsStruct() []string {

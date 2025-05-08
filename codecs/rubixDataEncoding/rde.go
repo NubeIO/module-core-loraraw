@@ -52,7 +52,7 @@ func canDecode(serialData *SerialData) bool {
 }
 
 func getMetaDataKey(serialData *SerialData, position *uint8) MetaDataKey {
-	if HasPositionalData(serialData) {
+	if hasPositionalData(serialData) {
 		positionVector, shiftPos, bytesRequired := getVector(serialData, 8, serialData.ReadBitPos)
 		*position = uint8(vectorToBits(positionVector, 8, shiftPos, bytesRequired))
 	}
@@ -268,7 +268,7 @@ func DecodeRubix(
 ) error {
 	serialData := NewSerialDataWithBuffer(payloadBytes)
 
-	hasPos := HasPositionalData(serialData)
+	hasPos := hasPositionalData(serialData)
 	var position uint8 = 0
 
 	for canDecode(serialData) {

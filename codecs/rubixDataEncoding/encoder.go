@@ -6,8 +6,6 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/NubeIO/lib-utils-go/nstring"
-	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
@@ -119,7 +117,7 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 	var bitCount int
 	headerBitCount := DATA_TYPE_BIT_COUNT
 	// Build header vector
-	if HasPositionalData(serialData) {
+	if hasPositionalData(serialData) {
 		headerVector = append(headerVector, position)
 		headerBitCount += 8
 	}
@@ -170,51 +168,46 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 	return true
 }
 
-func EncodeAndEncrypt(point *model.Point, serialData *SerialData, key []byte) ([]byte, error) {
-	writeValue := point.WriteValue
-	if writeValue == nil {
-		return nil, errors.New("encoding failed for nil point")
+func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
+	serialData := NewSerialData()
+	setPositionalData(serialData, true)
+
+	for _, point := range points {
+		writeValue := point.WriteValue
+		if writeValue == nil {
+			return nil, errors.New("encoding failed for nil point")
+		}
+
+		pointDataType, err := strconv.Atoi(point.DataType)
+		if err != nil {
+			return nil, err
+		}
+
+		addressID, err := utils.SafeDereferenceUint8(point.AddressID)
+		if err != nil {
+			return nil, err
+		}
+
+		if MetaDataKey(pointDataType) == MDK_UINT_8 {
+			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
+			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
+			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
+			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_INT_8 {
+			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_INT_16 {
+			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_INT_32 {
+			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else if MetaDataKey(pointDataType) == MDK_INT_64 {
+			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
+		} else {
+			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
+		}
 	}
 
-	pointDataType, err := strconv.Atoi(point.DataType)
-	if err != nil {
-		return nil, err
-	}
-
-	addressID, err := utils.SafeDereferenceUint8(point.AddressID)
-	if err != nil {
-		return nil, err
-	}
-
-	if MetaDataKey(pointDataType) == MDK_UINT_8 {
-		EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
-		EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
-		EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
-		EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_8 {
-		EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_16 {
-		EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_32 {
-		EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_64 {
-		EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else {
-		EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
-	}
-
-	encryptedData, err := aesutils.Encrypt(
-		nstring.DerefString(point.AddressUUID),
-		serialData.Buffer,
-		key,
-		0,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return encryptedData, nil
+	return serialData.Buffer, nil
 }

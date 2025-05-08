@@ -4,6 +4,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/aesutils"
+	"github.com/NubeIO/module-core-loraraw/codec"
+	"github.com/NubeIO/module-core-loraraw/codecs"
+	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -94,7 +99,8 @@ func (pwq *PointWriteQueue) Size() int {
 }
 
 func (pwq *PointWriteQueue) ProcessPointWriteQueue(
-	getEncryptionKey func(string) ([]byte, error),
+	getDevice func(string) (*model.Device, error),
+	getEncryptionKey func(*model.Device) ([]byte, error),
 	writeToLoRaRaw func([]byte) error,
 ) {
 	for {
@@ -110,29 +116,43 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		pwq.mutex.Unlock()
 
 		if pendingPointWrite.Message == nil {
-			// serialData := codec.NewSerialData()
-			// codec.SetPositionalData(serialData, true)
-			// codec.SetRequestData(serialData, true)
-			// msgId, _ := codec.GenerateRandomId()
-			// codec.SetMessageId(serialData, msgId)
-			// codec.UpdateBitPositionsForHeaderByte(serialData)
+			device, err := getDevice(pendingPointWrite.Point.DeviceUUID)
+			if err != nil {
+				log.Errorf("error getting device: %s", err.Error())
+				continue
+			}
 
-			// encryptionKey, err := getEncryptionKey(pendingPointWrite.Point.DeviceUUID)
-			// if err != nil {
-			// 	log.Errorf("error extracting encryption key: %s", err.Error())
-			// 	continue
-			// }
+			encryptionKey, err := getEncryptionKey(device)
+			if err != nil {
+				log.Errorf("error extracting encryption key: %s", err.Error())
+				continue
+			}
 
-			// encryptedData, err := codec.EncodeAndEncrypt(pendingPointWrite.Point, serialData, encryptionKey)
-			// if err != nil {
-			// 	log.Errorf("error encrypting data: %s", err.Error())
-			// 	// Removing the point from the queue as queued point may be invalid
-			// 	pwq.DequeueWriteQueue()
-			// 	continue
-			// }
+			// TEMPORARY ARRAY UNTIL WE HANDLE MULTI POINT WRITE
+			points := []*model.Point{pendingPointWrite.Point}
+			deviceDescription := codec.GetDeviceDescription(device, codecs.LoRaDeviceDescriptions)
 
-			// pendingPointWrite.MessageId = msgId
-			// pendingPointWrite.Message = encryptedData
+			payload, err := deviceDescription.EncodeRequestMessage(points)
+
+			messageID := utils.GenerateRandomId()
+			completePacket, err := aesutils.Encrypt(
+				nstring.DerefString(pendingPointWrite.Point.AddressUUID), // Note this is the device loraraw unique address
+				payload,
+				encryptionKey,
+				utils.LORARAW_OPTS_REQUEST,
+				messageID,
+			)
+
+			if err != nil {
+				log.Errorf("error encrypting data: %s", err.Error())
+				// Removing the point from the queue as queued point may be invalid
+				pwq.DequeueWriteQueue()
+				continue
+			}
+
+			pendingPointWrite.MessageId = messageID
+			pendingPointWrite.Message = completePacket
+
 		}
 
 		if pendingPointWrite.RetryCount < pwq.maxRetry {
