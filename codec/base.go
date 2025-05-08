@@ -1,4 +1,4 @@
-package endec
+package codec
 
 import (
 	"encoding/hex"

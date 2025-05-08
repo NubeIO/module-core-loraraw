@@ -1,8 +1,9 @@
-package endec
+package legacyDecoders
 
 import (
 	"strconv"
 
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
@@ -18,7 +19,7 @@ const (
 )
 
 func GetMePointNames() []string {
-	commonValueFields := GetCommonValueNames()
+	commonValueFields := codec.GetCommonValueNames()
 	tMicroEdgeFields := []string{
 		MEVoltageField,
 		PulseField,
@@ -37,11 +38,11 @@ func CheckPayloadLengthME(data string) bool {
 func DecodeME(
 	data string,
 	_ []byte,
-	_ *LoRaDeviceDescription,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	_ UpdateDeviceMetaTagsFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	p, err := pulse(data)
 	if err != nil {

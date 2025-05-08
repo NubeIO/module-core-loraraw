@@ -1,8 +1,9 @@
-package endec
+package legacyDecoders
 
 import (
 	"strconv"
 
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
@@ -17,7 +18,7 @@ const (
 )
 
 func GetTHPointNames() []string {
-	commonValueFields := GetCommonValueNames()
+	commonValueFields := codec.GetCommonValueNames()
 	dropletTHFields := []string{
 		DropletVoltageField,
 		TemperatureField,
@@ -45,11 +46,11 @@ func CheckPayloadLengthDroplet(data string) bool {
 func DecodeDropletTH(
 	data string,
 	_ []byte,
-	_ *LoRaDeviceDescription,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	_ UpdateDeviceMetaTagsFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
@@ -79,11 +80,11 @@ func DecodeDropletTH(
 func DecodeDropletTHL(
 	data string,
 	dataBytes []byte,
-	devDesc *LoRaDeviceDescription,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	updateDeviceMetaTagFn UpdateDeviceMetaTagsFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateDeviceMetaTagFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTH(
 		data,
@@ -108,11 +109,11 @@ func DecodeDropletTHL(
 func DecodeDropletTHLM(
 	data string,
 	dataBytes []byte,
-	devDesc *LoRaDeviceDescription,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTHL(
 		data,

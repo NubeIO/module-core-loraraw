@@ -1,4 +1,4 @@
-package endec
+package rubixDataEncoding
 
 const DATA_TYPE_BIT_COUNT = 6
 

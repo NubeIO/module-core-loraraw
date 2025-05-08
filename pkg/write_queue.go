@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/NubeIO/module-core-loraraw/endec"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -111,29 +110,29 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 		pwq.mutex.Unlock()
 
 		if pendingPointWrite.Message == nil {
-			serialData := endec.NewSerialData()
-			endec.SetPositionalData(serialData, true)
-			endec.SetRequestData(serialData, true)
-			msgId, _ := endec.GenerateRandomId()
-			endec.SetMessageId(serialData, msgId)
-			endec.UpdateBitPositionsForHeaderByte(serialData)
+			// serialData := codec.NewSerialData()
+			// codec.SetPositionalData(serialData, true)
+			// codec.SetRequestData(serialData, true)
+			// msgId, _ := codec.GenerateRandomId()
+			// codec.SetMessageId(serialData, msgId)
+			// codec.UpdateBitPositionsForHeaderByte(serialData)
 
-			encryptionKey, err := getEncryptionKey(pendingPointWrite.Point.DeviceUUID)
-			if err != nil {
-				log.Errorf("error extracting encryption key: %s", err.Error())
-				continue
-			}
+			// encryptionKey, err := getEncryptionKey(pendingPointWrite.Point.DeviceUUID)
+			// if err != nil {
+			// 	log.Errorf("error extracting encryption key: %s", err.Error())
+			// 	continue
+			// }
 
-			encryptedData, err := endec.EncodeAndEncrypt(pendingPointWrite.Point, serialData, encryptionKey)
-			if err != nil {
-				log.Errorf("error encrypting data: %s", err.Error())
-				// Removing the point from the queue as queued point may be invalid
-				pwq.DequeueWriteQueue()
-				continue
-			}
+			// encryptedData, err := codec.EncodeAndEncrypt(pendingPointWrite.Point, serialData, encryptionKey)
+			// if err != nil {
+			// 	log.Errorf("error encrypting data: %s", err.Error())
+			// 	// Removing the point from the queue as queued point may be invalid
+			// 	pwq.DequeueWriteQueue()
+			// 	continue
+			// }
 
-			pendingPointWrite.MessageId = msgId
-			pendingPointWrite.Message = encryptedData
+			// pendingPointWrite.MessageId = msgId
+			// pendingPointWrite.Message = encryptedData
 		}
 
 		if pendingPointWrite.RetryCount < pwq.maxRetry {

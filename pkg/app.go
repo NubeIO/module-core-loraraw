@@ -13,9 +13,9 @@ import (
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/lib-utils-go/integer"
-	"github.com/NubeIO/lib-utils-go/nstring"
 	"github.com/NubeIO/module-core-loraraw/aesutils"
-	"github.com/NubeIO/module-core-loraraw/endec"
+	"github.com/NubeIO/module-core-loraraw/codec"
+	"github.com/NubeIO/module-core-loraraw/codecs"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
@@ -133,41 +133,19 @@ func (m *Module) writePoint(pointUUID string, body *dto.PointWriter) (*model.Poi
 	return &pwResponse.Point, nil
 }
 
-func (m *Module) sendAckToDevice(device *model.Device, messageId uint8) error {
-	serialData := endec.NewSerialData()
-	endec.SetPositionalData(serialData, true)
-	endec.SetResponseData(serialData, true)
-	endec.SetMessageId(serialData, messageId)
-	endec.UpdateBitPositionsForHeaderByte(serialData)
-	encryptionKey, err := m.getEncryptionKey(device.UUID)
-	if err != nil {
-		return fmt.Errorf("failed to get encryption key for ACK: %v", err)
-	}
-
-	endec.EncodeData(serialData, uint8(1), endec.MDK_ERROR, 1)
-	encryptedData, err := aesutils.Encrypt(
-		nstring.DerefString(device.AddressUUID),
-		serialData.Buffer,
-		encryptionKey,
-		0,
-	)
-	log.Infof("Sending ACK to device %s for message ID: %d", device.UUID, messageId)
-	return m.WriteToLoRaRaw(encryptedData)
-}
-
 func (m *Module) handleSerialPayload(dataHex string) {
 	if m.networkUUID == "" {
 		return
 	}
 
-	if !endec.ValidPayload(dataHex) {
+	if !codec.ValidPayload(dataHex) {
 		return
 	}
 
 	var err error
 	log.Debugf("uplink: %s", dataHex)
 	legacyDevice := false
-	address := endec.DecodeAddressHex(dataHex)
+	address := codec.DecodeAddressHex(dataHex)
 	device := m.getDeviceByLoRaAddress(address)
 
 	dataBytes, err := hex.DecodeString(dataHex)
@@ -185,7 +163,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
 		if err == nil {
-			address = endec.DecodeAddressBytes(dataLegacy)
+			address = codec.DecodeAddressBytes(dataLegacy)
 			device = m.getDeviceByLoRaAddress(address)
 			legacyDevice = true
 			dataHex = hex.EncodeToString(dataLegacy)
@@ -193,15 +171,15 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 	}
 
-	rssi := endec.DecodeRSSI(dataHex)
-	snr := endec.DecodeSNR(dataHex)
+	rssi := codec.DecodeRSSI(dataHex)
+	snr := codec.DecodeSNR(dataHex)
 
 	if device == nil {
 		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %d", address, rssi, snr)
 		return
 	}
-	devDesc := endec.GetDeviceDescription(device)
-	if devDesc == &endec.NilLoRaDeviceDescription {
+	devDesc := codec.GetDeviceDescription(device, codecs.LoRaDeviceDescriptions)
+	if devDesc == &codec.NilLoRaDeviceDescription {
 		log.Errorln("nil device description found")
 		return
 	}
@@ -226,12 +204,12 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
 	}
 
-	m.updateDevicePointSuccess(endec.RssiField, float64(rssi), device)
-	m.updateDevicePointSuccess(endec.SnrField, float64(snr), device)
+	m.updateDevicePointSuccess(codec.RssiField, float64(rssi), device)
+	m.updateDevicePointSuccess(codec.SnrField, float64(snr), device)
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 
-func (m *Module) handleLegacyDevice(device *model.Device, devDesc *endec.LoRaDeviceDescription, dataHex string, dataBytes []byte) {
+func (m *Module) handleLegacyDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte) {
 	if !devDesc.CheckLength(dataHex) {
 		log.Errorf("invalid legacy payload length")
 		return
@@ -243,7 +221,7 @@ func (m *Module) handleLegacyDevice(device *model.Device, devDesc *endec.LoRaDev
 	}
 }
 
-func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *endec.LoRaDeviceDescription, dataHex string, dataBytes []byte, keyBytes []byte) {
+func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte, keyBytes []byte) {
 	if !utils.CheckLoRaRAWPayloadLength(dataBytes) {
 		log.Errorf("LoRaRaw payload length mismatched")
 		return
@@ -334,7 +312,7 @@ func (m *Module) addDevicePoints(deviceBody *model.Device) error {
 		return errors.New(errMsg)
 	}
 
-	points := endec.GetDevicePointNames(deviceBody)
+	points := codec.GetDevicePointNames(deviceBody, codecs.LoRaDeviceDescriptions)
 	// TODO: should check this before the device is even added in the wizard
 	if len(points) == 0 {
 		log.Errorf("addDevicePoints() incorrect device model, try THLM %s", err)
@@ -360,7 +338,7 @@ func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflec
 	for i := 0; i < pointsRefl.NumField(); i++ {
 		field := pointsRefl.Field(i)
 		if field.Kind() == reflect.Struct {
-			if _, ok := field.Interface().(endec.CommonValues); !ok {
+			if _, ok := field.Interface().(codec.CommonValues); !ok {
 				m.addPointsFromStruct(deviceBody, pointsRefl.Field(i), postfix)
 			}
 			continue

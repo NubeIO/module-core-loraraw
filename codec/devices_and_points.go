@@ -1,7 +1,6 @@
-package endec
+package codec
 
 import (
-	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
 	"errors"
@@ -14,7 +13,6 @@ type UpdateDeviceWrittenPointFunc func(name string, value float64, messageId uin
 type UpdateDeviceWrittenPointErrorFunc func(name string, err error, messageId uint8, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error
 
-type SendAckToDeviceFunc func(device *model.Device, messageId uint8) error
 type InternalPointUpdate func(point *model.Point) (*model.Point, error)
 type DequeuePointWriteFunc func(messageId uint8) *model.Point
 
@@ -87,74 +85,8 @@ func NilLoRaDeviceDescriptionGetPointsStruct() []string {
 	return []string{}
 }
 
-var LoRaDeviceDescriptions = [...]LoRaDeviceDescription{
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "MicroEdge",
-		Model:         schema.DeviceModelMicroEdgeV1,
-		CheckLength:   CheckPayloadLengthME,
-		DecodeUplink:  DecodeME,
-		GetPointNames: GetMePointNames,
-		IsLoRaRAW:     false,
-	},
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "MicroEdge",
-		Model:         schema.DeviceModelMicroEdgeV2,
-		CheckLength:   CheckPayloadLengthME,
-		DecodeUplink:  DecodeME,
-		GetPointNames: GetMePointNames,
-		IsLoRaRAW:     false,
-	},
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "Droplet",
-		Model:         schema.DeviceModelTHLM,
-		CheckLength:   CheckPayloadLengthDroplet,
-		DecodeUplink:  DecodeDropletTHLM,
-		GetPointNames: GetTHLMPointNames,
-		IsLoRaRAW:     false,
-	},
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "Droplet",
-		Model:         schema.DeviceModelTHL,
-		CheckLength:   CheckPayloadLengthDroplet,
-		DecodeUplink:  DecodeDropletTHL,
-		GetPointNames: GetTHLPointNames,
-		IsLoRaRAW:     false,
-	},
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "Droplet",
-		Model:         schema.DeviceModelTH,
-		CheckLength:   CheckPayloadLengthDroplet,
-		DecodeUplink:  DecodeDropletTH,
-		GetPointNames: GetTHPointNames,
-		IsLoRaRAW:     false,
-	},
-	{
-		// LEGACY DEVICE. PLS REMOVE IN FUTURE
-		DeviceName:    "ZipHydroTap",
-		Model:         schema.DeviceModelZiptHydroTap,
-		CheckLength:   CheckPayloadLengthZHT,
-		DecodeUplink:  DecodeZHT,
-		GetPointNames: GetZHTPointNames,
-		IsLoRaRAW:     true,
-	},
-	{
-		DeviceName:     "Rubix",
-		Model:          schema.DeviceModelRubix,
-		CheckLength:    CheckPayloadLengthRubix,
-		DecodeUplink:   DecodeRubixUplink,
-		DecodeResponse: DecodeRubixResponse,
-		GetPointNames:  GetRubixPointNames,
-		IsLoRaRAW:      true,
-	},
-}
-
-func GetDeviceDescription(device *model.Device) *LoRaDeviceDescription {
-	for _, devDesc := range LoRaDeviceDescriptions {
+func GetDeviceDescription(device *model.Device, deviceDescriptions []LoRaDeviceDescription) *LoRaDeviceDescription {
+	for _, devDesc := range deviceDescriptions {
 		if strings.EqualFold(device.Model, devDesc.Model) {
 			return &devDesc
 		}
@@ -162,6 +94,6 @@ func GetDeviceDescription(device *model.Device) *LoRaDeviceDescription {
 	return &NilLoRaDeviceDescription
 }
 
-func GetDevicePointNames(device *model.Device) []string {
-	return GetDeviceDescription(device).GetPointNames()
+func GetDevicePointNames(device *model.Device, deviceDescriptions []LoRaDeviceDescription) []string {
+	return GetDeviceDescription(device, deviceDescriptions).GetPointNames()
 }

@@ -1,4 +1,4 @@
-package endec
+package rubixDataEncoding
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package endec
+package rubixDataEncoding
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"unsafe"
 
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -236,11 +237,11 @@ func generateFieldName(baseName string, hasPosition bool, pos *uint8) string {
 func DecodeRubixUplink(
 	_ string,
 	payloadBytes []byte,
-	_ *LoRaDeviceDescription,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	_ UpdateDeviceMetaTagsFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	return DecodeRubix(payloadBytes, device, updatePointFn, updatePointErrFn, nil, nil)
 }
@@ -248,11 +249,11 @@ func DecodeRubixUplink(
 func DecodeRubixResponse(
 	_ string,
 	payloadBytes []byte,
-	_ *LoRaDeviceDescription,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updateWrittenPointFn UpdateDeviceWrittenPointFunc,
-	updateWrittenPointErrFn UpdateDeviceWrittenPointErrorFunc,
-	_ UpdateDeviceMetaTagsFunc,
+	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
+	updateWrittenPointErrFn codec.UpdateDeviceWrittenPointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	return DecodeRubix(payloadBytes, device, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
 }
@@ -260,10 +261,10 @@ func DecodeRubixResponse(
 func DecodeRubix(
 	payloadBytes []byte,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updatePointErrFn UpdateDevicePointErrorFunc,
-	updateWrittenPointFn UpdateDeviceWrittenPointFunc,
-	updateWrittenPointErrFn UpdateDeviceWrittenPointErrorFunc,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
+	updateWrittenPointErrFn codec.UpdateDeviceWrittenPointErrorFunc,
 ) error {
 	serialData := NewSerialDataWithBuffer(payloadBytes)
 
@@ -291,7 +292,7 @@ func DecodeRubix(
 	return nil
 }
 
-func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bool, position *uint8, device *model.Device, updatePointFn UpdateDevicePointFunc) (name string, value float64, err error) {
+func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bool, position *uint8, device *model.Device, updatePointFn codec.UpdateDevicePointFunc) (name string, value float64, err error) {
 	var (
 		f32  float32
 		u8   uint8
@@ -442,7 +443,7 @@ func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bo
 }
 
 func GetRubixPointNames() []string {
-	return GetCommonValueNames()
+	return codec.GetCommonValueNames()
 }
 
 func CheckPayloadLengthRubix(_ string) bool {
