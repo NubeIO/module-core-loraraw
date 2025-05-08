@@ -6,6 +6,24 @@ type SerialData struct {
 	WriteBitPos int
 }
 
+type PositionDataType int
+
+const (
+	PositionDataType_GENERAL PositionDataType = iota
+	PositionDataType_UO      PositionDataType = iota
+	PositionDataType_DO      PositionDataType = iota
+	PositionDataType_UI      PositionDataType = iota
+	PositionDataType_DI      PositionDataType = iota
+	PositionDataType_UVP     PositionDataType = iota
+	PositionDataType_UVP2    PositionDataType = iota
+	PositionDataType_DVP     PositionDataType = iota
+)
+
+type PositionData struct {
+	ID   int
+	Type PositionDataType
+}
+
 const (
 	MinSize         = 1
 	DataOffsetBits  = 8

@@ -27,11 +27,7 @@ const (
 	MDK_CO2              MetaDataKey = 11
 	MDK_BATTERY_VOLTAGE  MetaDataKey = 12
 	MDK_PUSH_FREQUENCY   MetaDataKey = 13
-	MDK_RAW              MetaDataKey = 16
-	MDK_UO               MetaDataKey = 17
-	MDK_UI               MetaDataKey = 18
-	MDK_DO               MetaDataKey = 19
-	MDK_DI               MetaDataKey = 20
+	MDK_ANALOG_IN        MetaDataKey = 16
 	MDK_FIRMWARE_VERSION MetaDataKey = 61
 	MDK_HARDWARE_VERSION MetaDataKey = 62
 	MDK_UINT_8           MetaDataKey = 30
@@ -68,11 +64,6 @@ var serialMap = map[MetaDataKey]MetaData{
 	MDK_CO2:              {FIXEDPOINT, 0, 400, 0, 0},
 	MDK_BATTERY_VOLTAGE:  {FIXEDPOINT, 0, 6, 1, 0},
 	MDK_PUSH_FREQUENCY:   {FIXEDPOINT, 0, 2000, 0, 0},
-	MDK_RAW:              {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_UO:               {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_UI:               {FIXEDPOINT, 0, 1, 3, 0},
-	MDK_DO:               {FIXEDPOINT, 0, 1, 0, 0},
-	MDK_DI:               {FIXEDPOINT, 0, 1, 0, 0},
 	MDK_FIRMWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
 	MDK_HARDWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
 	MDK_UINT_8:           {DATAPOINT, 0, 0, 0, 1},
@@ -90,6 +81,100 @@ var serialMap = map[MetaDataKey]MetaData{
 	MDK_ERROR:            {DATAPOINT, 0, 0, 0, 1},
 }
 
+const (
+	TempField           = "temp"
+	RHField             = "rh"
+	LuxField            = "lux"
+	MovementField       = "movement"
+	CounterField        = "count"
+	DigitalField        = "digital"
+	VoltageField        = "0-10v"
+	MilliampsField      = "4-20ma"
+	OhmField            = "ohm"
+	CO2Field            = "co2"
+	BatteryVoltageField = "battery-voltage"
+	PushFrequencyField  = "push-frequency"
+	AnalogInField       = "ai-raw"
+	FwVersionField      = "firmware-version"
+	HwVersionField      = "hardware-version"
+	BoolField           = "bool"
+	CharField           = "char"
+	UInt8Field          = "uint_8"
+	Int8Field           = "int_8"
+	UInt16Field         = "uint_16"
+	Int16Field          = "int_16"
+	UInt32Field         = "uint_32"
+	Int32Field          = "int_32"
+	UInt64Field         = "uint_64"
+	Int64Field          = "int_64"
+	FloatField          = "float"
+	DoubleField         = "double"
+	ErrorField          = "error"
+)
+
 func getMetaData(metaDataKey MetaDataKey) MetaData {
 	return serialMap[metaDataKey]
+}
+
+func (m MetaDataKey) String() string {
+	switch m {
+	case MDK_TEMP:
+		return TempField
+	case MDK_RH:
+		return RHField
+	case MDK_LUX:
+		return LuxField
+	case MDK_MOVEMENT:
+		return MovementField
+	case MDK_COUNTER:
+		return CounterField
+	case MDK_DIGITAL:
+		return DigitalField
+	case MDK_VOLTAGE_0_10:
+		return VoltageField
+	case MDK_MILLIAMPS_4_20:
+		return MilliampsField
+	case MDK_OHM:
+		return OhmField
+	case MDK_CO2:
+		return CO2Field
+	case MDK_BATTERY_VOLTAGE:
+		return BatteryVoltageField
+	case MDK_PUSH_FREQUENCY:
+		return PushFrequencyField
+	case MDK_ANALOG_IN:
+		return AnalogInField
+	case MDK_FIRMWARE_VERSION:
+		return FwVersionField
+	case MDK_HARDWARE_VERSION:
+		return HwVersionField
+	case MDK_BOOL:
+		return BoolField
+	case MDK_CHAR:
+		return CharField
+	case MDK_UINT_8:
+		return UInt8Field
+	case MDK_INT_8:
+		return Int8Field
+	case MDK_UINT_16:
+		return UInt16Field
+	case MDK_INT_16:
+		return Int16Field
+	case MDK_UINT_32:
+		return UInt32Field
+	case MDK_INT_32:
+		return Int32Field
+	case MDK_UINT_64:
+		return UInt64Field
+	case MDK_INT_64:
+		return Int64Field
+	case MDK_FLOAT:
+		return FloatField
+	case MDK_DOUBLE:
+		return DoubleField
+	case MDK_ERROR:
+		return ErrorField
+	default:
+		return "unknown"
+	}
 }
