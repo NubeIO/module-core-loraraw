@@ -59,6 +59,10 @@ func (m *Module) updateDeviceWrittenPointError(pointIDStr string, err error, mes
 
 func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err error, messageId uint8, device *model.Device) error {
 	point := m.pointWriteQueue.DequeueUsingMessageId(messageId)
+	if point == nil {
+		log.Errorf("failed to find point with messageId: %d", messageId)
+		return nil
+	}
 	if err != nil {
 		_, _ = m.updateWrittenPointError(point, err)
 	}

@@ -222,15 +222,16 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 		log.Errorf("LoRaRaw payload length mismatched")
 		return
 	}
-	dataBytes = utils.StripLoRaRAWPayload(dataBytes)
+	payload := utils.StripLoRaRAWPayload(dataBytes)
 
 	opts := getOpts(dataBytes)
 	switch opts {
 	case utils.LORARAW_OPTS_CONFIRMED_UPLINK:
 		m.handleConfirmedOpt(dataBytes, keyBytes)
-		devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
+		devDesc.DecodeUplink(dataHex, payload, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
 	case utils.LORARAW_OPTS_RESPONSE:
-		devDesc.DecodeResponse(dataHex, dataBytes, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
+		lastResponseMsgId = dataBytes[utils.LORARAW_NONCE_POSITION]
+		devDesc.DecodeResponse(dataHex, payload, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
 	default:
 		log.Warnf("unhandled LoRaRAW option: %d", opts)
 	}
