@@ -4,9 +4,9 @@ import (
 	"errors"
 	"math"
 	"strconv"
+	"strings"
 	"unsafe"
 
-	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
 	log "github.com/sirupsen/logrus"
@@ -150,7 +150,7 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 		var dataBits uint64
 		// Convert data to uint64, get bitCount
 		if !dataTypeToBits(data, &metaData, &dataBits, &bitCount) {
-			log.Errorf("dataTypeToBits")
+			log.Errorf("EncodeData: dataTypeToBits failed for %T", data)
 			return false
 		}
 		// Add header to buffer
@@ -183,31 +183,77 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 			return nil, err
 		}
 
-		addressID, err := utils.SafeDereferenceUint8(point.AddressID)
+		// IoNumber consists of 2 parts, the first part is point type (i.e. UO, DO, UI, DI, UVP, DVP) and the
+		// second part is the 1-based point number (e.g. 1, 2, 3). These are separated by a "-", e.g. "UO-1", "UVP-5"
+		// We need to extract those 2 parts to construct the position flag for the point.
+		parts := strings.Split(point.IoNumber, "-")
+		if len(parts) != 2 {
+			return nil, errors.New("invalid IoNumber format")
+		}
+		pointType := parts[0]
+		pointNumber := parts[1]
+		position, err := generateRdePosition(pointType, pointNumber)
 		if err != nil {
 			return nil, err
 		}
 
 		if MetaDataKey(pointDataType) == MDK_UINT_8 {
-			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
-			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
-			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
-			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_8 {
-			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_16 {
-			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_32 {
-			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_64 {
-			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_CHAR {
+			EncodeData(serialData, byte(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_FLOAT {
+			EncodeData(serialData, float32(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_DOUBLE {
+			EncodeData(serialData, float64(*writeValue), MetaDataKey(pointDataType), position)
 		} else {
-			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), position)
 		}
 	}
 
 	return serialData.Buffer, nil
+}
+
+func generateRdePosition(pointType string, pointNumber string) (uint8, error) {
+	pointNum, error := strconv.Atoi(pointNumber)
+	if error != nil {
+		return 0, error
+	}
+	if pointNum < 1 || (pointType == "UVP" && pointNum > 64) || (pointType != "UVP" && pointNum > 32) {
+		return 0, errors.New("point number out of range")
+	}
+
+	pointIdx := pointNum - 1
+	switch pointType {
+	case "UO":
+		return (uint8(PositionDataType_UO) << 5) + uint8(pointIdx), nil
+	case "DO":
+		return (uint8(PositionDataType_DO) << 5) + uint8(pointIdx), nil
+	case "UI":
+		return (uint8(PositionDataType_UI) << 5) + uint8(pointIdx), nil
+	case "DI":
+		return (uint8(PositionDataType_DI) << 5) + uint8(pointIdx), nil
+	case "UVP":
+		if pointIdx < 32 {
+			return (uint8(PositionDataType_UVP) << 5) + uint8(pointIdx), nil
+		}
+		return (uint8(PositionDataType_UVP2) << 5) + uint8(pointIdx-32), nil
+	case "DVP":
+		return (uint8(PositionDataType_DVP) << 5) + uint8(pointIdx), nil
+	default:
+		return 0, errors.New("invalid point type")
+	}
 }

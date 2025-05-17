@@ -377,9 +377,23 @@ func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bo
 	case MDK_ERROR:
 		var errCode uint8 = 0
 		decodeData(serialData, metaDataKey, &errCode)
-		if errCode != 0 {
-			// TODO: add error code to string conversion for known common errors
-			return name, 0, errors.New("RDE error: " + strconv.Itoa(int(errCode)))
+		switch errCode {
+		case ErrorCodeNone:
+			break
+		case ErrorCodeGeneral:
+			return name, 0, errors.New("RDE error: General error")
+		case ErrorCodeNotAllowed:
+			return name, 0, errors.New("RDE error: Writing to the data point is not allowed")
+		case ErrorCodeWriteFailed:
+			return name, 0, errors.New("RDE error: Failed to write value to the data point")
+		case ErrorCodeInvalidPoint:
+			return name, 0, errors.New("RDE error: The requested data point does not exist or invalid")
+		case ErrorCodeInvalidType:
+			return name, 0, errors.New("RDE error: Data type of the requested data point does not match")
+		case ErrorCodeInvalidValue:
+			return name, 0, errors.New("RDE error: The writing value is invalid")
+		default:
+			return name, 0, errors.New("RDE error: Unknown error" + strconv.Itoa(int(errCode)))
 		}
 		value = 0
 	case 0:

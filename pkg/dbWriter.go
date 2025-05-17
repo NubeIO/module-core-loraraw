@@ -1,14 +1,23 @@
 package pkg
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/NubeIO/lib-utils-go/boolean"
 	"github.com/NubeIO/module-core-loraraw/codecs/legacyDecoders"
+	"github.com/NubeIO/module-core-loraraw/codecs/rubixDataEncoding"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+)
+
+var (
+	// Message ID of the response that last received from a device
+	lastResponseMsgId uint8
 )
 
 func (m *Module) updateDeviceFault(sensor, deviceUUID string) {
@@ -58,6 +67,10 @@ func (m *Module) updateDeviceWrittenPointError(pointIDStr string, err error, mes
 }
 
 func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err error, messageId uint8, device *model.Device) error {
+	// TODO: This is a dirty hack to get the messageId of the last response (which should be the same as the that of the write request)
+	// This hack is needed because `messageId` is not passed to the updateDeviceWrittenPoint function (always 0)
+	messageId = lastResponseMsgId
+
 	point := m.pointWriteQueue.DequeueUsingMessageId(messageId)
 	if point == nil {
 		log.Errorf("failed to find point with messageId: %d", messageId)
@@ -102,6 +115,20 @@ func setNewPointFields(deviceBody *model.Device, pointBody *model.Point, pointID
 	pointBody.IoNumber = pointIDStr
 	pointBody.ThingType = "point"
 	pointBody.WriteMode = datatype.ReadOnly
+
+	// `pointIDStr` consists of 2 parts, the first part is point type (i.e. UO, DO, UI, DI, UVP, DVP) and the
+	// second part is the 1-based point number (e.g. 1, 2, 3). These are separated by a "-", e.g. "UO-1", "UVP-5"
+	// We need to extract point type to determine data type of the point.
+	pointBody.DataType = strconv.Itoa(int(rubixDataEncoding.MDK_FLOAT))
+	parts := strings.Split(pointIDStr, "-")
+	if len(parts) == 2 {
+		pointType := parts[0]
+		if pointType == "UO" || pointType == "UI" {
+			pointBody.DataType = strconv.Itoa(int(rubixDataEncoding.MDK_ANALOG_IN))
+		} else if pointType == "DO" || pointType == "DI" || pointType == "DVP" {
+			pointBody.DataType = strconv.Itoa(int(rubixDataEncoding.MDK_DIGITAL))
+		}
+	}
 }
 
 func (m *Module) updatePointValueSuccess(pnt *model.Point, value float64, deviceModel string) error {
