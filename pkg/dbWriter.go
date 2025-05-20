@@ -15,11 +15,6 @@ import (
 	"golang.org/x/text/language"
 )
 
-var (
-	// Message ID of the response that last received from a device
-	lastResponseMsgId uint8
-)
-
 func (m *Module) updateDeviceFault(sensor, deviceUUID string) {
 	log.Infof("sensor found. Type: %s", sensor)
 	_ = m.grpcMarshaller.UpdateDeviceFault(deviceUUID, &model.CommonFault{
@@ -67,10 +62,6 @@ func (m *Module) updateDeviceWrittenPointError(pointIDStr string, err error, mes
 }
 
 func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err error, messageId uint8, device *model.Device) error {
-	// TODO: This is a dirty hack to get the messageId of the last response (which should be the same as the that of the write request)
-	// This hack is needed because `messageId` is not passed to the updateDeviceWrittenPoint function (always 0)
-	messageId = lastResponseMsgId
-
 	point := m.pointWriteQueue.DequeueUsingMessageId(messageId)
 	if point == nil {
 		log.Errorf("failed to find point with messageId: %d", messageId)

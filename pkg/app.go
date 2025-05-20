@@ -230,8 +230,8 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 		m.handleConfirmedOpt(dataBytes, keyBytes)
 		devDesc.DecodeUplink(dataHex, payload, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
 	case utils.LORARAW_OPTS_RESPONSE:
-		lastResponseMsgId = dataBytes[utils.LORARAW_NONCE_POSITION]
-		devDesc.DecodeResponse(dataHex, payload, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
+		msgId := dataBytes[utils.LORARAW_NONCE_POSITION]
+		devDesc.DecodeResponse(dataHex, payload, msgId, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
 	default:
 		log.Warnf("unhandled LoRaRAW option: %d", opts)
 	}

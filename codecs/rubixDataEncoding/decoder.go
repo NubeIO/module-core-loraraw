@@ -235,24 +235,26 @@ func DecodeRubixUplink(
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, updatePointFn, updatePointErrFn, nil, nil)
+	return DecodeRubix(payloadBytes, device, 0, updatePointFn, updatePointErrFn, nil, nil)
 }
 
 func DecodeRubixResponse(
 	_ string,
 	payloadBytes []byte,
+	msgId uint8,
 	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
 	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
 	updateWrittenPointErrFn codec.UpdateDeviceWrittenPointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
+	return DecodeRubix(payloadBytes, device, msgId, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
 }
 
 func DecodeRubix(
 	payloadBytes []byte,
 	device *model.Device,
+	msgId uint8,
 	updatePointFn codec.UpdateDevicePointFunc,
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
@@ -280,9 +282,9 @@ func DecodeRubix(
 			}
 		} else {
 			if err != nil {
-				updateWrittenPointErrFn(name, err, 0, device)
+				updateWrittenPointErrFn(name, err, msgId, device)
 			} else {
-				updateWrittenPointFn(name, value, 0, device)
+				updateWrittenPointFn(name, value, msgId, device)
 			}
 		}
 

@@ -25,6 +25,7 @@ type DecodeUplinkFunc func(
 type DecodeResponseFunc func(
 	dataHex string,
 	payloadBytes []byte,
+	msgId uint8,
 	devDesc *LoRaDeviceDescription,
 	device *model.Device,
 	updateDevPntFnc UpdateDeviceWrittenPointFunc,
@@ -75,6 +76,7 @@ func NilLoRaDeviceDescriptionDecode(
 func NilLoRaDeviceDescriptionDecodeResponse(
 	_ string,
 	_ []byte,
+	_ uint8,
 	_ *LoRaDeviceDescription,
 	_ *model.Device,
 	_ UpdateDeviceWrittenPointFunc,
