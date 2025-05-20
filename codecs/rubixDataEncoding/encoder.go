@@ -4,7 +4,6 @@ import (
 	"errors"
 	"math"
 	"strconv"
-	"strings"
 	"unsafe"
 
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -183,16 +182,7 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 			return nil, err
 		}
 
-		// IoNumber consists of 2 parts, the first part is point type (i.e. UO, DO, UI, DI, UVP, DVP) and the
-		// second part is the 1-based point number (e.g. 1, 2, 3). These are separated by a "-", e.g. "UO-1", "UVP-5"
-		// We need to extract those 2 parts to construct the position flag for the point.
-		parts := strings.Split(point.IoNumber, "-")
-		if len(parts) != 2 {
-			return nil, errors.New("invalid IoNumber format")
-		}
-		pointType := parts[0]
-		pointNumber := parts[1]
-		position, err := generateRdePosition(pointType, pointNumber)
+		position, err := getPosition(point.IoNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -225,35 +215,4 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 	}
 
 	return serialData.Buffer, nil
-}
-
-func generateRdePosition(pointType string, pointNumber string) (uint8, error) {
-	pointNum, error := strconv.Atoi(pointNumber)
-	if error != nil {
-		return 0, error
-	}
-	if pointNum < 1 || (pointType == "UVP" && pointNum > 64) || (pointType != "UVP" && pointNum > 32) {
-		return 0, errors.New("point number out of range")
-	}
-
-	pointIdx := pointNum - 1
-	switch pointType {
-	case "UO":
-		return (uint8(PositionDataType_UO) << 5) + uint8(pointIdx), nil
-	case "DO":
-		return (uint8(PositionDataType_DO) << 5) + uint8(pointIdx), nil
-	case "UI":
-		return (uint8(PositionDataType_UI) << 5) + uint8(pointIdx), nil
-	case "DI":
-		return (uint8(PositionDataType_DI) << 5) + uint8(pointIdx), nil
-	case "UVP":
-		if pointIdx < 32 {
-			return (uint8(PositionDataType_UVP) << 5) + uint8(pointIdx), nil
-		}
-		return (uint8(PositionDataType_UVP2) << 5) + uint8(pointIdx-32), nil
-	case "DVP":
-		return (uint8(PositionDataType_DVP) << 5) + uint8(pointIdx), nil
-	default:
-		return 0, errors.New("invalid point type")
-	}
 }
