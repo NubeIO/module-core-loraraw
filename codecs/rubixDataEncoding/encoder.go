@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"unsafe"
 
-	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
 	log "github.com/sirupsen/logrus"
@@ -150,7 +149,7 @@ func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 		var dataBits uint64
 		// Convert data to uint64, get bitCount
 		if !dataTypeToBits(data, &metaData, &dataBits, &bitCount) {
-			log.Errorf("dataTypeToBits")
+			log.Errorf("EncodeData: dataTypeToBits failed for %T", data)
 			return false
 		}
 		// Add header to buffer
@@ -183,29 +182,35 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 			return nil, err
 		}
 
-		addressID, err := utils.SafeDereferenceUint8(point.AddressID)
+		position, err := getPosition(point.IoNumber)
 		if err != nil {
 			return nil, err
 		}
 
 		if MetaDataKey(pointDataType) == MDK_UINT_8 {
-			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
-			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
-			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
-			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_8 {
-			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_16 {
-			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_32 {
-			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), position)
 		} else if MetaDataKey(pointDataType) == MDK_INT_64 {
-			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_CHAR {
+			EncodeData(serialData, byte(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_FLOAT {
+			EncodeData(serialData, float32(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_DOUBLE {
+			EncodeData(serialData, float64(*writeValue), MetaDataKey(pointDataType), position)
 		} else {
-			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
+			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), position)
 		}
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/NubeIO/module-core-loraraw/codec"
@@ -226,6 +227,65 @@ func generateFieldName(metaDataKey MetaDataKey, pos PositionData) string {
 	}
 }
 
+func getPosition(fieldName string) (uint8, error) {
+	// `fieldName` consists of 2 parts, the first part is point type (i.e. UO, DO, UI, DI, UVP, DVP) and the
+	// second part is the 1-based point number (e.g. 1, 2, 3). These are separated by a "-", e.g. "UO-1", "UVP-5"
+	// We need to extract those 2 parts to construct the position flag for the point.
+	parts := strings.Split(fieldName, "-")
+	if len(parts) != 2 {
+		return 0, errors.New("invalid fieldName format")
+	}
+	pointType := parts[0]
+	pointNum, error := strconv.Atoi(parts[1])
+	if error != nil {
+		return 0, error
+	}
+	if pointNum < 1 || (pointType == "UVP" && pointNum > 64) || (pointType != "UVP" && pointNum > 32) {
+		return 0, errors.New("point number out of range")
+	}
+
+	pointIdx := pointNum - 1
+	switch pointType {
+	case "UO":
+		return (uint8(PositionDataType_UO) << 5) + uint8(pointIdx), nil
+	case "DO":
+		return (uint8(PositionDataType_DO) << 5) + uint8(pointIdx), nil
+	case "UI":
+		return (uint8(PositionDataType_UI) << 5) + uint8(pointIdx), nil
+	case "DI":
+		return (uint8(PositionDataType_DI) << 5) + uint8(pointIdx), nil
+	case "UVP":
+		if pointIdx < 32 {
+			return (uint8(PositionDataType_UVP) << 5) + uint8(pointIdx), nil
+		}
+		return (uint8(PositionDataType_UVP2) << 5) + uint8(pointIdx-32), nil
+	case "DVP":
+		return (uint8(PositionDataType_DVP) << 5) + uint8(pointIdx), nil
+	default:
+		return 0, errors.New("invalid point type")
+	}
+}
+
+func GetMetaDataKey(fieldName string) (string, error) {
+	// `fieldName` consists of 2 parts, the first part is point type (i.e. UO, DO, UI, DI, UVP, DVP) and the
+	// second part is the 1-based point number (e.g. 1, 2, 3). These are separated by a "-", e.g. "UO-1", "UVP-5"
+	// We need to extract point type to determine data type of the point.
+	metaDataKey := strconv.Itoa(int(MDK_FLOAT))
+	parts := strings.Split(fieldName, "-")
+	if len(parts) != 2 {
+		return metaDataKey, errors.New("invalid fieldName format")
+	}
+	pointType := parts[0]
+
+	if pointType == "UO" || pointType == "UI" {
+		metaDataKey = strconv.Itoa(int(MDK_ANALOG_IN))
+	} else if pointType == "DO" || pointType == "DI" || pointType == "DVP" {
+		metaDataKey = strconv.Itoa(int(MDK_DIGITAL))
+	}
+
+	return metaDataKey, nil
+}
+
 func DecodeRubixUplink(
 	_ string,
 	payloadBytes []byte,
@@ -235,24 +295,26 @@ func DecodeRubixUplink(
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, updatePointFn, updatePointErrFn, nil, nil)
+	return DecodeRubix(payloadBytes, device, 0, updatePointFn, updatePointErrFn, nil, nil)
 }
 
 func DecodeRubixResponse(
 	_ string,
 	payloadBytes []byte,
+	msgId uint8,
 	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
 	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
 	updateWrittenPointErrFn codec.UpdateDeviceWrittenPointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
+	return DecodeRubix(payloadBytes, device, msgId, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
 }
 
 func DecodeRubix(
 	payloadBytes []byte,
 	device *model.Device,
+	msgId uint8,
 	updatePointFn codec.UpdateDevicePointFunc,
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
@@ -280,9 +342,9 @@ func DecodeRubix(
 			}
 		} else {
 			if err != nil {
-				updateWrittenPointErrFn(name, err, 0, device)
+				updateWrittenPointErrFn(name, err, msgId, device)
 			} else {
-				updateWrittenPointFn(name, value, 0, device)
+				updateWrittenPointFn(name, value, msgId, device)
 			}
 		}
 
@@ -377,9 +439,23 @@ func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bo
 	case MDK_ERROR:
 		var errCode uint8 = 0
 		decodeData(serialData, metaDataKey, &errCode)
-		if errCode != 0 {
-			// TODO: add error code to string conversion for known common errors
-			return name, 0, errors.New("RDE error: " + strconv.Itoa(int(errCode)))
+		switch errCode {
+		case ErrorCodeNone:
+			break
+		case ErrorCodeGeneral:
+			return name, 0, errors.New("unknown error")
+		case ErrorCodeNotAllowed:
+			return name, 0, errors.New("non-writable point")
+		case ErrorCodeWriteFailed:
+			return name, 0, errors.New("internal error")
+		case ErrorCodeInvalidPoint:
+			return name, 0, errors.New("invalid point ID")
+		case ErrorCodeInvalidType:
+			return name, 0, errors.New("data type mismatch")
+		case ErrorCodeInvalidValue:
+			return name, 0, errors.New("invalid value")
+		default:
+			return name, 0, errors.New("Unknown error" + strconv.Itoa(int(errCode)))
 		}
 		value = 0
 	case 0:

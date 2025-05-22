@@ -30,6 +30,16 @@ const (
 	DefaultSettings = 0
 )
 
+const (
+	ErrorCodeNone         = 0
+	ErrorCodeGeneral      = 1
+	ErrorCodeNotAllowed   = 2
+	ErrorCodeWriteFailed  = 3
+	ErrorCodeInvalidPoint = 4
+	ErrorCodeInvalidType  = 5
+	ErrorCodeInvalidValue = 6
+)
+
 func NewSerialData() *SerialData {
 	buffer := make([]byte, MinSize)
 	buffer[0] = DefaultSettings
