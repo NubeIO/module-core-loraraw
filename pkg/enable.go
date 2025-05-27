@@ -22,7 +22,7 @@ func (m *Module) Enable() error {
 	}
 
 	m.initWriteQueue()
-	m.pointWriteQueue = NewPointWriteQueue(m.config.WriteQueueMaxRetries, m.config.WriteQueueTimeout)
+	m.pointWriteQueue = NewPointWriteQueue(m.config.WriteQueueMaxRetries, m.config.timeOffAirDefault)
 
 	if len(networks) == 0 {
 		warnMsg := "no LoRaRAW networks exist"

@@ -22,18 +22,20 @@ type PendingPointWrite struct {
 }
 
 type PointWriteQueue struct {
-	writeQueue []*PendingPointWrite
-	mutex      sync.Mutex
-	maxRetry   int
-	timeout    time.Duration
+	writeQueue        []*PendingPointWrite
+	mutex             sync.Mutex
+	cond              *sync.Cond
+	maxRetry          int
+	timeOffAirDefault time.Duration
 }
 
-func NewPointWriteQueue(maxRetry int, timeout time.Duration) *PointWriteQueue {
+func NewPointWriteQueue(maxRetry int, defaultTimeOffAir time.Duration) *PointWriteQueue {
 	queue := &PointWriteQueue{
-		writeQueue: make([]*PendingPointWrite, 0),
-		maxRetry:   maxRetry,
-		timeout:    timeout,
+		writeQueue:        make([]*PendingPointWrite, 0),
+		maxRetry:          maxRetry,
+		timeOffAirDefault: defaultTimeOffAir,
 	}
+	queue.cond = sync.NewCond(&queue.mutex)
 	return queue
 }
 
@@ -49,6 +51,7 @@ func (pwq *PointWriteQueue) EnqueueWriteQueue(ppWrite *PendingPointWrite) {
 	defer pwq.mutex.Unlock()
 
 	pwq.writeQueue = append(pwq.writeQueue, ppWrite)
+	pwq.cond.Signal() // Signal waiting goroutines that new data is available
 }
 
 func (pwq *PointWriteQueue) DequeueWriteQueue() {
@@ -105,11 +108,8 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 ) {
 	for {
 		pwq.mutex.Lock()
-
-		if len(pwq.writeQueue) == 0 {
-			pwq.mutex.Unlock()
-			time.Sleep(time.Second * 5)
-			continue
+		for len(pwq.writeQueue) == 0 {
+			pwq.cond.Wait() // Wait until there's data in the queue
 		}
 
 		pendingPointWrite := pwq.writeQueue[0]
@@ -164,8 +164,9 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			}
 			pendingPointWrite.RetryCount++
 
-			// Wait for the set timeout before initiating another write
-			time.Sleep(pwq.timeout)
+			// TODO: this is a fake time-off-air.
+			//  Update with proper time-off-air when driver-lora is merged
+			time.Sleep(pwq.timeOffAirDefault)
 		} else {
 			pwq.DequeueWriteQueue()
 		}
