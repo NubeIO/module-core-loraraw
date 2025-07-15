@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.1-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.1-rc.2) (2025-07-15)
+
+- Feature/req resp (#60)
+
 ## [v1.1.1-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.1-rc.1) (2025-02-27)
 
 - GEN1-20 Unique address transmission (#39)
