@@ -104,6 +104,11 @@ func DecryptLegacy(data, key []byte) ([]byte, error) {
 }
 
 func prepareCMAC(data, key []byte) ([]byte, error) {
+	// Validate data length to avoid slicing error
+	if len(data) < 16 {
+		return nil, errors.New("data too short for CMAC computation")
+	}
+
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -117,11 +122,20 @@ func prepareCMAC(data, key []byte) ([]byte, error) {
 	}
 
 	// Update CMAC with parts of the data
-	cmacObj.Write(data[:16])
-	cmacObj.Write(data[4:])
+	if _, err := cmacObj.Write(data[:16]); err != nil {
+		return nil, err
+	}
+	if len(data) > 4 {
+		if _, err := cmacObj.Write(data[4:]); err != nil {
+			return nil, err
+		}
+	}
 
 	// Compute MAC and return the first 4 bytes (MAC length of 4 bytes)
 	mac := cmacObj.Sum(nil)
+	if len(mac) < 4 {
+		return nil, errors.New("computed CMAC too short")
+	}
 	return mac[:4], nil
 }
 
