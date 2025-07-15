@@ -1,12 +1,13 @@
-package endec
+package legacyDecoders
 
 import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/NubeIO/lib-utils-go/nstring"
 	"strconv"
 
+	"github.com/NubeIO/lib-utils-go/nstring"
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
@@ -108,12 +109,12 @@ const (
 
 func DecodeZHT(
 	data string,
-	_ *LoRaDeviceDescription,
+	_ []byte,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
-	_ DequeuePointWriteFunc,
-	_ InternalPointUpdate,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	bytes, err := getPayloadBytes(data)
 	if err != nil {
@@ -259,7 +260,7 @@ func GetTZipHydroTapPollFields() []string {
 }
 
 func GetZHTPointNames() []string {
-	commonValueFields := GetCommonValueNames()
+	commonValueFields := codec.GetCommonValueNames()
 	tZipHydroTapWriteOnlyFields := GetTZipHydroTapWriteOnlyFields()
 	tZipHydroTapWriteFields := GetTZipHydroTapWriteFields()
 	tZipHydroTapPollFields := GetTZipHydroTapPollFields()
@@ -292,7 +293,7 @@ func bytesToDate(bytes []byte) string {
 }
 
 // No usages of staticPayloadDecoder method
-func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc) error {
+func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc) error {
 	index := 1
 	fwMa := int(data[index])
 	index += 1
@@ -374,7 +375,7 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 	return updateDeviceMetaTagsFn(device.UUID, device.MetaTags)
 }
 
-func writePayloadDecoder(data []byte, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+func writePayloadDecoder(data []byte, device *model.Device, updatePointFn codec.UpdateDevicePointFunc) error {
 	index := 1
 	time := int(binary.LittleEndian.Uint32(data[index : index+4]))
 	index += 4
@@ -486,7 +487,7 @@ func writePayloadDecoder(data []byte, device *model.Device, updatePointFn Update
 	return nil
 }
 
-func pollPayloadDecoder(data []byte, device *model.Device, updatePointFn UpdateDevicePointFunc) error {
+func pollPayloadDecoder(data []byte, device *model.Device, updatePointFn codec.UpdateDevicePointFunc) error {
 	index := 1
 	rebooted := (data[index]>>5)&1 == 1
 	// sCov := (data[index]>>6)&1 == 1

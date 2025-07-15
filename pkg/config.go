@@ -3,11 +3,12 @@ package pkg
 import (
 	"encoding/hex"
 	"errors"
+	"strings"
+	"time"
+
 	"github.com/NubeIO/module-core-loraraw/logger"
 	"github.com/go-yaml/yaml"
 	log "github.com/sirupsen/logrus"
-	"strings"
-	"time"
 )
 
 type Config struct {
@@ -16,7 +17,7 @@ type Config struct {
 	DefaultKey           string        `yaml:"default_key" type:"secret"`
 	DecryptionDisabled   bool          `yaml:"decryption_disabled"`
 	WriteQueueMaxRetries int           `yaml:"write_queue_max_retries"`
-	WriteQueueTimeout    time.Duration `yaml:"write_queue_timeout"`
+	timeOffAirDefault    time.Duration `yaml:"time_off_air_default"`
 }
 
 const DefaultDeviceKey = "0301021604050f07e6095a0b0c12630f"
@@ -28,7 +29,7 @@ func (m *Module) DefaultConfig() *Config {
 		DefaultKey:           DefaultDeviceKey,
 		DecryptionDisabled:   false,
 		WriteQueueMaxRetries: 5,
-		WriteQueueTimeout:    5 * time.Second,
+		timeOffAirDefault:    5 * time.Second,
 	}
 }
 

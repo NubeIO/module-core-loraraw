@@ -1,11 +1,13 @@
-package endec
+package legacyDecoders
 
 import (
+	"strconv"
+
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nube/thermistor"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"strconv"
 )
 
 const (
@@ -17,7 +19,7 @@ const (
 )
 
 func GetMePointNames() []string {
-	commonValueFields := GetCommonValueNames()
+	commonValueFields := codec.GetCommonValueNames()
 	tMicroEdgeFields := []string{
 		MEVoltageField,
 		PulseField,
@@ -35,32 +37,32 @@ func CheckPayloadLengthME(data string) bool {
 
 func DecodeME(
 	data string,
-	_ *LoRaDeviceDescription,
+	_ []byte,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	_ UpdateDeviceMetaTagsFunc,
-	_ DequeuePointWriteFunc,
-	_ InternalPointUpdate,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	p, err := pulse(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(PulseField, err, device)
 	}
 	vol, err := voltage(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(MEVoltageField, err, device)
 	}
 	a1, err := ai1(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI1Field, err, device)
 	}
 	a2, err := ai2(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI2Field, err, device)
 	}
 	a3, err := ai3(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(AI3Field, err, device)
 	}
 
 	_ = updatePointFn(PulseField, float64(p), device)

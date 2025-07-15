@@ -1,9 +1,11 @@
-package endec
+package legacyDecoders
 
 import (
+	"strconv"
+
+	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
-	"strconv"
 )
 
 const (
@@ -16,7 +18,7 @@ const (
 )
 
 func GetTHPointNames() []string {
-	commonValueFields := GetCommonValueNames()
+	commonValueFields := codec.GetCommonValueNames()
 	dropletTHFields := []string{
 		DropletVoltageField,
 		TemperatureField,
@@ -43,28 +45,28 @@ func CheckPayloadLengthDroplet(data string) bool {
 
 func DecodeDropletTH(
 	data string,
-	_ *LoRaDeviceDescription,
+	_ []byte,
+	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	_ UpdateDeviceMetaTagsFunc,
-	_ DequeuePointWriteFunc,
-	_ InternalPointUpdate,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(TemperatureField, err, device)
 	}
 	pressure, err := dropletPressure(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(PressureField, err, device)
 	}
 	humidity, err := dropletHumidity(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(HumidityField, err, device)
 	}
 	voltage, err := dropletVoltage(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(DropletVoltageField, err, device)
 	}
 
 	_ = updatePointFn(TemperatureField, temperature, device)
@@ -77,28 +79,28 @@ func DecodeDropletTH(
 
 func DecodeDropletTHL(
 	data string,
-	devDesc *LoRaDeviceDescription,
+	dataBytes []byte,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updateDeviceMetaTagFn UpdateDeviceMetaTagsFunc,
-	dequeuePointWriteFunc DequeuePointWriteFunc,
-	internalPointUpdate InternalPointUpdate,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateDeviceMetaTagFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTH(
 		data,
+		dataBytes,
 		devDesc,
 		device,
 		updatePointFn,
+		updatePointErrFn,
 		updateDeviceMetaTagFn,
-		dequeuePointWriteFunc,
-		internalPointUpdate,
 	)
 	if err != nil {
 		return err
 	}
 	light, err := dropletLight(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(LightField, err, device)
 	}
 	_ = updatePointFn(LightField, float64(light), device)
 	return nil
@@ -106,28 +108,28 @@ func DecodeDropletTHL(
 
 func DecodeDropletTHLM(
 	data string,
-	devDesc *LoRaDeviceDescription,
+	dataBytes []byte,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
-	updatePointFn UpdateDevicePointFunc,
-	updateDeviceMetaTagsFn UpdateDeviceMetaTagsFunc,
-	dequeuePointWriteFunc DequeuePointWriteFunc,
-	internalPointUpdate InternalPointUpdate,
+	updatePointFn codec.UpdateDevicePointFunc,
+	updatePointErrFn codec.UpdateDevicePointErrorFunc,
+	updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
 	err := DecodeDropletTHL(
 		data,
+		dataBytes,
 		devDesc,
 		device,
 		updatePointFn,
+		updatePointErrFn,
 		updateDeviceMetaTagsFn,
-		dequeuePointWriteFunc,
-		internalPointUpdate,
 	)
 	if err != nil {
 		return err
 	}
 	motion, err := dropletMotion(data)
 	if err != nil {
-		return err
+		return updatePointErrFn(MotionField, err, device)
 	}
 	_ = updatePointFn(MotionField, utils.BoolToFloat(motion), device)
 	return nil

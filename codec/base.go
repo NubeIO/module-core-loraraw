@@ -1,7 +1,7 @@
-package endec
+package codec
 
 import (
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
+	"encoding/hex"
 	"strconv"
 )
 
@@ -24,25 +24,16 @@ func GetCommonValueNames() []string {
 	}
 }
 
-func DecodePayload(
-	data string,
-	devDesc *LoRaDeviceDescription,
-	device *model.Device,
-	fn UpdateDevicePointFunc,
-	mtFn UpdateDeviceMetaTagsFunc,
-	dequeueFn DequeuePointWriteFunc,
-	internalPointUpdateFn InternalPointUpdate,
-) error {
-	err := devDesc.Decode(data, devDesc, device, fn, mtFn, dequeueFn, internalPointUpdateFn)
-	return err
-}
-
 func ValidPayload(data string) bool {
 	return !(len(data) <= 8)
 }
 
-func DecodeAddress(data string) string {
+func DecodeAddressHex(data string) string {
 	return data[:8]
+}
+
+func DecodeAddressBytes(data []byte) string {
+	return hex.EncodeToString(data[:4])
 }
 
 func DecodeRSSI(data string) int {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/enceve/crypto/cmac"
 )
 
@@ -16,12 +17,11 @@ const (
 	LoraRawHeaderLen = 4
 )
 
-var nonce byte = 0
 var iv = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
-func Encrypt(address string, data, key []byte, opts byte) ([]byte, error) {
+func Encrypt(address string, data, key []byte, opts utils.LoRaRAWOpts, nonce byte) ([]byte, error) {
 	lengthInByte := []byte{byte(len(data))}
-	optsInByte := []byte{opts}
+	optsInByte := []byte{byte(opts)}
 	nonceInByte := []byte{nonce}
 	nonce = (nonce + 1) & 0xFF
 
@@ -110,7 +110,7 @@ func prepareCMAC(data, key []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	// Create CMAC object
+	// Create a CMAC object
 	cmacObj, err := cmac.New(block)
 	if err != nil {
 		return nil, err
@@ -123,4 +123,25 @@ func prepareCMAC(data, key []byte) ([]byte, error) {
 	// Compute MAC and return the first 4 bytes (MAC length of 4 bytes)
 	mac := cmacObj.Sum(nil)
 	return mac[:4], nil
+}
+
+func CmacUnencrypted(data []byte, key []byte) ([]byte, error) {
+	// Create AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a CMAC object
+	mac, err := cmac.New(block)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the CMAC object with the data
+	mac.Write(data)
+
+	// Compute the MAC and return the first 4 bytes
+	fullMAC := mac.Sum(nil)
+	return fullMAC[:4], nil
 }

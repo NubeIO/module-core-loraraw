@@ -1,14 +1,12 @@
-package endec
+package rubixDataEncoding
 
 import (
 	"errors"
-	"github.com/NubeIO/lib-utils-go/nstring"
-	"github.com/NubeIO/module-core-loraraw/aesutils"
-	"github.com/NubeIO/module-core-loraraw/utils"
-	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"math"
 	"strconv"
 	"unsafe"
+
+	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -111,18 +109,18 @@ func dataTypeToBits[T any](data T, metaData *MetaData, data64 *uint64, bitCount 
 	return true
 }
 
-func encodeData[T any](serialData *SerialData, data T, header MetaDataKey, position uint8) bool {
+func EncodeData[T any](serialData *SerialData, data T, header MetaDataKey, position uint8) bool {
 	metaData := getMetaData(header)
 	headerVector := make([]byte, 0)
 	dataVector := make([]byte, 0)
 	var bitCount int
-	headerBitCount := HEADER_BIT_COUNT
+	headerBitCount := DATA_TYPE_BIT_COUNT
 	// Build header vector
-	if HasPositionalData(serialData) {
+	if hasPositionalData(serialData) {
 		headerVector = append(headerVector, position)
 		headerBitCount += 8
 	}
-	bitsToVector(uint64(header), HEADER_BIT_COUNT, &headerVector)
+	bitsToVector(uint64(header), DATA_TYPE_BIT_COUNT, &headerVector)
 	switch metaData.dataType {
 	case FIXEDPOINT:
 		var dataBits uint64
@@ -130,17 +128,17 @@ func encodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 		switch v := any(data).(type) {
 		case float64:
 			if !fixedPointToBits(v, &metaData, &dataBits, &bitCount) {
-				log.Errorf("encodeData: fixedPointToBits failed for float64")
+				log.Errorf("EncodeData: fixedPointToBits failed for float64")
 				return false
 			}
 		case float32:
 			if !fixedPointToBits(v, &metaData, &dataBits, &bitCount) {
-				log.Errorf("encodeData: fixedPointToBits failed for float32")
+				log.Errorf("EncodeData: fixedPointToBits failed for float32")
 				return false
 			}
 		default:
 			log.Errorf("%v", v)
-			log.Errorf("encodeData: Unsupported type for FIXEDPOINT: %T", data)
+			log.Errorf("EncodeData: Unsupported type for FIXEDPOINT: %T", data)
 			return false
 		}
 		// Add header to buffer
@@ -151,7 +149,7 @@ func encodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 		var dataBits uint64
 		// Convert data to uint64, get bitCount
 		if !dataTypeToBits(data, &metaData, &dataBits, &bitCount) {
-			log.Errorf("dataTypeToBits")
+			log.Errorf("EncodeData: dataTypeToBits failed for %T", data)
 			return false
 		}
 		// Add header to buffer
@@ -169,51 +167,52 @@ func encodeData[T any](serialData *SerialData, data T, header MetaDataKey, posit
 	return true
 }
 
-func EncodeAndEncrypt(point *model.Point, serialData *SerialData, key []byte) ([]byte, error) {
-	writeValue := point.WriteValue
-	if writeValue == nil {
-		return nil, errors.New("encoding failed for nil point")
+func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
+	serialData := NewSerialData()
+	setPositionalData(serialData, true)
+
+	for _, point := range points {
+		writeValue := point.WriteValue
+		if writeValue == nil {
+			return nil, errors.New("encoding failed for nil point")
+		}
+
+		pointDataType, err := strconv.Atoi(point.DataType)
+		if err != nil {
+			return nil, err
+		}
+
+		position, err := getPosition(point.IoNumber)
+		if err != nil {
+			return nil, err
+		}
+
+		if MetaDataKey(pointDataType) == MDK_UINT_8 {
+			EncodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
+			EncodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
+			EncodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
+			EncodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_INT_8 {
+			EncodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_INT_16 {
+			EncodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_INT_32 {
+			EncodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_INT_64 {
+			EncodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_CHAR {
+			EncodeData(serialData, byte(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_FLOAT {
+			EncodeData(serialData, float32(*writeValue), MetaDataKey(pointDataType), position)
+		} else if MetaDataKey(pointDataType) == MDK_DOUBLE {
+			EncodeData(serialData, float64(*writeValue), MetaDataKey(pointDataType), position)
+		} else {
+			EncodeData(serialData, *writeValue, MetaDataKey(pointDataType), position)
+		}
 	}
 
-	pointDataType, err := strconv.Atoi(point.DataType)
-	if err != nil {
-		return nil, err
-	}
-
-	addressID, err := utils.SafeDereferenceUint8(point.AddressID)
-	if err != nil {
-		return nil, err
-	}
-
-	if MetaDataKey(pointDataType) == MDK_UINT_8 {
-		encodeData(serialData, uint8(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_16 {
-		encodeData(serialData, uint16(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_32 {
-		encodeData(serialData, uint32(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_UINT_64 {
-		encodeData(serialData, uint64(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_8 {
-		encodeData(serialData, int8(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_16 {
-		encodeData(serialData, int16(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_32 {
-		encodeData(serialData, int32(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else if MetaDataKey(pointDataType) == MDK_INT_64 {
-		encodeData(serialData, int64(*writeValue), MetaDataKey(pointDataType), addressID)
-	} else {
-		encodeData(serialData, *writeValue, MetaDataKey(pointDataType), addressID)
-	}
-
-	encryptedData, err := aesutils.Encrypt(
-		nstring.DerefString(point.AddressUUID),
-		serialData.Buffer,
-		key,
-		0,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return encryptedData, nil
+	return serialData.Buffer, nil
 }

@@ -156,7 +156,7 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	pendingPointWrite := &PendingPointWrite{Point: point, PointWriteStatus: PointWritePending}
+	pendingPointWrite := &PendingPointWrite{Point: point}
 	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
 
 	return json.Marshal(point)
