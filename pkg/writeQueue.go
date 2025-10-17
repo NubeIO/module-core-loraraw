@@ -118,12 +118,16 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			device, err := getDevice(pendingPointWrite.Point.DeviceUUID)
 			if err != nil {
 				log.Errorf("error getting device: %s", err.Error())
+				// Removing the point from the queue as queued point may be device already removed
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
 			encryptionKey, err := getEncryptionKey(device)
 			if err != nil {
 				log.Errorf("error extracting encryption key: %s", err.Error())
+				// Removing the point from the queue as queued point may have wrong encryption key
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
