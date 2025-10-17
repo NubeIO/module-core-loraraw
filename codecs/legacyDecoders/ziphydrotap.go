@@ -136,6 +136,9 @@ func DecodeZHT(
 }
 
 func getPayloadBytes(data string) ([]byte, error) {
+	if len(data) < 2 {
+		return nil, fmt.Errorf("payload too short")
+	}
 	bytes, err := hex.DecodeString(data[2:])
 	if err != nil {
 		return nil, err
@@ -144,12 +147,21 @@ func getPayloadBytes(data string) ([]byte, error) {
 }
 
 func getPayloadType(data string) TZHTPayloadType {
+	if len(data) < 2 {
+		return ErrorData
+	}
 	plID, _ := strconv.ParseInt(data[:2], 16, 0)
 	return TZHTPayloadType(plID)
 }
 
 func getPacketVersion(data string) uint8 {
-	v, _ := strconv.ParseInt(data[2:4], 16, 0)
+	if len(data) < 4 {
+		return 0
+	}
+	v, err := strconv.ParseInt(data[2:4], 16, 0)
+	if err != nil {
+		return 0
+	}
 	return uint8(v)
 }
 
