@@ -21,6 +21,10 @@ type PendingPointWrite struct {
 	RetryCount  int
 }
 
+// --------------------------------------------
+// SINGLE QUEUE — handles one device’s writes
+// --------------------------------------------
+
 type PointWriteQueue struct {
 	writeQueue        []*PendingPointWrite
 	mutex             sync.Mutex
@@ -39,16 +43,11 @@ func NewPointWriteQueue(maxRetry int, defaultTimeOffAir time.Duration) *PointWri
 	return queue
 }
 
-func (pwq *PointWriteQueue) LoadWriteQueue(point *model.Point) {
+func (pwq *PointWriteQueue) EnqueueWriteQueue(point *model.Point) {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
-	pendingPointWrite := &PendingPointWrite{Point: point}
-	pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
-}
 
-func (pwq *PointWriteQueue) EnqueueWriteQueue(ppWrite *PendingPointWrite) {
-	pwq.mutex.Lock()
-	defer pwq.mutex.Unlock()
+	ppWrite := &PendingPointWrite{Point: point}
 
 	pwq.writeQueue = append(pwq.writeQueue, ppWrite)
 	pwq.cond.Signal() // Signal waiting goroutines that new data is available

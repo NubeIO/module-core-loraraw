@@ -2,6 +2,8 @@ package pkg
 
 import (
 	"encoding/json"
+	"net/http"
+
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
@@ -9,7 +11,6 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
-	"net/http"
 )
 
 var route *router.Router
@@ -156,8 +157,7 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 		return nil, err
 	}
 
-	pendingPointWrite := &PendingPointWrite{Point: point}
-	(*m).(*Module).pointWriteQueue.EnqueueWriteQueue(pendingPointWrite)
+	(*m).(*Module).pointWriteQueueManager.EnqueuePoint(point)
 
 	return json.Marshal(point)
 }

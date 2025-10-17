@@ -22,7 +22,12 @@ func (m *Module) Enable() error {
 	}
 
 	m.initWriteQueue()
-	m.pointWriteQueue = NewPointWriteQueue(m.config.WriteQueueMaxRetries, m.config.timeOffAirDefault)
+	m.pointWriteQueueManager = NewPointWriteQueueManager(
+		m.config.WriteQueueMaxRetries,
+		m.config.timeOffAirDefault,
+		m.getDevice,
+		m.getEncryptionKey,
+		m.WriteToLoRaRaw)
 
 	if len(networks) == 0 {
 		warnMsg := "no LoRaRAW networks exist"
@@ -37,15 +42,13 @@ func (m *Module) Enable() error {
 			for _, device := range net.Devices {
 				for _, point := range device.Points {
 					if point.PointState == datatype.PointStateApiWritePending {
-						m.pointWriteQueue.LoadWriteQueue(point)
+						m.pointWriteQueueManager.EnqueuePoint(point)
 					}
 				}
 			}
 		}
 	}
 	_ = m.updatePluginMessage(dto.MessageLevel.Info, "")
-
-	go m.pointWriteQueue.ProcessPointWriteQueue(m.getDevice, m.getEncryptionKey, m.WriteToLoRaRaw)
 
 	m.interruptChan = make(chan struct{}, 1)
 	go m.run()

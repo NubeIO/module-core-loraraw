@@ -7,17 +7,17 @@ import (
 )
 
 type Module struct {
-	dbHelper        nmodule.DBHelper
-	moduleName      string
-	grpcMarshaller  nmodule.Marshaller
-	config          *Config
-	networkUUID     string
-	interruptChan   chan struct{}
-	mutex           *sync.RWMutex
-	pointWriteQueue *PointWriteQueue
-	writeQueue      chan []byte
-	writeQueueDone  chan struct{}
-	writeQueueInit  sync.Once
+	dbHelper               nmodule.DBHelper
+	moduleName             string
+	grpcMarshaller         nmodule.Marshaller
+	config                 *Config
+	networkUUID            string
+	interruptChan          chan struct{}
+	mutex                  *sync.RWMutex
+	pointWriteQueueManager *PointWriteQueueManager
+	writeQueue             chan []byte
+	writeQueueDone         chan struct{}
+	writeQueueInit         sync.Once
 }
 
 func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {
