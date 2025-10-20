@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.1-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.1-rc.2) (2025-10-21)
+
+- Add write queue manager (#69)
+
 ## [v1.1.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.1) (2025-08-27)
 
 - Fix slice bounds out of range in ziphydrotap (#67)
