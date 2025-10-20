@@ -21,6 +21,10 @@ type PendingPointWrite struct {
 	RetryCount  int
 }
 
+// --------------------------------------------
+// SINGLE QUEUE — handles one device’s writes
+// --------------------------------------------
+
 type PointWriteQueue struct {
 	writeQueue        []*PendingPointWrite
 	mutex             sync.Mutex
@@ -39,16 +43,11 @@ func NewPointWriteQueue(maxRetry int, defaultTimeOffAir time.Duration) *PointWri
 	return queue
 }
 
-func (pwq *PointWriteQueue) LoadWriteQueue(point *model.Point) {
+func (pwq *PointWriteQueue) EnqueueWriteQueue(point *model.Point) {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
-	pendingPointWrite := &PendingPointWrite{Point: point}
-	pwq.writeQueue = append(pwq.writeQueue, pendingPointWrite)
-}
 
-func (pwq *PointWriteQueue) EnqueueWriteQueue(ppWrite *PendingPointWrite) {
-	pwq.mutex.Lock()
-	defer pwq.mutex.Unlock()
+	ppWrite := &PendingPointWrite{Point: point}
 
 	pwq.writeQueue = append(pwq.writeQueue, ppWrite)
 	pwq.cond.Signal() // Signal waiting goroutines that new data is available
@@ -119,12 +118,16 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			device, err := getDevice(pendingPointWrite.Point.DeviceUUID)
 			if err != nil {
 				log.Errorf("error getting device: %s", err.Error())
+				// Removing the point from the queue as queued point may be device already removed
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
 			encryptionKey, err := getEncryptionKey(device)
 			if err != nil {
 				log.Errorf("error extracting encryption key: %s", err.Error())
+				// Removing the point from the queue as queued point may have wrong encryption key
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
