@@ -12,7 +12,7 @@ require (
 	github.com/NubeIO/lib-units v0.0.4
 	github.com/NubeIO/lib-utils-go v0.0.1
 	github.com/NubeIO/nubeio-rubix-lib-helpers-go v0.2.7
-	github.com/NubeIO/nubeio-rubix-lib-models-go v1.14.7
+	github.com/NubeIO/nubeio-rubix-lib-models-go v1.15.4
 	github.com/enceve/crypto v0.0.0-20160707101852-34d48bb93815
 	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/hashicorp/go-plugin v1.4.9
