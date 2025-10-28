@@ -66,8 +66,9 @@ func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err 
 	}
 	if err != nil {
 		_, _ = m.updateWrittenPointError(point, err)
+	} else {
+		_, _ = m.updateWrittenPointSuccess(point)
 	}
-	_, _ = m.updateWrittenPointSuccess(point)
 	return nil
 }
 
@@ -153,9 +154,10 @@ func (m *Module) updateWrittenPointSuccess(point *model.Point) (*model.Point, er
 
 func (m *Module) updateWrittenPointError(point *model.Point, err error) (*model.Point, error) {
 	pointWriter := &dto.PointWriter{
-		Message:   err.Error(),
-		Fault:     true,
-		PollState: datatype.PointStateWriteOk,
+		OriginalValue: point.OriginalValue, // skip point write if both OriginalValue and Priority is nil
+		Message:       err.Error(),
+		Fault:         true,
+		PollState:     datatype.PointStateApiWriteFailed,
 	}
 	pwResponse, err := m.grpcMarshaller.PointWrite(point.UUID, pointWriter)
 	if err != nil {
