@@ -200,8 +200,8 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
 	}
 
-	m.updateDevicePointSuccess(codec.RssiField, float64(rssi), device)
-	m.updateDevicePointSuccess(codec.SnrField, float64(snr), device)
+	m.updateDevicePointSuccess(codec.RssiField, float64(rssi), device, devDesc)
+	m.updateDevicePointSuccess(codec.SnrField, float64(snr), device, devDesc)
 	m.updateDeviceFault(device.Model, device.UUID)
 }
 

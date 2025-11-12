@@ -72,4 +72,14 @@ var LoRaDeviceDescriptions = []codec.LoRaDeviceDescription{
 		GetPointNames:        rubixDataEncoding.GetRubixPointNames,
 		IsLoRaRAW:            true,
 	},
+	{
+		DeviceName:           "UART",
+		Model:                schema.DeviceModelUART,
+		CheckLength:          rubixDataEncoding.CheckPayloadLengthRubix,
+		DecodeUplink:         rubixDataEncoding.DecodeRubixUplink,
+		DecodeResponse:       rubixDataEncoding.DecodeRubixResponse,
+		EncodeRequestMessage: rubixDataEncoding.EncodeRequestMessage,
+		GetPointNames:        rubixDataEncoding.GetRubixPointNames,
+		IsLoRaRAW:            true,
+	},
 }

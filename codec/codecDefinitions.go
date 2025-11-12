@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-type UpdateDevicePointFunc func(name string, value float64, device *model.Device) error
-type UpdateDevicePointErrorFunc func(name string, err error, device *model.Device) error
+type UpdateDevicePointFunc func(name string, value float64, device *model.Device, devDesc *LoRaDeviceDescription) error
+type UpdateDevicePointErrorFunc func(name string, err error, device *model.Device, devDesc *LoRaDeviceDescription) error
 type UpdateDeviceWrittenPointFunc func(name string, value float64, messageId uint8, device *model.Device) error
 type UpdateDeviceWrittenPointErrorFunc func(name string, err error, messageId uint8, device *model.Device) error
 type UpdateDeviceMetaTagsFunc func(uuid string, metaTags []*model.DeviceMetaTag) error

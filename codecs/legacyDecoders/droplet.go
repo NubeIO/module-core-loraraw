@@ -54,25 +54,25 @@ func DecodeDropletTH(
 ) error {
 	temperature, err := dropletTemp(data)
 	if err != nil {
-		return updatePointErrFn(TemperatureField, err, device)
+		return updatePointErrFn(TemperatureField, err, device, nil)
 	}
 	pressure, err := dropletPressure(data)
 	if err != nil {
-		return updatePointErrFn(PressureField, err, device)
+		return updatePointErrFn(PressureField, err, device, nil)
 	}
 	humidity, err := dropletHumidity(data)
 	if err != nil {
-		return updatePointErrFn(HumidityField, err, device)
+		return updatePointErrFn(HumidityField, err, device, nil)
 	}
 	voltage, err := dropletVoltage(data)
 	if err != nil {
-		return updatePointErrFn(DropletVoltageField, err, device)
+		return updatePointErrFn(DropletVoltageField, err, device, nil)
 	}
 
-	_ = updatePointFn(TemperatureField, temperature, device)
-	_ = updatePointFn(PressureField, pressure, device)
-	_ = updatePointFn(HumidityField, float64(humidity), device)
-	_ = updatePointFn(DropletVoltageField, voltage, device)
+	_ = updatePointFn(TemperatureField, temperature, device, nil)
+	_ = updatePointFn(PressureField, pressure, device, nil)
+	_ = updatePointFn(HumidityField, float64(humidity), device, nil)
+	_ = updatePointFn(DropletVoltageField, voltage, device, nil)
 
 	return nil
 }
@@ -100,9 +100,9 @@ func DecodeDropletTHL(
 	}
 	light, err := dropletLight(data)
 	if err != nil {
-		return updatePointErrFn(LightField, err, device)
+		return updatePointErrFn(LightField, err, device, nil)
 	}
-	_ = updatePointFn(LightField, float64(light), device)
+	_ = updatePointFn(LightField, float64(light), device, nil)
 	return nil
 }
 
@@ -129,9 +129,9 @@ func DecodeDropletTHLM(
 	}
 	motion, err := dropletMotion(data)
 	if err != nil {
-		return updatePointErrFn(MotionField, err, device)
+		return updatePointErrFn(MotionField, err, device, nil)
 	}
-	_ = updatePointFn(MotionField, utils.BoolToFloat(motion), device)
+	_ = updatePointFn(MotionField, utils.BoolToFloat(motion), device, nil)
 	return nil
 }
 
