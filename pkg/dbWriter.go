@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/NubeIO/lib-utils-go/boolean"
+	"github.com/NubeIO/lib-utils-go/float"
+	"github.com/NubeIO/lib-utils-go/integer"
 	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs/legacyDecoders"
 	"github.com/NubeIO/module-core-loraraw/codecs/rubixDataEncoding"
@@ -17,67 +19,70 @@ import (
 )
 
 type uartPointConfig struct {
-	Name          string
-	DataType      string
-	WriteMode     datatype.WriteMode
-	HistoryEnable *bool
+	Name                string
+	DataType            string
+	WriteMode           datatype.WriteMode
+	HistoryEnable       *bool
+	HistoryType         datatype.HistoryType
+	HistoryInterval     *int
+	HistoryCOVThreshold *float64
 }
 
 func getUARTPointConfig(pointID string) *uartPointConfig {
 	configs := map[string]*uartPointConfig{
-		"1":  {"Communication Status", "uint8", datatype.ReadOnly, boolean.NewTrue()},
-		"2":  {"Unit Type", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"3":  {"Has Economy", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"10": {"Has Mode Cool", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"11": {"Has Mode Dry", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"12": {"Has Mode Fan", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"13": {"Has Mode Heat", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"14": {"Has Mode Auto", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"15": {"Has Fan Auto", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"16": {"Has Fan High", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"17": {"Has Fan Medium", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"18": {"Has Fan Low", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"19": {"Has Fan Quiet", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"20": {"Vertical Louver Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"21": {"Has Vertical Louver Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"22": {"Vertical Louver 1 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"23": {"Has Vertical Louver 1 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"24": {"Vertical Louver 2 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"25": {"Has Vertical Louver 2 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"26": {"Vertical Louver 3 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"27": {"Has Vertical Louver 3 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"28": {"Vertical Louver 4 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"29": {"Has Vertical Louver 4 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"30": {"Horizontal Louver Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"31": {"Has Horizontal Louver Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"32": {"Horizontal Louver 1 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"33": {"Has Horizontal Louver 1 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"34": {"Horizontal Louver 2 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"35": {"Has Horizontal Louver 2 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"36": {"Horizontal Louver 3 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"37": {"Has Horizontal Louver 3 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"38": {"Horizontal Louver 4 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse()},
-		"39": {"Has Horizontal Louver 4 Swing", "bool", datatype.ReadOnly, boolean.NewFalse()},
-		"40": {"Set Operation Status", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"41": {"Set Operation Mode", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"42": {"Set Temperature", "temp", datatype.WriteAlways, boolean.NewTrue()},
-		"43": {"Set Fan", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"44": {"Vertical Louver Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"45": {"Vertical Louver Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"46": {"Vertical Louver 1 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"47": {"Verticle Louver 1 Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"48": {"Vertical Louver 2 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"49": {"Verticle Louver 2 Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"50": {"Vertical Louver 3 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"51": {"Verticle Louver 3 Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"52": {"Vertical Louver 4 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"53": {"Verticle Louver 4 Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"54": {"Horizontal Louver Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue()},
-		"55": {"Horizontal Louver Swing", "bool", datatype.WriteAlways, boolean.NewTrue()},
-		"56": {"Room Temperature", "temp", datatype.ReadOnly, boolean.NewTrue()},
-		"57": {"Error State", "uint16", datatype.ReadOnly, boolean.NewTrue()},
-		"58": {"Error Code", "uint16", datatype.ReadOnly, boolean.NewTrue()},
-		"59": {"Set Economy", "bool", datatype.WriteAlways, boolean.NewTrue()},
+		"1":  {"Communication Status", "uint8", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
+		"2":  {"Unit Type", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"3":  {"Has Economy", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"10": {"Has Mode Cool", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"11": {"Has Mode Dry", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"12": {"Has Mode Fan", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"13": {"Has Mode Heat", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"14": {"Has Mode Auto", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"15": {"Has Fan Auto", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"16": {"Has Fan High", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"17": {"Has Fan Medium", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"18": {"Has Fan Low", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"19": {"Has Fan Quiet", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"20": {"Vertical Louver Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"21": {"Has Vertical Louver Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"22": {"Vertical Louver 1 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"23": {"Has Vertical Louver 1 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"24": {"Vertical Louver 2 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"25": {"Has Vertical Louver 2 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"26": {"Vertical Louver 3 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"27": {"Has Vertical Louver 3 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"28": {"Vertical Louver 4 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"29": {"Has Vertical Louver 4 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"30": {"Horizontal Louver Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"31": {"Has Horizontal Louver Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"32": {"Horizontal Louver 1 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"33": {"Has Horizontal Louver 1 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"34": {"Horizontal Louver 2 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"35": {"Has Horizontal Louver 2 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"36": {"Horizontal Louver 3 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"37": {"Has Horizontal Louver 3 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"38": {"Horizontal Louver 4 Step Count", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"39": {"Has Horizontal Louver 4 Swing", "bool", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"40": {"Set Operation Status", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"41": {"Set Operation Mode", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"42": {"Set Temperature", "temp", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"43": {"Set Fan", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"44": {"Vertical Louver Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"45": {"Vertical Louver Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"46": {"Vertical Louver 1 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"47": {"Verticle Louver 1 Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"48": {"Vertical Louver 2 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"49": {"Verticle Louver 2 Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"50": {"Vertical Louver 3 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"51": {"Verticle Louver 3 Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"52": {"Vertical Louver 4 Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"53": {"Verticle Louver 4 Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"54": {"Horizontal Louver Current Position", "uint8", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"55": {"Horizontal Louver Swing", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"56": {"Room Temperature", "temp", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"57": {"Error State", "uint16", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
+		"58": {"Error Code", "uint16", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
+		"59": {"Set Economy", "bool", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 	}
 
 	return configs[pointID]
@@ -177,6 +182,9 @@ func setNewPointFieldsUART(deviceBody *model.Device, pointBody *model.Point, poi
 	pointBody.DataType = uartPointConfig.DataType
 	pointBody.WriteMode = uartPointConfig.WriteMode
 	pointBody.Enable = uartPointConfig.HistoryEnable
+	pointBody.HistoryType = uartPointConfig.HistoryType
+	pointBody.HistoryInterval = uartPointConfig.HistoryInterval
+	pointBody.HistoryCOVThreshold = uartPointConfig.HistoryCOVThreshold
 	pointBody.DeviceUUID = deviceBody.UUID
 	pointBody.AddressUUID = deviceBody.AddressUUID
 	pointBody.IsOutput = boolean.NewFalse()
