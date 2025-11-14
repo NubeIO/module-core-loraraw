@@ -16,6 +16,7 @@ import (
 	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs"
+	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
@@ -324,10 +325,21 @@ func (m *Module) addPointsFromName(deviceBody *model.Device, names ...string) {
 	for _, name := range names {
 		point := new(model.Point)
 		setNewPointFields(deviceBody, point, name)
+		// For UART devices, ensure RSSI and SNR have history enabled by default.
+		if deviceBody.Model == schema.DeviceModelUART && (name == codec.RssiField || name == codec.SnrField) {
+			setUARTCommonHistory(point)
+		}
 		point.EnableWriteable = boolean.NewFalse()
 		points = append(points, point)
 	}
 	m.savePoints(points)
+}
+
+// setUARTCommonHistory configures default history for common values (e.g. RSSI/SNR) on UART devices.
+func setUARTCommonHistory(pointBody *model.Point) {
+	pointBody.HistoryEnable = boolean.NewTrue()
+	pointBody.HistoryType = datatype.HistoryTypeInterval
+	pointBody.HistoryInterval = integer.New(15)
 }
 
 func (m *Module) addPointsFromStruct(deviceBody *model.Device, pointsRefl reflect.Value, postfix string) {

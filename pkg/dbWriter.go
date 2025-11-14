@@ -160,12 +160,10 @@ func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
 func (m *Module) addPointFromName(deviceBody *model.Device, pointIDStr string, devDesc *codec.LoRaDeviceDescription) (*model.Point, error) {
 	point := new(model.Point)
 	if devDesc != nil && devDesc.Model == schema.DeviceModelUART {
-		parts := strings.Split(pointIDStr, "-")
-		if len(parts) == 2 {
-			setNewPointFieldsUART(deviceBody, point, parts[1])
-		} else {
-			setNewPointFields(deviceBody, point, pointIDStr)
-		}
+		// For UART devices the incoming pointIDStr is something like "uvp-1" or "uvp-57".
+		// We keep that full value as the IoNumber (used for lookups) but map the numeric
+		// suffix into the UART point config to get the friendly name and history settings.
+		setNewPointFieldsUART(deviceBody, point, pointIDStr)
 	} else {
 		setNewPointFields(deviceBody, point, pointIDStr)
 	}
@@ -175,13 +173,35 @@ func (m *Module) addPointFromName(deviceBody *model.Device, pointIDStr string, d
 }
 
 func setNewPointFieldsUART(deviceBody *model.Device, pointBody *model.Point, pointIDStr string) {
-	uartPointConfig := getUARTPointConfig(pointIDStr)
+	// pointIDStr will usually look like "<type>-<id>", e.g. "uvp-1" or "uvp-57".
+	// We use the numeric part as the key into the UART config map.
+	configKey := pointIDStr
+	parts := strings.Split(pointIDStr, "-")
+	if len(parts) == 2 {
+		configKey = parts[1]
+	}
 
+	uartPointConfig := getUARTPointConfig(configKey)
+	if uartPointConfig == nil {
+		// Unknown UART point. For RSSI/SNR on UART we still want history enabled by default.
+		if pointIDStr == codec.RssiField || pointIDStr == codec.SnrField {
+			setNewPointFields(deviceBody, pointBody, pointIDStr)
+			setUARTCommonHistory(pointBody)
+			return
+		}
+		// Otherwise fall back to the default behaviour.
+		setNewPointFields(deviceBody, pointBody, pointIDStr)
+		return
+	}
+
+	pointBody.Enable = boolean.NewTrue()
 	pointBody.Name = uartPointConfig.Name
-	pointBody.IoNumber = uartPointConfig.Name
+	// IoNumber must stay consistent with how updateDevicePoint() is called so that
+	// selectPointByIoNumber() can find the point on subsequent updates.
+	pointBody.IoNumber = pointIDStr
 	pointBody.DataType = uartPointConfig.DataType
 	pointBody.WriteMode = uartPointConfig.WriteMode
-	pointBody.Enable = uartPointConfig.HistoryEnable
+	pointBody.HistoryEnable = uartPointConfig.HistoryEnable
 	pointBody.HistoryType = uartPointConfig.HistoryType
 	pointBody.HistoryInterval = uartPointConfig.HistoryInterval
 	pointBody.HistoryCOVThreshold = uartPointConfig.HistoryCOVThreshold
