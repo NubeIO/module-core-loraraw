@@ -4,6 +4,7 @@ import (
 	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs/legacyDecoders"
 	"github.com/NubeIO/module-core-loraraw/codecs/rubixDataEncoding"
+	"github.com/NubeIO/module-core-loraraw/codecs/uartDataEncoding"
 	"github.com/NubeIO/module-core-loraraw/schema"
 )
 
@@ -75,11 +76,11 @@ var LoRaDeviceDescriptions = []codec.LoRaDeviceDescription{
 	{
 		DeviceName:           "UART",
 		Model:                schema.DeviceModelUART,
-		CheckLength:          rubixDataEncoding.CheckPayloadLengthRubix,
-		DecodeUplink:         rubixDataEncoding.DecodeRubixUplink,
-		DecodeResponse:       rubixDataEncoding.DecodeRubixResponse,
-		EncodeRequestMessage: rubixDataEncoding.EncodeRequestMessage,
-		GetPointNames:        rubixDataEncoding.GetRubixPointNames,
+		CheckLength:          uartDataEncoding.CheckPayloadLengthRubix,
+		DecodeUplink:         uartDataEncoding.DecodeRubixUplink,
+		DecodeResponse:       uartDataEncoding.DecodeRubixResponse,
+		EncodeRequestMessage: uartDataEncoding.EncodeRequestMessage,
+		GetPointNames:        uartDataEncoding.GetRubixPointNames,
 		IsLoRaRAW:            true,
 	},
 }
