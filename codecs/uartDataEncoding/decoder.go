@@ -203,6 +203,12 @@ func decodeData(serialData *SerialData, metaDataKey MetaDataKey, data interface{
 	return nil
 }
 
+// generateFieldName maps UART payload positions to the string IDs used by
+// `getUARTPointConfig` in `pkg/dbWriter.go`.
+//
+// For UART we don't want names like "UVP-1" or "bool-1" – we want simple string
+// IDs ("1", "2", "3", "10", etc.) so that `updateDevicePoint()` receives a
+// key that directly matches the UART point config map.
 func generateFieldName(metaDataKey MetaDataKey, pos PositionData) string {
 	id := pos.ID + 1
 	switch pos.Type {
@@ -217,9 +223,9 @@ func generateFieldName(metaDataKey MetaDataKey, pos PositionData) string {
 	case PositionDataType_DI:
 		return "DI-" + strconv.Itoa(id)
 	case PositionDataType_UVP:
-		return "UVP-" + strconv.Itoa(id)
+		return strconv.Itoa(id)
 	case PositionDataType_UVP2:
-		return "UVP-" + strconv.Itoa(id+32)
+		return strconv.Itoa(id + 32)
 	case PositionDataType_DVP:
 		return "DVP-" + strconv.Itoa(id)
 	default:
@@ -335,6 +341,7 @@ func DecodeRubix(
 			positionData = positionDataNew
 		}
 		name, value, err := decodePointRubix(serialData, metaDataKey, hasPos, positionData, device, updatePointFn)
+
 		if updatePointFn != nil {
 			if err != nil {
 				updatePointErrFn(name, err, device, devDesc)
