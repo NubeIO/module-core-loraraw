@@ -217,13 +217,9 @@ func generateFieldName(metaDataKey MetaDataKey, pos PositionData) string {
 	case PositionDataType_DI:
 		return "DI-" + strconv.Itoa(id)
 	case PositionDataType_UVP:
-		// For UART writable UVP points we want IoNumber to be the numeric ID
-		// (e.g. "40") so that it matches getUARTPointConfig keys and the UI
-		// shows numeric IDs.
-		return strconv.Itoa(id)
+		return "UVP-" + strconv.Itoa(id)
 	case PositionDataType_UVP2:
-		// Second UVP bank (ids 33–64) – still return the numeric ID as string.
-		return strconv.Itoa(id + 32)
+		return "UVP-" + strconv.Itoa(id+32)
 	case PositionDataType_DVP:
 		return "DVP-" + strconv.Itoa(id)
 	default:
