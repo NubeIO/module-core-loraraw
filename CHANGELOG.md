@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.2-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.4) (2025-11-17)
+
+- Support UART with static point values (#74)
+
 ## [v1.1.2-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.3) (2025-10-28)
 
 - Add api-write-failed PointState (#71)
