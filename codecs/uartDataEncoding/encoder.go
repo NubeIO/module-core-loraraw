@@ -2,10 +2,8 @@ package uartDataEncoding
 
 import (
 	"errors"
-	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"unsafe"
 
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
@@ -184,7 +182,7 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 			return nil, err
 		}
 
-		position, err := getPositionForPoint(point)
+		position, err := getPosition(point.IoNumber)
 		if err != nil {
 			return nil, err
 		}
@@ -217,29 +215,4 @@ func EncodeRequestMessage(points []*model.Point) ([]byte, error) {
 	}
 
 	return serialData.Buffer, nil
-}
-
-// getPositionForPoint resolves the correct UART position flag from a point.
-// For writable UART points we keep IoNumber as the numeric ID (e.g. "40"),
-// so here we translate that into the "UVP-<id>" form expected by getPosition().
-func getPositionForPoint(point *model.Point) (uint8, error) {
-	io := point.IoNumber
-	if io == "" {
-		return 0, errors.New("empty IoNumber for point")
-	}
-
-	// If IoNumber already has a type prefix (e.g. "UO-1"), use it directly.
-	if strings.Contains(io, "-") {
-		return getPosition(io)
-	}
-
-	// Otherwise treat numeric IoNumber as a UVP point ID.
-	id, err := strconv.Atoi(io)
-	if err != nil {
-		return 0, fmt.Errorf("invalid numeric IoNumber %q: %w", io, err)
-	}
-
-	// Reuse getPosition with a synthetic "UVP-<id>" field name so that the
-	// position flag matches what the decoder uses for UVP/UVP2.
-	return getPosition(fmt.Sprintf("UVP-%d", id))
 }
