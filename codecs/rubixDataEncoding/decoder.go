@@ -289,31 +289,32 @@ func GetMetaDataKey(fieldName string) (string, error) {
 func DecodeRubixUplink(
 	_ string,
 	payloadBytes []byte,
-	_ *codec.LoRaDeviceDescription,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn codec.UpdateDevicePointFunc,
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, 0, updatePointFn, updatePointErrFn, nil, nil)
+	return DecodeRubix(payloadBytes, device, devDesc, 0, updatePointFn, updatePointErrFn, nil, nil)
 }
 
 func DecodeRubixResponse(
 	_ string,
 	payloadBytes []byte,
 	msgId uint8,
-	_ *codec.LoRaDeviceDescription,
+	devDesc *codec.LoRaDeviceDescription,
 	device *model.Device,
 	updateWrittenPointFn codec.UpdateDeviceWrittenPointFunc,
 	updateWrittenPointErrFn codec.UpdateDeviceWrittenPointErrorFunc,
 	_ codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	return DecodeRubix(payloadBytes, device, msgId, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
+	return DecodeRubix(payloadBytes, device, devDesc, msgId, nil, nil, updateWrittenPointFn, updateWrittenPointErrFn)
 }
 
 func DecodeRubix(
 	payloadBytes []byte,
 	device *model.Device,
+	devDesc *codec.LoRaDeviceDescription,
 	msgId uint8,
 	updatePointFn codec.UpdateDevicePointFunc,
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
@@ -336,9 +337,9 @@ func DecodeRubix(
 		name, value, err := decodePointRubix(serialData, metaDataKey, hasPos, positionData, device, updatePointFn)
 		if updatePointFn != nil {
 			if err != nil {
-				updatePointErrFn(name, err, device)
+				updatePointErrFn(name, err, device, devDesc)
 			} else {
-				updatePointFn(name, value, device)
+				updatePointFn(name, value, device, devDesc)
 			}
 		} else {
 			if err != nil {

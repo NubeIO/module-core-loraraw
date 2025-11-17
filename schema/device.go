@@ -10,6 +10,7 @@ const (
 	DeviceModelMicroEdgeV2  = "MicroEdgeV2"
 	DeviceModelZiptHydroTap = "ZipHydroTap"
 	DeviceModelRubix        = "Rubix"
+	DeviceModelUART         = "UART"
 )
 
 type DeviceKey struct {
@@ -31,7 +32,7 @@ type DeviceSchema struct {
 }
 
 func GetDeviceSchema() *DeviceSchema {
-	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap, DeviceModelRubix}
+	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap, DeviceModelRubix, DeviceModelUART}
 	m := &DeviceSchema{}
 	m.AddressUUID.Min = 8
 	m.AddressUUID.Max = 8

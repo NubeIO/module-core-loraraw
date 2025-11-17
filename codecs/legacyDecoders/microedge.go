@@ -46,30 +46,30 @@ func DecodeME(
 ) error {
 	p, err := pulse(data)
 	if err != nil {
-		return updatePointErrFn(PulseField, err, device)
+		return updatePointErrFn(PulseField, err, device, nil)
 	}
 	vol, err := voltage(data)
 	if err != nil {
-		return updatePointErrFn(MEVoltageField, err, device)
+		return updatePointErrFn(MEVoltageField, err, device, nil)
 	}
 	a1, err := ai1(data)
 	if err != nil {
-		return updatePointErrFn(AI1Field, err, device)
+		return updatePointErrFn(AI1Field, err, device, nil)
 	}
 	a2, err := ai2(data)
 	if err != nil {
-		return updatePointErrFn(AI2Field, err, device)
+		return updatePointErrFn(AI2Field, err, device, nil)
 	}
 	a3, err := ai3(data)
 	if err != nil {
-		return updatePointErrFn(AI3Field, err, device)
+		return updatePointErrFn(AI3Field, err, device, nil)
 	}
 
-	_ = updatePointFn(PulseField, float64(p), device)
-	_ = updatePointFn(MEVoltageField, vol, device)
-	_ = updatePointFn(AI1Field, a1, device)
-	_ = updatePointFn(AI2Field, a2, device)
-	_ = updatePointFn(AI3Field, a3, device)
+	_ = updatePointFn(PulseField, float64(p), device, nil)
+	_ = updatePointFn(MEVoltageField, vol, device, nil)
+	_ = updatePointFn(AI1Field, a1, device, nil)
+	_ = updatePointFn(AI2Field, a2, device, nil)
+	_ = updatePointFn(AI3Field, a3, device, nil)
 
 	return nil
 }
