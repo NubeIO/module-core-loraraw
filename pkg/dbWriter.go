@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/NubeIO/lib-utils-go/boolean"
@@ -28,7 +29,7 @@ type uartPointConfig struct {
 	HistoryCOVThreshold *float64
 }
 
-func getUARTPointConfig(pointID string) *uartPointConfig {
+func getUARTPointConfig(pointID string) *uartPointConfig { //
 	configs := map[string]*uartPointConfig{
 		"1":  {"Communication Status", "uint8", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
 		"2":  {"Unit Type", "uint8", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
@@ -199,6 +200,11 @@ func setNewPointFieldsUART(deviceBody *model.Device, pointBody *model.Point, poi
 	// IoNumber must stay consistent with how updateDevicePoint() is called so that
 	// selectPointByIoNumber() can find the point on subsequent updates.
 	pointBody.IoNumber = pointIDStr
+	// AddressId is the numeric UART point ID, used by some UIs/protocols.
+	if id, err := strconv.Atoi(configKey); err == nil {
+		pointBody.AddressID = integer.New(id)
+	}
+
 	pointBody.DataType = uartPointConfig.DataType
 	pointBody.WriteMode = uartPointConfig.WriteMode
 	pointBody.HistoryEnable = uartPointConfig.HistoryEnable
