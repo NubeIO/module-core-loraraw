@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.2-rc.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.5) (2025-11-24)
+
+- Add ping at address 4 during UART device creation/update (#76)
+
 ## [v1.1.2-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.4) (2025-11-17)
 
 - Support UART with static point values (#74)
