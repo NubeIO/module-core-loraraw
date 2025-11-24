@@ -3,11 +3,14 @@ package pkg
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
 	"github.com/NubeIO/lib-module-go/router"
+	"github.com/NubeIO/module-core-loraraw/codecs/rubixDataEncoding"
 	"github.com/NubeIO/module-core-loraraw/schema"
+	"github.com/NubeIO/nubeio-rubix-lib-helpers-go/pkg/nils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
@@ -95,6 +98,10 @@ func CreateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if device.Model == schema.DeviceModelUART { // Ping at address 4
+		enqueueUartPing(m, dev)
+	}
 	return json.Marshal(dev)
 }
 
@@ -110,6 +117,10 @@ func UpdateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	}
 
 	_ = (*m).(*Module).updateDevicePointsAddress(dev)
+
+	if device.Model == schema.DeviceModelUART { // Ping at address 4
+		enqueueUartPing(m, dev)
+	}
 
 	return json.Marshal(dev)
 }
@@ -165,4 +176,18 @@ func PointWrite(m *nmodule.Module, r *router.Request) ([]byte, error) {
 func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	err := (*m).(*Module).grpcMarshaller.DeletePoint(r.PathParams["uuid"])
 	return nil, err
+}
+
+func enqueueUartPing(m *nmodule.Module, device *model.Device) {
+	if device.Model == schema.DeviceModelUART { // Ping at address 4
+		point := &model.Point{
+			IoNumber:    "UVP-4",
+			AddressID:   nils.NewInt(4),
+			DataType:    strconv.Itoa(int(rubixDataEncoding.MDK_BOOL)),
+			DeviceUUID:  device.UUID,
+			AddressUUID: device.AddressUUID,
+			WriteValue:  nils.NewFloat64(1),
+		}
+		(*m).(*Module).pointWriteQueueManager.EnqueuePoint(point)
+	}
 }
