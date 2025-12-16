@@ -1,0 +1,62 @@
+flowchart TD
+%% Styling
+    classDef io fill:#E3F2FD,stroke:#1565C0,stroke-width:2px,color:#000
+    classDef action fill:#E8F5E9,stroke:#2E7D32,stroke-width:2px,color:#000
+    classDef decision fill:#FFFDE7,stroke:#FBC02D,stroke-width:2px,color:#000
+    classDef warn fill:#FFEBEE,stroke:#C62828,stroke-width:2px,color:#000
+
+%% Startup
+    A(["Enable()"]):::action --> B[Get networks by plugin name]:::io
+    B --> C{Exactly one network?}:::decision
+    C -- No --> D[Warn / update plugin message]:::warn
+    D --> E["Continue; run will retry<br/>until a network exists"]:::action
+    C -- Yes --> F["Start interruptChan; go run()"]:::action
+    E --> F
+    F --> F1{Disable called?}:::decision
+    F1 -- Yes --> F2[Signal interrupt; wait and exit]:::action
+    F1 -- No --> G
+
+%% Serial loop
+    subgraph Serial_Run_Loop
+    direction TB
+        G[SerialOpen<br/>load serial port + baud]:::action
+        G --> H{Open success?}:::decision
+        H -- No --> I[Update network fault with error]:::warn
+        I --> J[Sleep re_iteration_time<br/>then retry]:::action
+        J --> G
+        H -- Yes --> K[Clear network fault]:::action
+        K --> L["Start scanner goroutine<br/>Loop() sends payload lines"]:::action
+        L --> M{"Select: interrupt | serial error | payload"}:::decision
+        M -- interrupt --> N["Close serial; exit run"]:::action
+        M -- serial error --> I
+        M -- payload --> O["handleSerialPayload(data)"]:::action
+        O --> M
+    end
+
+%% Payload handling
+    subgraph Payload_Decode
+    direction TB
+        P{Valid payload length?}:::decision
+        Q["Get device by address_uuid<br/>(with points + meta)"]:::io
+        R{Device found?}:::decision
+        S[Log unknown sensor with RSSI]:::warn
+        T{LoRa RAW? strip header/CMAC}:::decision
+        U{Payload length ok for model?}:::decision
+        V[Decode payload for device model]:::action
+        W[Update/create points & meta tags]:::action
+        X[Update RSSI & SNR points]:::action
+        Y[Clear device fault]:::action
+        Z[Return to select loop]:::action
+
+        O --> P
+        P -- No --> Z
+        P -- Yes --> Q
+        Q --> R
+        R -- No --> S --> Z
+        R -- Yes --> T
+        T -- Yes --> U
+        T -- No --> U
+        U -- No --> Z
+        U -- Yes --> V --> W --> X --> Y --> Z
+    end
+
