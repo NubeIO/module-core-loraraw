@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.2-rc.6](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.6) (2026-01-16)
+
+- Fix: writable field value
+
 ## [v1.1.2-rc.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.5) (2025-11-24)
 
 - Add ping at address 4 during UART device creation/update (#76)
@@ -43,13 +47,13 @@
 ## [v1.1.0-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.3) (2024-08-07)
 
 - Account for CMAC difference in driver-lora (#36)
-  - **NOTE: Requires [driver-lora](https://github.com/NubeIO/driver-lora/releases/tag/v1.1.0-rc.1) >= `v1.1.0-rc.1`**
+    - **NOTE: Requires [driver-lora](https://github.com/NubeIO/driver-lora/releases/tag/v1.1.0-rc.1) >= `v1.1.0-rc.1`**
 
 ## [v1.1.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.2) (2024-07-25)
 
 - Revert remove priority array changes (#35)
 - Prerequisites:
-  - ROS >= 1.0.0
+    - ROS >= 1.0.0
 
 ## [v1.1.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.0-rc.1) (2024-07-11)
 
@@ -78,24 +82,24 @@
 - Update device points address on update device (#21)
 - Refactor handleSerialPayload
 - Prerequisites:
-  - ROS >= 1.0.0
+    - ROS >= 1.0.0
 
 ## [v1.0.0-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.2) (2024-03-22)
 
 - improve point value (#19)
 - Prerequisites:
-  - ROS >= 1.0.0
+    - ROS >= 1.0.0
 
 ## [v1.0.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.0.0-rc.1) (2024-03-01)
 
 - Prerequisites:
-  - ROS >= 1.0.0
+    - ROS >= 1.0.0
 
 ## [v0.0.4](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.4) (2024-02-05)
 
 - fix run bug (#12)
 - Prerequisites:
-  - ROS >= 0.3.0
+    - ROS >= 0.3.0
 
 ## [v0.0.3](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.3) (2024-01-03)
 
@@ -103,7 +107,7 @@
 - Improvements on config and logger
 - ROS ref: [7cfcf326](https://github.com/NubeIO/rubix-os/commit/7cfcf326d298312db624348a202cdab458ba3f8e)
 - Prerequisites:
-  - ROS >= 0.3.0
+    - ROS >= 0.3.0
 
 ## [v0.0.2](https://github.com/NubeIO/module-core-loraraw/tree/v0.0.2) (2023-12-10)
 
