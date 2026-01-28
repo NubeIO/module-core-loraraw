@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/NubeIO/lib-module-go/nhttp"
 	"github.com/NubeIO/lib-module-go/nmodule"
@@ -14,9 +15,16 @@ import (
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/dto"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/nargs"
+	log "github.com/sirupsen/logrus"
 )
 
 var route *router.Router
+
+const (
+	uartPingMaxRetries        = 10
+	uartPingMinPointsRequired = 10
+	uartPingRetryInterval     = 10 * time.Second
+)
 
 func InitRouter() {
 	route = router.NewRouter()
@@ -180,6 +188,18 @@ func DeletePoint(m *nmodule.Module, r *router.Request) ([]byte, error) {
 
 func enqueueUartPing(m *nmodule.Module, device *model.Device) {
 	if device.Model == schema.DeviceModelUART { // Ping at address 4
+		// Run the retry mechanism in a goroutine to not block other operations
+		go enqueueUartPingWithRetry(m, device)
+	}
+}
+
+func enqueueUartPingWithRetry(m *nmodule.Module, device *model.Device) {
+	module := (*m).(*Module)
+
+	for attempt := 1; attempt <= uartPingMaxRetries; attempt++ {
+		log.Infof("enqueueUartPing attempt %d/%d for device %s", attempt, uartPingMaxRetries, device.UUID)
+
+		// Create and enqueue the ping point
 		point := &model.Point{
 			IoNumber:    "UVP-4",
 			AddressID:   nils.NewInt(4),
@@ -188,6 +208,31 @@ func enqueueUartPing(m *nmodule.Module, device *model.Device) {
 			AddressUUID: device.AddressUUID,
 			WriteValue:  nils.NewFloat64(1),
 		}
-		(*m).(*Module).pointWriteQueueManager.EnqueuePoint(point)
+		module.pointWriteQueueManager.EnqueuePoint(point)
+
+		// Wait for the poll interval before checking
+		time.Sleep(uartPingRetryInterval)
+
+		// Check if the device now has the required number of points
+		dev, err := module.grpcMarshaller.GetDevice(device.UUID, &nmodule.Opts{Args: &nargs.Args{WithPoints: true}})
+		if err != nil {
+			log.Errorf("enqueueUartPing error getting device on attempt %d: %s", attempt, err.Error())
+			continue
+		}
+
+		pointCount := len(dev.Points)
+		log.Infof("enqueueUartPing attempt %d: device %s has %d points", attempt, device.UUID, pointCount)
+
+		if pointCount >= uartPingMinPointsRequired {
+			log.Infof("enqueueUartPing successful for device %s with %d points", device.UUID, pointCount)
+			return
+		}
+
+		if attempt < uartPingMaxRetries {
+			log.Warnf("enqueueUartPing attempt %d failed: device %s has only %d points (required: %d), retrying...",
+				attempt, device.UUID, pointCount, uartPingMinPointsRequired)
+		}
 	}
+
+	log.Errorf("enqueueUartPing failed after %d attempts for device %s: insufficient points", uartPingMaxRetries, device.UUID)
 }
