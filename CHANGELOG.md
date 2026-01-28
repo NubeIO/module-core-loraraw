@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.2-rc.7](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.7) (2026-01-28)
+
+- Add logic for retrying the UART ping
+
 ## [v1.1.2-rc.6](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.6) (2026-01-16)
 
 - Fix: writable field value
