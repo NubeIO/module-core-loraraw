@@ -301,11 +301,20 @@ func bytesToString(bytes []byte) string {
 }
 
 func bytesToDate(bytes []byte) string {
+	if len(bytes) < 3 {
+		return ""
+	}
 	return fmt.Sprintf("%d/%d/%d", bytes[0], bytes[1], bytes[2])
 }
 
 // No usages of staticPayloadDecoder method
 func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc) error {
+	// Validate minimum payload length (version 1: 89 bytes, version 2: 94 bytes)
+	minLength := 96
+	if len(data) < minLength {
+		return fmt.Errorf("static payload too short: required>=%d actual=%d", minLength, len(data))
+	}
+
 	index := 1
 	fwMa := int(data[index])
 	index += 1
@@ -339,6 +348,10 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 	filtLogDateUV := ""
 	filtLogLitresUV := 0
 	if data[0] >= 2 {
+		// Check if we have enough data for v2 fields
+		if index+5 > len(data) {
+			return fmt.Errorf("insufficient data for v2 static payload fields: index=%d len=%d", index, len(data))
+		}
 		filtLogDateUV = bytesToDate(data[index : index+3])
 		index += 3
 		filtLogLitresUV = int(binary.LittleEndian.Uint16(data[index : index+2]))
@@ -347,7 +360,7 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 
 	addressUUID := nstring.DerefString(device.AddressUUID)
 	var modbusAddress int64
-	if len(addressUUID) >= 4 {
+	if len(addressUUID) >= 6 {
 		modbusAddress, _ = strconv.ParseInt(addressUUID[4:6], 16, 0)
 	}
 
@@ -388,6 +401,11 @@ func staticPayloadDecoder(data []byte, device *model.Device, updateDeviceMetaTag
 }
 
 func writePayloadDecoder(data []byte, device *model.Device, updatePointFn codec.UpdateDevicePointFunc) error {
+	minLength := 22 + (ZipHTTimerLength * 4)
+	if len(data) < minLength {
+		return fmt.Errorf("write payload too short: required>=%d actual=%d", minLength, len(data))
+	}
+
 	index := 1
 	time := int(binary.LittleEndian.Uint32(data[index : index+4]))
 	index += 4
@@ -448,6 +466,9 @@ func writePayloadDecoder(data []byte, device *model.Device, updatePointFn codec.
 	sparklFlowRate := 0
 	sparklFlushTime := 0
 	if data[0] >= 2 {
+		if index+15 > len(data) {
+			return fmt.Errorf("insufficient data for v2 write payload fields: index=%d len=%d", index, len(data))
+		}
 		filLyfLtrUV = int(binary.LittleEndian.Uint16(data[index : index+2]))
 		index += 2
 		filLyfMnthUV = int(data[index])
@@ -500,6 +521,11 @@ func writePayloadDecoder(data []byte, device *model.Device, updatePointFn codec.
 }
 
 func pollPayloadDecoder(data []byte, device *model.Device, updatePointFn codec.UpdateDevicePointFunc) error {
+	minLength := 39
+	if len(data) < minLength {
+		return fmt.Errorf("poll payload too short: required>=%d actual=%d", minLength, len(data))
+	}
+
 	index := 1
 	rebooted := (data[index]>>5)&1 == 1
 	// sCov := (data[index]>>6)&1 == 1
@@ -556,6 +582,9 @@ func pollPayloadDecoder(data []byte, device *model.Device, updatePointFn codec.U
 	cO2UsgGrams := 0
 	cO2UsgDays := 0
 	if data[0] >= 2 {
+		if index+7 > len(data) {
+			return fmt.Errorf("insufficient data for v2 poll payload fields: index=%d len=%d", index, len(data))
+		}
 		fltrNfoUseLtrUV = int(binary.LittleEndian.Uint16(data[index : index+2]))
 		index += 2
 		fltrNfoUseDayUV = int(binary.LittleEndian.Uint16(data[index : index+2]))

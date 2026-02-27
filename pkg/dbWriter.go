@@ -151,6 +151,9 @@ func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err 
 }
 
 func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {
+	if device == nil {
+		return nil
+	}
 	for _, pnt := range device.Points {
 		if pnt.IoNumber == ioNumber {
 			return pnt

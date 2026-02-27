@@ -51,7 +51,9 @@ func (m *Module) addNetwork(body *model.Network) (network *model.Network, err er
 }
 
 func (m *Module) addDevice(body *model.Device, withPoints bool) (device *model.Device, err error) {
-	*body.AddressUUID = strings.ToUpper(*body.AddressUUID)
+	if body.AddressUUID != nil {
+		*body.AddressUUID = strings.ToUpper(*body.AddressUUID)
+	}
 	device, _ = m.grpcMarshaller.GetOneDeviceByArgs(&nmodule.Opts{Args: &nargs.Args{AddressUUID: body.AddressUUID}})
 	if device != nil {
 		errMsg := fmt.Sprintf("the lora ID (address_uuid) must be unique: %s", *body.AddressUUID)
@@ -146,7 +148,11 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	var err error
 	log.Debugf("uplink: %s", dataHex)
 	legacyDevice := false
-	address := codec.DecodeAddressHex(dataHex)
+	address, err := codec.DecodeAddressHex(dataHex)
+	if err != nil {
+		log.Errorf("failed to decode LoRa address from hex data (length=%d): %s", len(dataHex), err)
+		return
+	}
 	device := m.getDeviceByLoRaAddress(address)
 
 	dataBytes, err := hex.DecodeString(dataHex)
@@ -164,8 +170,11 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
 		if err == nil {
-			// addDevice always stores address_uuid in uppercase, so match that here
-			address = strings.ToUpper(codec.DecodeAddressBytes(dataLegacy))
+			address, err = codec.DecodeAddressBytes(dataLegacy)
+			if err != nil {
+				log.Errorf("failed to decode LoRa address from legacy bytes (length=%d): %s", len(dataLegacy), err)
+			}
+			address = strings.ToUpper(address)
 			device = m.getDeviceByLoRaAddress(address)
 			legacyDevice = true
 			dataHex = hex.EncodeToString(dataLegacy)
@@ -175,8 +184,16 @@ func (m *Module) handleSerialPayload(dataHex string) {
 
 	// Decode RSSI/SNR from the original frame NOW, before dataHex is potentially
 	// replaced with the decrypted legacy payload (which has RSSI/SNR stripped off).
-	rssi := codec.DecodeRSSI(dataHex)
-	snr := codec.DecodeSNR(dataHex)
+	rssi, err := codec.DecodeRSSI(dataHex)
+	if err != nil {
+		log.Errorf("failed to decode RSSI from hex data (address=%s, length=%d): %s", address, len(dataHex), err)
+		return
+	}
+	snr, err := codec.DecodeSNR(dataHex)
+	if err != nil {
+		log.Errorf("failed to decode SNR from hex data (address=%s, length=%d): %s", address, len(dataHex), err)
+		return
+	}
 
 	if device == nil {
 		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %.2f", address, rssi, snr)
@@ -234,6 +251,10 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 		m.handleConfirmedOpt(dataBytes, keyBytes)
 		devDesc.DecodeUplink(dataHex, payload, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
 	case utils.LORARAW_OPTS_RESPONSE:
+		if len(dataBytes) <= utils.LORARAW_NONCE_POSITION {
+			log.Errorf("dataBytes too short for response: length %d, need at least %d", len(dataBytes), utils.LORARAW_NONCE_POSITION+1)
+			return
+		}
 		msgId := dataBytes[utils.LORARAW_NONCE_POSITION]
 		devDesc.DecodeResponse(dataHex, payload, msgId, devDesc, device, m.updateDeviceWrittenPointSuccess, m.updateDeviceWrittenPointError, m.updateDeviceMetaTags)
 	default:
@@ -242,14 +263,26 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 }
 
 func getOpts(dataBytes []byte) utils.LoRaRAWOpts {
+	if len(dataBytes) <= utils.LORARAW_OPTS_POSITION {
+		log.Errorf("dataBytes too short to get opts: length %d, need at least %d", len(dataBytes), utils.LORARAW_OPTS_POSITION+1)
+		return utils.LoRaRAWOpts(0)
+	}
 	return utils.LoRaRAWOpts(dataBytes[utils.LORARAW_OPTS_POSITION])
 }
 
 func getNonce(dataBytes []byte) int {
+	if len(dataBytes) <= utils.LORARAW_NONCE_POSITION {
+		log.Errorf("dataBytes too short to get nonce: length %d, need at least %d", len(dataBytes), utils.LORARAW_NONCE_POSITION+1)
+		return 0
+	}
 	return int(dataBytes[utils.LORARAW_NONCE_POSITION])
 }
 
 func (m *Module) handleConfirmedOpt(dataBytes []byte, byteKey []byte) {
+	if len(dataBytes) < utils.LORARAW_HEADER_LEN {
+		log.Errorf("dataBytes too short for confirmed opt: length %d, need at least %d", len(dataBytes), utils.LORARAW_HEADER_LEN)
+		return
+	}
 	ack := createAck(dataBytes[:utils.LORARAW_HEADER_LEN], byteKey, getNonce(dataBytes))
 	err := m.WriteToLoRaRaw(ack)
 	if err != nil {
@@ -275,6 +308,9 @@ func createAck(address, key []byte, nonce int) []byte {
 }
 
 func decryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
+	if len(dataBytes) < 2 {
+		return nil, errors.New("dataBytes too short for decryption: need at least 2 bytes for RSSI and SNR")
+	}
 	decryptedData, err := aesutils.Decrypt(dataBytes[:len(dataBytes)-2], byteKey) // remove RSSI and SNR
 	if err != nil {
 		return nil, err
@@ -283,6 +319,9 @@ func decryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
 }
 
 func decryptLegacy(dataBytes []byte, byteKey []byte) ([]byte, error) {
+	if len(dataBytes) < 2 {
+		return nil, errors.New("dataBytes too short for legacy decryption: need at least 2 bytes for RSSI and SNR")
+	}
 	decryptedData, err := aesutils.DecryptLegacy(dataBytes[:len(dataBytes)-2], byteKey) // remove RSSI and SNR
 	if err != nil {
 		return nil, err
