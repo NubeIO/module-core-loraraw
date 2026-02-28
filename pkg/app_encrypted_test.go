@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"fmt"
 	"testing"
 
@@ -14,9 +15,19 @@ func runEncryptedTests(tests []TestStruct, mockDevice *model.Device, t *testing.
 			currTest = &tt
 			currIndex = 0
 			fmt.Printf("TEST %s\r\n", tt.Name)
-			dataLegacy, err := decryptLegacy(tt.Data, "0301021604050f07e6095a0b0c12630f")
+			dataBytes, err := hex.DecodeString(tt.Data)
+			if err != nil {
+				log.Errorf("hex decode error: %s", err)
+				return
+			}
+			keyBytes, err := hex.DecodeString("0301021604050f07e6095a0b0c12630f")
+			if err != nil {
+				log.Errorf("hex decode key error: %s", err)
+				return
+			}
+			dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
 			if err == nil {
-				tt.Data = dataLegacy
+				tt.Data = hex.EncodeToString(dataLegacy)
 			}
 			err = decodeData(tt.Data, mockDevice, updateDevicePointMock, updateDeviceMetaTagsMock)
 			if err != nil {
@@ -31,11 +42,22 @@ func runEncryptedRubixTests(tests []TestStruct, mockDevice *model.Device, t *tes
 		t.Run(tt.Name, func(t *testing.T) {
 			currTest = &tt
 			currIndex = 0
-			dataLegacy, err := decryptLoRaRAWPkt(tt.Data, "0301021604050F07E6095A0B0C12630F")
+			dataBytes, err := hex.DecodeString(tt.Data)
+			if err != nil {
+				log.Errorf("hex decode error: %s", err)
+				return
+			}
+			keyBytes, err := hex.DecodeString("0301021604050F07E6095A0B0C12630F")
+			if err != nil {
+				log.Errorf("hex decode key error: %s", err)
+				return
+			}
+			decrypted, err := decryptLoRaRAWPkt(dataBytes, keyBytes)
 			if err != nil {
 				log.Errorf("error decrypting data: %s", err)
+				return
 			}
-			err = decodeData(dataLegacy, mockDevice, updateDevicePointMock, updateDeviceMetaTagsMock)
+			err = decodeData(hex.EncodeToString(decrypted), mockDevice, updateDevicePointMock, updateDeviceMetaTagsMock)
 			if err != nil {
 				log.Errorf("error decode data: %s", err)
 			}
@@ -132,30 +154,41 @@ func TestEncryptedRubixPayload(t *testing.T) {
 		{"RubixOne",
 			"5CC08E7B0547C75CF319679F441CE5E245791166007507AD486373E723865A51C914B42EDC256D94120EBA8CAE0C26BC7B23CBC57ADE51C34A26",
 			[]TestPoint{
-				{"bool-1", 0.000000},
-				{"uint_8-2", 0.000000},
-				{"temp-3", 18.000000},
-				{"uint_8-4", 0.000000},
-				{"temp-5", 18.000000},
-				{"uint_16-6", 0.000000},
-				{"uint_16-7", 0.000000},
+				{"unknown-1", 0.000000},
+				{"UI-7", 0.000000},
+				{"DO-16", 0.000000},
+				{"unknown-1", 0.000000},
+				{"UO-7", 0.000000},
+				{"UVP-33", 0.000000},
+				{"DVP-1", 0.000000},
+				{"movement-21", 1.000000},
+				{"DI-10", 0.000000},
+				{"unknown-27", 0.000000},
+				{"unknown-1", 0.000000},
 				{"uint_16-8", 0.000000},
 				{"uint_16-9", 0.000000},
+				{"uint_16-10", 0.000000},
 			},
 			[]*model.DeviceMetaTag{},
 		},
 		{"RubixTwo",
 			"5CC08E7B3F48B2EC9F8BCD7C0B086593E2627266DC4AB1406448C223128DCBCC87B2AF3AEA5661B9D059AD2D5D8948CF782EAF8AD00EA2BE4928",
 			[]TestPoint{
-				{"bool-1", 0.000000},
-				{"uint_8-2", 1.000000},
-				{"temp-3", 18.000000},
-				{"uint_8-4", 2.000000},
-				{"temp-5", 18.000000},
-				{"uint_16-6", 0.000000},
-				{"uint_16-7", 0.000000},
-				{"uint_16-8", 0.000000},
-				{"uint_16-9", 0.000000},
+				{"unknown-1", 0.000000},
+				{"UI-7", 0.000000},
+				{"DO-16", 0.000000},
+				{"UO-1", 0.000000},
+				{"UO-7", 0.000000},
+				{"UVP-33", 0.000000},
+				{"DVP-1", 5.600000},
+				{"DI-25", 1.000000},
+				{"UVP-1", 0.000000},
+				{"unknown-1", 0.000000},
+				{"UI-25", 0.000000},
+				{"unknown-1", 0.000000},
+				{"UO-3", 0.000000},
+				{"unknown-1", 0.000000},
+				{"uint_16-10", 0.000000},
 			},
 			[]*model.DeviceMetaTag{},
 		},

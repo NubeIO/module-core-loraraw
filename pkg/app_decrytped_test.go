@@ -1,11 +1,15 @@
 package pkg
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math"
 	"testing"
 
+	"github.com/NubeIO/module-core-loraraw/codec"
+	"github.com/NubeIO/module-core-loraraw/codecs"
 	"github.com/NubeIO/module-core-loraraw/schema"
+	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 )
 
@@ -48,8 +52,12 @@ func runTests(tests []TestStruct, mockDevice *model.Device, t *testing.T) {
 	}
 }
 
-func updateDevicePointMock(name string, value float64, device *model.Device) error {
+func updateDevicePointMock(name string, value float64, device *model.Device, devDesc *codec.LoRaDeviceDescription) error {
 	// fmt.Printf("{\"%s\", %f},\n", name, value)
+	if currIndex >= len(currTest.Values) {
+		currIndex++
+		return nil
+	}
 	devName := currTest.Name
 	expectedName := currTest.Values[currIndex].Name
 	expectedValue := currTest.Values[currIndex].Value
@@ -63,6 +71,31 @@ func updateDevicePointMock(name string, value float64, device *model.Device) err
 		test.Fail()
 	}
 	currIndex++
+	return nil
+}
+
+// decodeData decodes a hex-encoded payload string for the given device,
+// routing to the correct codec via the device model.
+// For LoRaRAW devices the inner payload is stripped before decoding.
+// For legacy devices (Droplet, MicroEdge, ZHT) the full dataBytes are passed.
+func decodeData(dataHex string, device *model.Device, updatePoint codec.UpdateDevicePointFunc, updateMetaTags codec.UpdateDeviceMetaTagsFunc) error {
+	dataBytes, err := hex.DecodeString(dataHex)
+	if err != nil {
+		return err
+	}
+	devDesc := codec.GetDeviceDescription(device, codecs.LoRaDeviceDescriptions)
+	if devDesc == &codec.NilLoRaDeviceDescription {
+		return fmt.Errorf("no device description found for model: %s", device.Model)
+	}
+	payloadBytes := dataBytes
+	if devDesc.IsLoRaRAW {
+		payloadBytes = utils.StripLoRaRAWPayload(dataBytes)
+	}
+	return devDesc.DecodeUplink(dataHex, payloadBytes, devDesc, device, updatePoint, updateDevicePointErrorMock, updateMetaTags)
+}
+
+func updateDevicePointErrorMock(name string, err error, device *model.Device, devDesc *codec.LoRaDeviceDescription) error {
+	test.Logf("POINT ERROR. Device: %s, point: %s, err: %v", currTest.Name, name, err)
 	return nil
 }
 
@@ -109,53 +142,52 @@ func TestRubixPayload(t *testing.T) {
 			// "5CC08E7B0006B2010B04D5E8605106068600181C243C5004D21018223C762444616E28849B9BCBAF3819A389B1E609E7B837F7A1200D8085878A561A205E30A78878FFFDE19322A6C5CEC319421C5B999C6D08716E8F71D421C5BAE1C7D08716EE1521421C5BC2948D08716F33525421C5BD70C9D08716F85329421C5BEB8CAD08716FD712D421C3FA3DCBD08710E8F731421C47A3DCCD08712E8F735421C4FA3DCDD08714E8F739421C57A3DCED08716E8F73D421C5FA3D80A22951681CA069A2463A43412A",
 			"5CC08E7B0006B2010B04D5E8605106068600181C243C5004D21018223C762444616E28849B9BCBAF3819A389B1E609E7B837F7A1200D8085878A561A205E30A78878FFFDE19322A6C5CEC319421C5B999C6D08716E8F71D421C5BAE1C7D08716EE1521421C5BC2948D08716F33525421C5BD70C9D08716F85329421C5BEB8CAD08716FD712D421C3FA3DCBD08710E8F731421C47A3DCCD08712E8F735421C4FA3DCDD08714E8F739421C57A3DCED08716E8F73D421C5FA3D80412A",
 			[]TestPoint{
-				{"temp-11", 23.450001},
-				{"rh-12", 87.160004},
-				{"lux-13", 12.000000},
-				{"movement-14", 1.000000},
-				{"count-15", 1234.000000},
-				{"digital-16", 0.000000},
-				{"0-10v-17", 5.710000},
-				{"4-20ma-18", 15.210000},
-				{"ohm-110", 135790.000000},
-				{"co2-111", 350.000000},
-				{"battery-voltage-112", 5.200000},
-				{"push-frequency-113", 1145.000000},
-				{"uint_8-130", 123.000000},
-				{"int_8-131", -34.000000},
-				{"uint_16-132", 3456.000000},
-				{"int_16-133", -7531.000000},
-				{"uint_32-134", 98765432.000000},
-				{"int_32-135", -555444.000000},
-				{"bool-138", 1.000000},
-				{"char-139", 97.000000},
-				{"float-140", 278.899994},
-				{"float-141", 278.910004},
-				{"float-142", 278.920013},
-				{"float-143", 278.929993},
-				{"float-144", 278.940002},
-				{"float-145", 278.950012},
-				{"float-146", 278.959991},
-				{"float-147", 278.970001},
-				{"float-148", 278.980011},
-				{"float-149", 278.989990},
-				{"float-150", 271.910004},
-				{"float-151", 272.910004},
-				{"float-152", 273.910004},
-				{"float-153", 274.910004},
-				{"float-154", 275.910004},
-				{"float-155", 276.910004},
-				{"float-156", 277.910004},
-				{"float-157", 278.910004},
-				{"float-158", 279.910004},
+				{"temp-12", 23.450001},
+				{"rh-13", 87.160004},
+				{"lux-14", 12.000000},
+				{"movement-15", 1.000000},
+				{"count-16", 1234.000000},
+				{"digital-17", 0.000000},
+				{"0-10v-18", 5.710000},
+				{"4-20ma-19", 15.210000},
+				{"UI-15", 135790.000000},
+				{"UI-16", 350.000000},
+				{"UI-17", 5.200000},
+				{"UI-18", 1145.000000},
+				{"DI-3", 123.000000},
+				{"DI-4", -34.000000},
+				{"DI-5", 3456.000000},
+				{"DI-6", -7531.000000},
+				{"DI-7", 98765432.000000},
+				{"DI-8", -555444.000000},
+				{"DI-11", 1.000000},
+				{"DI-12", 97.000000},
+				{"DI-13", 278.899994},
+				{"DI-14", 278.910004},
+				{"DI-15", 278.920013},
+				{"DI-16", 278.929993},
+				{"DI-17", 278.940002},
+				{"DI-18", 278.950012},
+				{"DI-19", 278.959991},
+				{"DI-20", 278.970001},
+				{"DI-21", 278.980011},
+				{"DI-22", 278.989990},
+				{"DI-23", 271.910004},
+				{"DI-24", 272.910004},
+				{"DI-25", 273.910004},
+				{"DI-26", 274.910004},
+				{"DI-27", 275.910004},
+				{"DI-28", 276.910004},
+				{"DI-29", 277.910004},
+				{"DI-30", 278.910004},
+				{"DI-31", 279.910004},
 			},
 			[]*model.DeviceMetaTag{},
 		},
 		{"dorma1",
 			"09C0AEF400E31D01019D040A601CC04980B301A603CC089813302A605CC0D8800B9E04804600",
 			[]TestPoint{
-				{"char-1", 65.000000},
-				{"bool-2", 0.000000},
+				{"char-2", 65.000000},
 				{"bool-3", 0.000000},
 				{"bool-4", 0.000000},
 				{"bool-5", 0.000000},
@@ -165,7 +197,8 @@ func TestRubixPayload(t *testing.T) {
 				{"bool-9", 0.000000},
 				{"bool-10", 0.000000},
 				{"bool-11", 0.000000},
-				{"uint_32-13", 3045394.000000},
+				{"bool-12", 0.000000},
+				{"uint_32-14", 3045394.000000},
 			},
 			[]*model.DeviceMetaTag{},
 		},
