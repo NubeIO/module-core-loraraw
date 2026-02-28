@@ -164,7 +164,8 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
 		if err == nil {
-			address = codec.DecodeAddressBytes(dataLegacy)
+			// addDevice always stores address_uuid in uppercase, so match that here
+			address = strings.ToUpper(codec.DecodeAddressBytes(dataLegacy))
 			device = m.getDeviceByLoRaAddress(address)
 			legacyDevice = true
 			dataHex = hex.EncodeToString(dataLegacy)
@@ -172,11 +173,13 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 	}
 
+	// Decode RSSI/SNR from the original frame NOW, before dataHex is potentially
+	// replaced with the decrypted legacy payload (which has RSSI/SNR stripped off).
 	rssi := codec.DecodeRSSI(dataHex)
 	snr := codec.DecodeSNR(dataHex)
 
 	if device == nil {
-		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %d", address, rssi, snr)
+		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %.2f", address, rssi, snr)
 		return
 	}
 	devDesc := codec.GetDeviceDescription(device, codecs.LoRaDeviceDescriptions)
