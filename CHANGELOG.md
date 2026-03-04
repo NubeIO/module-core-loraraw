@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.1.2-rc.9](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.9) (2026-03-04)
+
+- Fix: index out of range and nil pointer (#81)
+
 ## [v1.1.2-rc.8](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.8) (2026-02-28)
 
 - Fix: for legacy devices
