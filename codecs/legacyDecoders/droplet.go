@@ -1,6 +1,7 @@
 package legacyDecoders
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/NubeIO/module-core-loraraw/codec"
@@ -136,6 +137,9 @@ func DecodeDropletTHLM(
 }
 
 func dropletTemp(data string) (float64, error) {
+	if len(data) < 12 {
+		return 0, fmt.Errorf("data too short for temperature: required=12 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[10:12]+data[8:10], 16, 0)
 	if err != nil {
 		return 0, err
@@ -145,6 +149,9 @@ func dropletTemp(data string) (float64, error) {
 }
 
 func dropletPressure(data string) (float64, error) {
+	if len(data) < 16 {
+		return 0, fmt.Errorf("data too short for pressure: required=16 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[14:16]+data[12:14], 16, 0)
 	if err != nil {
 		return 0, err
@@ -154,6 +161,9 @@ func dropletPressure(data string) (float64, error) {
 }
 
 func dropletHumidity(data string) (int, error) {
+	if len(data) < 18 {
+		return 0, fmt.Errorf("data too short for humidity: required=18 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[16:18], 16, 0)
 	if err != nil {
 		return 0, err
@@ -163,6 +173,9 @@ func dropletHumidity(data string) (int, error) {
 }
 
 func dropletVoltage(data string) (float64, error) {
+	if len(data) < 24 {
+		return 0, fmt.Errorf("data too short for voltage: required=24 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[22:24], 16, 0)
 	if err != nil {
 		return 0, err
@@ -175,6 +188,9 @@ func dropletVoltage(data string) (float64, error) {
 }
 
 func dropletLight(data string) (int, error) {
+	if len(data) < 22 {
+		return 0, fmt.Errorf("data too short for light: required=22 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[20:22]+data[18:20], 16, 0)
 	if err != nil {
 		return 0, err
@@ -183,6 +199,9 @@ func dropletLight(data string) (int, error) {
 }
 
 func dropletMotion(data string) (bool, error) {
+	if len(data) < 18 {
+		return false, fmt.Errorf("data too short for motion: required=18 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[16:18], 16, 0)
 	if err != nil {
 		return false, err

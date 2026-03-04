@@ -1,6 +1,7 @@
 package legacyDecoders
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/NubeIO/module-core-loraraw/codec"
@@ -75,6 +76,9 @@ func DecodeME(
 }
 
 func pulse(data string) (int, error) {
+	if len(data) < 16 {
+		return 0, fmt.Errorf("data too short for pulse: required=16 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[8:16], 16, 0)
 	if err != nil {
 		return 0, err
@@ -83,6 +87,9 @@ func pulse(data string) (int, error) {
 }
 
 func ai1(data string) (float64, error) {
+	if len(data) < 22 {
+		return 0, fmt.Errorf("data too short for ai1: required=22 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[18:22], 16, 0)
 	if err != nil {
 		return 0, err
@@ -91,6 +98,9 @@ func ai1(data string) (float64, error) {
 }
 
 func ai2(data string) (float64, error) {
+	if len(data) < 26 {
+		return 0, fmt.Errorf("data too short for ai2: required=26 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[22:26], 16, 0)
 	if err != nil {
 		return 0, err
@@ -99,6 +109,9 @@ func ai2(data string) (float64, error) {
 }
 
 func ai3(data string) (float64, error) {
+	if len(data) < 30 {
+		return 0, fmt.Errorf("data too short for ai3: required=30 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[26:30], 16, 0)
 	if err != nil {
 		return 0, err
@@ -107,6 +120,9 @@ func ai3(data string) (float64, error) {
 }
 
 func voltage(data string) (float64, error) {
+	if len(data) < 18 {
+		return 0, fmt.Errorf("data too short for voltage: required=18 actual=%d", len(data))
+	}
 	v, err := strconv.ParseInt(data[16:18], 16, 0)
 	if err != nil {
 		return 0, err
