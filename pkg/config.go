@@ -15,7 +15,7 @@ type Config struct {
 	ReIterationTime      time.Duration `yaml:"re_iteration_time"`
 	LogLevel             string        `yaml:"log_level"`
 	DefaultKey           string        `yaml:"default_key" type:"secret"`
-	DecryptionDisabled   bool          `yaml:"decryption_disabled"`
+	EnableDecryption     bool          `yaml:"enable_decryption"`
 	WriteQueueMaxRetries int           `yaml:"write_queue_max_retries"`
 	timeOffAirDefault    time.Duration `yaml:"time_off_air_default"`
 }
@@ -27,7 +27,7 @@ func (m *Module) DefaultConfig() *Config {
 		ReIterationTime:      5 * time.Second,
 		LogLevel:             "ERROR",
 		DefaultKey:           DefaultDeviceKey,
-		DecryptionDisabled:   false,
+		EnableDecryption:     false,
 		WriteQueueMaxRetries: 5,
 		timeOffAirDefault:    5 * time.Second,
 	}

@@ -161,7 +161,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		return
 	}
 
-	if device == nil && !m.config.DecryptionDisabled {
+	if device == nil && m.config.EnableDecryption {
 		// maybe it's a legacy device (droplet, microedge, ziphydrotap)
 		keyBytes, err := hex.DecodeString(m.config.DefaultKey)
 		if err != nil {
@@ -205,7 +205,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		return
 	}
 
-	if !legacyDevice && !m.config.DecryptionDisabled {
+	if !legacyDevice && m.config.EnableDecryption {
 		keyBytes, err := m.getEncryptionKey(device)
 		if err != nil {
 			log.Errorf("error decoding default key: %s", err)
