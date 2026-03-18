@@ -1,16 +1,16 @@
 # CHANGELOG
 
-## [v1.2.0](https://github.com/NubeIO/module-core-loraraw/tree/v1.2.0) (2026-03-16)
+## [v1.2.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.2.1) (2026-03-18)
 
 - Support both **Legacy** and **Rubix** LoRaRAW devices
 - **Breaking**:
-   - If we have the serial port **other than `/data/socat/loRa1`** at the network level
-      - We need to change the module configuration:
-         ```yaml
-         decryption_disabled: true
-         ```
-      - Otherwise, don't need to change anything
-   - **Min version: `driver-lora >=v1.0.1-rc.6`**
+    - If we have the serial port **`/data/socat/loRa1`** at the network level (mainly for UART & Rubix devices)
+        - We need to change the module configuration:
+           ```yaml
+           enable_decryption: true
+           ```
+        - Otherwise, don't need to change anything
+    - **Min version: `driver-lora >=v1.0.1-rc.6`**
 - **Note**: network without `/data/socat/loRa1` doesn't need the `lora-driver`
 
 ## [v1.1.2-rc.9](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.9) (2026-03-04)
