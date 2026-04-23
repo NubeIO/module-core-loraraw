@@ -108,28 +108,29 @@ const (
 )
 
 func DecodeZHT(
-	data string,
-	_ []byte,
+	_ string,
+	payloadBytes []byte,
 	_ *codec.LoRaDeviceDescription,
 	device *model.Device,
 	updatePointFn codec.UpdateDevicePointFunc,
 	updatePointErrFn codec.UpdateDevicePointErrorFunc,
 	updateDeviceMetaTagsFn codec.UpdateDeviceMetaTagsFunc,
 ) error {
-	bytes, err := getPayloadBytes(data)
-	if err != nil {
-		return err
+	if len(payloadBytes) < 2 {
+		return fmt.Errorf("ZHT payload too short: %d", len(payloadBytes))
 	}
+	// Byte 0 is the payload type; remaining bytes start with the packet version
+	// (consumed at index 1 inside the per-type decoders, matching the legacy layout).
+	payloadType := TZHTPayloadType(payloadBytes[0])
+	innerBytes := payloadBytes[1:]
 
-	switch pl := getPayloadType(data); pl {
+	switch payloadType {
 	case StaticData:
-		return staticPayloadDecoder(bytes, device, updateDeviceMetaTagsFn)
+		return staticPayloadDecoder(innerBytes, device, updateDeviceMetaTagsFn)
 	case WriteData:
-		err := writePayloadDecoder(bytes, device, updatePointFn)
-		return err
+		return writePayloadDecoder(innerBytes, device, updatePointFn)
 	case PollData:
-		err := pollPayloadDecoder(bytes, device, updatePointFn)
-		return err
+		return pollPayloadDecoder(innerBytes, device, updatePointFn)
 	}
 
 	return nil

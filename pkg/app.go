@@ -137,11 +137,15 @@ func (m *Module) writePoint(pointUUID string, body *dto.PointWriter) (*model.Poi
 }
 
 func (m *Module) handleSerialPayload(dataHex string) {
+	log.Infof("handleSerialPayload: enter, networkUUID=%s, dataHex=%s", m.networkUUID, dataHex)
+
 	if m.networkUUID == "" {
+		log.Infof("handleSerialPayload: exit, no networkUUID set")
 		return
 	}
 
 	if !codec.ValidPayload(dataHex) {
+		log.Infof("handleSerialPayload: exit, invalid payload (length=%d)", len(dataHex))
 		return
 	}
 
@@ -153,23 +157,24 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		log.Errorf("failed to decode LoRa address from hex data (length=%d): %s", len(dataHex), err)
 		return
 	}
-	device := m.getDeviceByLoRaAddress(address)
+	log.Infof("handleSerialPayload: decoded address=%s", address)
 
-	dataBytes, err := hex.DecodeString(dataHex)
-	if err != nil {
-		log.Errorf("error decoding data: (address: %s) %s", address, err)
-		return
-	}
+	device := m.getDeviceByLoRaAddress(address)
+	log.Infof("handleSerialPayload: initial device lookup: found=%v, enableDecryption=%v",
+		device != nil, m.config.EnableDecryption)
 
 	if device == nil && m.config.EnableDecryption {
+		log.Infof("handleSerialPayload: attempting legacy decryption fallback for unknown address=%s", address)
 		// maybe it's a legacy device (droplet, microedge, ziphydrotap)
 		keyBytes, err := hex.DecodeString(m.config.DefaultKey)
 		if err != nil {
 			log.Errorf("error decoding default key: %s", err)
 			return
 		}
+		dataBytes, _ := hex.DecodeString(dataHex)
 		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
 		if err == nil {
+			log.Infof("handleSerialPayload: legacy decrypt succeeded, decryptedLen=%d", len(dataLegacy))
 			address, err = codec.DecodeAddressBytes(dataLegacy)
 			if err != nil {
 				log.Errorf("failed to decode LoRa address from legacy bytes (length=%d): %s", len(dataLegacy), err)
@@ -179,6 +184,9 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			legacyDevice = true
 			dataHex = hex.EncodeToString(dataLegacy)
 			dataBytes = dataLegacy
+			log.Infof("handleSerialPayload: legacy fallback resolved address=%s, deviceFound=%v", address, device != nil)
+		} else {
+			log.Infof("handleSerialPayload: legacy decrypt failed: %s", err)
 		}
 	}
 
@@ -194,6 +202,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		log.Errorf("failed to decode SNR from hex data (address=%s, length=%d): %s", address, len(dataHex), err)
 		return
 	}
+	log.Infof("handleSerialPayload: address=%s rssi=%d snr=%.2f legacyDevice=%v", address, rssi, snr, legacyDevice)
 
 	if device == nil {
 		log.Infof("message from unknown sensor. ID: %s, RSSI: %d, SNR: %.2f", address, rssi, snr)
@@ -204,26 +213,35 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		log.Errorln("nil device description found")
 		return
 	}
+	log.Infof("handleSerialPayload: matched device model=%s uuid=%s isLoRaRAW=%v",
+		device.Model, device.UUID, devDesc.IsLoRaRAW)
 
 	if !legacyDevice && m.config.EnableDecryption {
+		log.Infof("handleSerialPayload: taking LoRaRAW decrypt path for address=%s", address)
 		keyBytes, err := m.getEncryptionKey(device)
 		if err != nil {
 			log.Errorf("error decoding default key: %s", err)
 			return
 		}
-		dataBytes, err = decryptLoRaRAWPkt(dataBytes, keyBytes)
+		dataBytes, _ := hex.DecodeString(dataHex)
+		decodedDataBytes, err := decryptLoRaRAWPkt(dataBytes, keyBytes)
 		if err != nil {
 			log.Errorf("error decrypting data: (address: %s) %s", address, err)
 			return
 		}
-		m.handleLoRaRAWDevice(device, devDesc, dataHex, dataBytes, keyBytes)
+		log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d, dispatching to LoRaRAW handler", len(decodedDataBytes))
+		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes)
 	} else {
+		log.Infof("handleSerialPayload: taking legacy handler path (legacyDevice=%v, enableDecryption=%v)",
+			legacyDevice, m.config.EnableDecryption)
+		dataBytes, _ := hex.DecodeString(dataHex)
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
 	}
 
 	m.updateDevicePointSuccess(codec.RssiField, float64(rssi), device, devDesc)
 	m.updateDevicePointSuccess(codec.SnrField, float64(snr), device, devDesc)
 	m.updateDeviceFault(device.Model, device.UUID)
+	log.Infof("handleSerialPayload: done for address=%s model=%s", address, device.Model)
 }
 
 func (m *Module) handleLegacyDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte) {
