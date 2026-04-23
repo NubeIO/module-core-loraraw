@@ -67,7 +67,7 @@ func DecodeSNR(data string) (float32, error) {
 	}
 	var f float32
 	if v > 127 {
-		f = float32(v - 256)
+		f = float32(v-256) / 4.
 	} else {
 		f = float32(v) / 4.
 	}
