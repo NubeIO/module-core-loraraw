@@ -149,6 +149,13 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		return
 	}
 
+	// Publish the raw uplink (as received off the wire) regardless of whether
+	// it can be decoded. This mirrors the behaviour of the python lora-raw
+	// project but with the new topic structure.
+	if m.mqttClient != nil {
+		m.mqttClient.PublishRaw(strings.ToUpper(dataHex))
+	}
+
 	var err error
 	log.Debugf("uplink: %s", dataHex)
 	legacyDevice := false
@@ -216,6 +223,14 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	log.Infof("handleSerialPayload: matched device model=%s uuid=%s isLoRaRAW=%v",
 		device.Model, device.UUID, devDesc.IsLoRaRAW)
 
+	// Collect every decoded point value so we can publish them as a single
+	// JSON payload over MQTT once decoding is complete.
+	collected := map[string]float64{}
+	successFn := func(name string, value float64, dev *model.Device, dd *codec.LoRaDeviceDescription) error {
+		collected[name] = value
+		return m.updateDevicePointSuccess(name, value, dev, dd)
+	}
+
 	if !legacyDevice && m.config.EnableDecryption {
 		log.Infof("handleSerialPayload: taking LoRaRAW decrypt path for address=%s", address)
 		keyBytes, err := m.getEncryptionKey(device)
@@ -230,7 +245,7 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			return
 		}
 		log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d, dispatching to LoRaRAW handler", len(decodedDataBytes))
-		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes)
+		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn)
 	} else if !legacyDevice && !m.config.EnableDecryption && devDesc.IsLoRaRAW {
 		// Unencrypted LoRaRAW frame: same wire framing minus encryption and CMAC.
 		// Layout: [addr:4][opts:1][nonce:1][len:1][payload:len][rssi:1][snr:1]
@@ -251,35 +266,39 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		payload := utils.StripLoRaRAWPayload(dataBytes)
 		log.Infof("handleSerialPayload: unencrypted LoRaRAW ok, innerLen=%d, dispatching to decoder", innerLen)
 		if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
-			m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags); err != nil {
+			successFn, m.updateDevicePointError, m.updateDeviceMetaTags); err != nil {
 			log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
 		}
 	} else {
 		log.Infof("handleSerialPayload: taking legacy handler path (legacyDevice=%v, enableDecryption=%v)",
 			legacyDevice, m.config.EnableDecryption)
 		dataBytes, _ := hex.DecodeString(dataHex)
-		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes)
+		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes, successFn)
 	}
 
-	m.updateDevicePointSuccess(codec.RssiField, float64(rssi), device, devDesc)
-	m.updateDevicePointSuccess(codec.SnrField, float64(snr), device, devDesc)
+	_ = successFn(codec.RssiField, float64(rssi), device, devDesc)
+	_ = successFn(codec.SnrField, float64(snr), device, devDesc)
 	m.updateDeviceFault(device.Model, device.UUID)
 	log.Infof("handleSerialPayload: done for address=%s model=%s", address, device.Model)
+
+	if m.mqttClient != nil && device.AddressUUID != nil && len(collected) > 0 {
+		m.mqttClient.PublishValues(*device.AddressUUID, device.Name, collected)
+	}
 }
 
-func (m *Module) handleLegacyDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte) {
+func (m *Module) handleLegacyDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte, successFn codec.UpdateDevicePointFunc) {
 	if !devDesc.CheckLength(dataHex) {
 		log.Errorf("invalid legacy payload length")
 		return
 	}
 
-	err := devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
+	err := devDesc.DecodeUplink(dataHex, dataBytes, devDesc, device, successFn, m.updateDevicePointError, m.updateDeviceMetaTags)
 	if err != nil {
 		log.Errorf("error decoding legacy uplink: %v", err)
 	}
 }
 
-func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte, keyBytes []byte) {
+func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte, keyBytes []byte, successFn codec.UpdateDevicePointFunc) {
 	if !utils.CheckLoRaRAWPayloadLength(dataBytes) {
 		log.Errorf("LoRaRaw payload length mismatched")
 		return
@@ -290,7 +309,7 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 	switch opts {
 	case utils.LORARAW_OPTS_CONFIRMED_UPLINK:
 		m.handleConfirmedOpt(dataBytes, keyBytes)
-		devDesc.DecodeUplink(dataHex, payload, devDesc, device, m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags)
+		devDesc.DecodeUplink(dataHex, payload, devDesc, device, successFn, m.updateDevicePointError, m.updateDeviceMetaTags)
 	case utils.LORARAW_OPTS_RESPONSE:
 		if len(dataBytes) <= utils.LORARAW_NONCE_POSITION {
 			log.Errorf("dataBytes too short for response: length %d, need at least %d", len(dataBytes), utils.LORARAW_NONCE_POSITION+1)

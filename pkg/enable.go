@@ -29,6 +29,16 @@ func (m *Module) Enable() error {
 		m.getEncryptionKey,
 		m.WriteToLoRaRaw)
 
+	if m.config.MQTTEnable && m.mqttClient == nil {
+		m.mqttClient = NewMQTTClient(
+			m.config.MQTTBroker,
+			m.config.MQTTClientID,
+			m.config.MQTTUsername,
+			m.config.MQTTPassword,
+			m.config.MQTTTopicPrefix,
+		)
+	}
+
 	if len(networks) == 0 {
 		warnMsg := "no LoRaRAW networks exist"
 		log.Warn(warnMsg)
@@ -68,6 +78,11 @@ func (m *Module) Disable() error {
 		close(m.writeQueueDone)
 		close(m.writeQueue)
 		m.writeQueue = nil
+	}
+
+	if m.mqttClient != nil {
+		m.mqttClient.Disconnect()
+		m.mqttClient = nil
 	}
 
 	time.Sleep(m.config.ReIterationTime + 1*time.Second) // we need to do this because, before disable it could possibly be restarted
