@@ -217,11 +217,17 @@ func TestRSSIAndSNRDecoding(t *testing.T) {
 			continue
 		}
 		t.Run(tc.raw[:8], func(t *testing.T) {
-			rssi := codec.DecodeRSSI(tc.raw)
+			rssi, err := codec.DecodeRSSI(tc.raw)
+			if err != nil {
+				t.Fatalf("DecodeRSSI: %s", err)
+			}
 			if rssi != tc.wantRSSI {
 				t.Errorf("RSSI: got %d, want %d", rssi, tc.wantRSSI)
 			}
-			snr := codec.DecodeSNR(tc.raw)
+			snr, err := codec.DecodeSNR(tc.raw)
+			if err != nil {
+				t.Fatalf("DecodeSNR: %s", err)
+			}
 			if snr != tc.wantSNR {
 				t.Errorf("SNR: got %v, want %v", snr, tc.wantSNR)
 			}
@@ -242,7 +248,11 @@ func TestLoRaRAWPacketClassification(t *testing.T) {
 				t.Errorf("LoRaRAW frame misclassified as legacy (len=%d, remainder=%d)",
 					len(dataBytes), (len(dataBytes)-2)%16)
 			}
-			addr := strings.ToUpper(codec.DecodeAddressHex(tc.raw))
+			decoded, err := codec.DecodeAddressHex(tc.raw)
+			if err != nil {
+				t.Fatalf("DecodeAddressHex: %s", err)
+			}
+			addr := strings.ToUpper(decoded)
 			if addr != tc.wantAddr {
 				t.Errorf("LoRaRAW addr: got %s, want %s", addr, tc.wantAddr)
 			}

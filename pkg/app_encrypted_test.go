@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/NubeIO/module-core-loraraw/codec"
+	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -65,6 +67,48 @@ func runEncryptedRubixTests(tests []TestStruct, mockDevice *model.Device, t *tes
 	}
 }
 
+// runEncryptedZHTTests decrypts each raw LoRaRAW frame with the shared test
+// key, then dispatches the inner payload through the same code path the live
+// pipeline uses (decodeData -> DecodeZHT). The test fails if decryption or
+// decoding reports an error, guarding against regressions of the ZHT decoder
+// (e.g. decoding the raw address instead of the stripped payload).
+//
+// All decoded points are logged so fixtures can be extended with exact values
+// in the future without touching the runner.
+func runEncryptedZHTTests(tests []TestStruct, mockDevice *model.Device, t *testing.T) {
+	keyBytes, err := hex.DecodeString("0301021604050F07E6095A0B0C12630F")
+	if err != nil {
+		t.Fatalf("hex decode key error: %s", err)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.Name, func(t *testing.T) {
+			currTest = &tt
+			currIndex = 0
+
+			dataBytes, err := hex.DecodeString(tt.Data)
+			if err != nil {
+				t.Fatalf("hex decode error: %s", err)
+			}
+			decrypted, err := decryptLoRaRAWPkt(dataBytes, keyBytes)
+			if err != nil {
+				t.Fatalf("decryptLoRaRAWPkt failed: %s", err)
+			}
+
+			capture := func(name string, value float64, device *model.Device, devDesc *codec.LoRaDeviceDescription) error {
+				t.Logf("  %s = %f", name, value)
+				return updateDevicePointMock(name, value, device, devDesc)
+			}
+
+			err = decodeData(hex.EncodeToString(decrypted), mockDevice, capture, updateDeviceMetaTagsMock)
+			if err != nil {
+				t.Fatalf("decodeData failed: %s", err)
+			}
+		})
+	}
+}
+
+// TestMicroEdge1Payload ...
 func TestMicroEdge1Payload(t *testing.T) {
 	test = t
 	mockDevice := &model.Device{
@@ -102,6 +146,7 @@ func TestMicroEdge1Payload(t *testing.T) {
 	runEncryptedTests(tests, mockDevice, t)
 }
 
+// TestEncryotedDropletPayload ...
 func TestEncryotedDropletPayload(t *testing.T) {
 	test = t
 	mockDevice := &model.Device{
@@ -141,6 +186,7 @@ func TestEncryotedDropletPayload(t *testing.T) {
 	runEncryptedTests(tests, mockDevice, t)
 }
 
+// TestEncryptedRubixPayload ...
 func TestEncryptedRubixPayload(t *testing.T) {
 	test = t
 	mockDevice := &model.Device{
@@ -195,4 +241,149 @@ func TestEncryptedRubixPayload(t *testing.T) {
 	}
 
 	runEncryptedRubixTests(tests, mockDevice, t)
+}
+
+// TestEncryptedZHTPayload replays real encrypted LoRaRAW frames captured from
+// a ZipHydroTap (address 00C032AA). It verifies the full pipeline:
+//
+//	raw hex -> decryptLoRaRAWPkt -> StripLoRaRAWPayload -> DecodeZHT
+//
+// Historically DecodeZHT consumed the raw data string (which starts with the
+// 4-byte address), making the first byte (0x00) parse as ErrorData and the
+// decoder a silent no-op. These fixtures keep that regression from returning.
+func TestEncryptedZHTPayload(t *testing.T) {
+	test = t
+	addr := "00C032AA"
+	mockDevice := &model.Device{
+		Name: "ZHT",
+		CommonDevice: model.CommonDevice{
+			Model:       schema.DeviceModelZiptHydroTap,
+			AddressUUID: &addr,
+		},
+	}
+
+	tests := []TestStruct{
+		{
+			Name: "ZHT-Encrypted-1",
+			Data: "00C032AAB0138AB28B6E9A969E7E9CCCA2032EA05837EDF19D35014D38697EB48F591B05E27C93089C3B6A6AF567CA517EAB07A8D8FB11A772C7B1310ABA061D8C6E933163A5AD085228",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 98.0}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 61.0}, {"temperature_ntc_condensor", 30.0},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+		{
+			Name: "ZHT-Encrypted-2",
+			Data: "00C032AA7BDB7ECADE4042FDB93280AFCD41B002E530E1A0FBEEB0B51FE48E78463B98BB815CE57D36DF5563F38E330A9EF56A611D1A68B1DA6327D95647896B9C567A499CBC55315228",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 97.5}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 61.0}, {"temperature_ntc_condensor", 30.0},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+		{
+			Name: "ZHT-Encrypted-3",
+			Data: "00C032AADF0105FE4A892F43F1B6490450A54EFDA8721323CC19AD5AB478054B2D47573EA58DF06E07E5A8EB650DFFFC231C863261D3173174348EB6CD36D160D775FF796C6A56435228",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 98.0}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 60.5}, {"temperature_ntc_condensor", 30.0},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+		{
+			Name: "ZHT-Encrypted-4",
+			Data: "00C032AAA47E9A05A2AD7A45B19F886F1F05777F3B6C6AFABA2706EFB310B85D4EDB4C4E4A82791DB2D92B49006E3F9A5095C09F24D0DF98FD657D815F6FC406CBD2E93096766AA05228",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 98.0}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 61.0}, {"temperature_ntc_condensor", 30.0},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+		{
+			Name: "ZHT-Encrypted-5",
+			Data: "00C032AA409D0A9B1067C9517BF77194AD07254AB06773F5C7B2004405B38C71F7315A6DE8C70CE9F105B1C5609D0918876AC96BE06C5848326B478850A67FB4B4AD23F9DACAC1F65227",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 97.5}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 61.0}, {"temperature_ntc_condensor", 30.4},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+		{
+			Name: "ZHT-Encrypted-6",
+			Data: "00C032AA20DC48F0D608F9FE9EF46474AAA0C91BAC321A936A1FF900249B82A026CFD86E85F44AAA4C8A147138A76F333CF2404FD479928F7189D250839BE5E25B54A5D368C78826522A",
+			Values: []TestPoint{
+				{"rebooted", 0}, {"sleep_mode_status", 1},
+				{"temperature_ntc_boiling", 98.0}, {"temperature_ntc_chilled", 8.4},
+				{"temperature_ntc_stream", 61.0}, {"temperature_ntc_condensor", 30.0},
+				{"fault_1", 255}, {"fault_2", 255}, {"fault_3", 255}, {"fault_4", 255},
+				{"usage_energy_kwh", 4598.600098},
+				{"usage_water_delta_dispenses_boiling", 0}, {"usage_water_delta_dispenses_chilled", 0}, {"usage_water_delta_dispenses_sparkling", 0},
+				{"usage_water_delta_litres_boiling", 0}, {"usage_water_delta_litres_chilled", 0}, {"usage_water_delta_litres_sparkling", 0},
+				{"filter_warning_internal", 0}, {"filter_warning_external", 0},
+				{"filter_info_usage_litres_internal", 700}, {"filter_info_usage_days_internal", 160},
+				{"filter_info_usage_litres_external", 0}, {"filter_info_usage_days_external", 0},
+				{"filter_info_usage_litres_uv", 0}, {"filter_info_usage_days_uv", 0},
+				{"filter_warning_uv", 0}, {"co2_low_gas_warning", 0},
+				{"co2_usage_grams", 0}, {"co2_usage_days", 0},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+	}
+
+	runEncryptedZHTTests(tests, mockDevice, t)
 }
