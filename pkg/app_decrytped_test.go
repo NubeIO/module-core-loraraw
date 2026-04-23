@@ -444,6 +444,39 @@ func TestZHTPayload(t *testing.T) {
 			},
 			[]*model.DeviceMetaTag{},
 		},
+		// Unencrypted LoRaRAW poll frame captured from a RaspberryPi running
+		// with enable_decryption=false. Regression for the ZHT "invalid legacy
+		// payload length" error when the module takes the non-decryption path.
+		// Wire layout: [addr:4][opts:1][nonce:1][len=0x28:1][payload:40][rssi:1][snr:1]
+		{"ZHT-Unencrypted",
+			"00C03200013728030101C50352000D021E01FFFFFFFFC53400000000000000000000000000000083001700000000005400",
+			[]TestPoint{
+				{"rebooted", 0.000000},
+				{"sleep_mode_status", 1.000000},
+				{"temperature_ntc_boiling", 96.500000},
+				{"temperature_ntc_chilled", 8.200000},
+				{"temperature_ntc_stream", 52.500000},
+				{"temperature_ntc_condensor", 28.600000},
+				{"fault_1", 255.000000},
+				{"fault_2", 255.000000},
+				{"fault_3", 255.000000},
+				{"fault_4", 255.000000},
+				{"usage_energy_kwh", 1350.900024},
+				{"usage_water_delta_dispenses_boiling", 0.000000},
+				{"usage_water_delta_dispenses_chilled", 0.000000},
+				{"usage_water_delta_dispenses_sparkling", 0.000000},
+				{"usage_water_delta_litres_boiling", 0.000000},
+				{"usage_water_delta_litres_chilled", 0.000000},
+				{"usage_water_delta_litres_sparkling", 0.000000},
+				{"filter_warning_internal", 0.000000},
+				{"filter_warning_external", 0.000000},
+				{"filter_info_usage_litres_internal", 131.000000},
+				{"filter_info_usage_days_internal", 23.000000},
+				{"filter_info_usage_litres_external", 0.000000},
+				{"filter_info_usage_days_external", 0.000000},
+			},
+			[]*model.DeviceMetaTag{},
+		},
 	}
 
 	runTests(tests, mockDevice, t)

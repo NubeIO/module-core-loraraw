@@ -54,3 +54,58 @@ Safe because `staticPayloadDecoder` / `writePayloadDecoder` /
 - `go build ./...` clean.
 - `TestZHTPayload` (poll / static / write) in `pkg/app_decrytped_test.go`
   still passes.
+
+---
+
+# Follow-up: Unencrypted LoRaRAW support
+
+## Symptom
+
+With `enable_decryption=false`, every ZHT frame logged:
+
+```
+handleSerialPayload: taking legacy handler path (legacyDevice=false, enableDecryption=false)
+level=error msg="invalid legacy payload length"
+```
+
+Example frame (49 bytes, starts with `00C03200` + opts/nonce/len header):
+
+```
+00C03200013728030101C50352000D021E01FFFFFFFFC53400000000000000000000000000000083001700000000005400
+```
+
+## Cause
+
+`handleSerialPayload` only had two branches: encrypted LoRaRAW or legacy.
+When decryption was disabled, LoRaRAW-framed devices (ZHT, Rubix, UART)
+fell through to `handleLegacyDevice`, which ran `CheckLength` on the raw
+hex and rejected it.
+
+## Fix
+
+Added a middle branch in [`pkg/app.go`](../../pkg/app.go) →
+`handleSerialPayload`:
+
+```go
+} else if !legacyDevice && !m.config.EnableDecryption && devDesc.IsLoRaRAW {
+    // Layout: [addr:4][opts:1][nonce:1][len:1][payload:len][rssi:1][snr:1]
+    dataBytes, _ := hex.DecodeString(dataHex)
+    // bounds-check header + payload + rssi/snr
+    payload := utils.StripLoRaRAWPayload(dataBytes)
+    devDesc.DecodeUplink(dataHex, payload, devDesc, device, ...)
+}
+```
+
+No CMAC, no AES — just strip the LoRaRAW wrapper and hand the inner
+payload to the same decoder used by the encrypted path.
+
+## Verification
+
+- New fixture `ZHT-Unencrypted` in
+  [`pkg/app_decrytped_test.go`](../../pkg/app_decrytped_test.go) uses the
+  raw 49-byte frame above and asserts all 23 poll fields
+  (e.g. `temperature_ntc_boiling=96.5`, `usage_energy_kwh=1350.9`,
+  `filter_info_usage_litres_internal=131`).
+- All existing ZHT fixtures (encrypted and decrypted) still pass.
+
+

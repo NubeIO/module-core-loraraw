@@ -231,6 +231,29 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		}
 		log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d, dispatching to LoRaRAW handler", len(decodedDataBytes))
 		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes)
+	} else if !legacyDevice && !m.config.EnableDecryption && devDesc.IsLoRaRAW {
+		// Unencrypted LoRaRAW frame: same wire framing minus encryption and CMAC.
+		// Layout: [addr:4][opts:1][nonce:1][len:1][payload:len][rssi:1][snr:1]
+		log.Infof("handleSerialPayload: taking unencrypted LoRaRAW path for address=%s", address)
+		dataBytes, _ := hex.DecodeString(dataHex)
+		if len(dataBytes) < utils.LORARAW_PAYLOAD_START+2 {
+			log.Errorf("unencrypted LoRaRAW frame too short: length %d, need at least %d",
+				len(dataBytes), utils.LORARAW_PAYLOAD_START+2)
+			return
+		}
+		innerLen := utils.GetLoRaRAWInnerPayloadLength(dataBytes)
+		// Need: header(7) + payload(innerLen) + rssi/snr(2) bytes.
+		if len(dataBytes) < utils.LORARAW_PAYLOAD_START+innerLen+2 {
+			log.Errorf("unencrypted LoRaRAW frame truncated: need %d bytes, have %d",
+				utils.LORARAW_PAYLOAD_START+innerLen+2, len(dataBytes))
+			return
+		}
+		payload := utils.StripLoRaRAWPayload(dataBytes)
+		log.Infof("handleSerialPayload: unencrypted LoRaRAW ok, innerLen=%d, dispatching to decoder", innerLen)
+		if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
+			m.updateDevicePointSuccess, m.updateDevicePointError, m.updateDeviceMetaTags); err != nil {
+			log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
+		}
 	} else {
 		log.Infof("handleSerialPayload: taking legacy handler path (legacyDevice=%v, enableDecryption=%v)",
 			legacyDevice, m.config.EnableDecryption)
