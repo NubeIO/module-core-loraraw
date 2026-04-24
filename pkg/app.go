@@ -149,12 +149,12 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		return
 	}
 
-	// Publish the raw uplink (as received off the wire) regardless of whether
-	// it can be decoded. This mirrors the behaviour of the python lora-raw
-	// project but with the new topic structure.
-	if m.mqttClient != nil {
-		m.mqttClient.PublishRaw(strings.ToUpper(dataHex))
-	}
+	// We intentionally DO NOT publish the raw uplink here. When encryption is
+	// enabled the on-the-wire bytes are encrypted and useless to other
+	// consumers (only this module holds the key). Instead we publish the
+	// decrypted/unwrapped frame further down, once we have it. For
+	// non-encrypted paths the original hex is published as-is.
+	publishRawHex := strings.ToUpper(dataHex)
 
 	var err error
 	log.Debugf("uplink: %s", dataHex)
@@ -178,8 +178,8 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			log.Errorf("error decoding default key: %s", err)
 			return
 		}
-		dataBytes, _ := hex.DecodeString(dataHex)
-		dataLegacy, err := decryptLegacy(dataBytes, keyBytes)
+		dataBytesOrig, _ := hex.DecodeString(dataHex)
+		dataLegacy, err := decryptLegacy(dataBytesOrig, keyBytes)
 		if err == nil {
 			log.Infof("handleSerialPayload: legacy decrypt succeeded, decryptedLen=%d", len(dataLegacy))
 			address, err = codec.DecodeAddressBytes(dataLegacy)
@@ -190,7 +190,16 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			device = m.getDeviceByLoRaAddress(address)
 			legacyDevice = true
 			dataHex = hex.EncodeToString(dataLegacy)
-			dataBytes = dataLegacy
+			// Publish a raw frame that looks the way the wire looked before
+			// the source started encrypting: decrypted body + original
+			// rssi/snr trailer.
+			if len(dataBytesOrig) >= 2 {
+				pubBytes := append([]byte{}, dataLegacy...)
+				pubBytes = append(pubBytes, dataBytesOrig[len(dataBytesOrig)-2:]...)
+				publishRawHex = strings.ToUpper(hex.EncodeToString(pubBytes))
+			} else {
+				publishRawHex = strings.ToUpper(dataHex)
+			}
 			log.Infof("handleSerialPayload: legacy fallback resolved address=%s, deviceFound=%v", address, device != nil)
 		} else {
 			log.Infof("handleSerialPayload: legacy decrypt failed: %s", err)
@@ -245,6 +254,13 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			return
 		}
 		log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d, dispatching to LoRaRAW handler", len(decodedDataBytes))
+		// Rebuild the frame as it would have appeared unencrypted on the wire:
+		// [addr:4][opts:1][nonce:1][len:1][inner payload:len][cmac:4][rssi:1][snr:1]
+		// This gives downstream MQTT consumers a stable, decodable frame that
+		// does not depend on holding the encryption key.
+		if pub, ok := buildUnencryptedRawFrame(decodedDataBytes, dataBytes); ok {
+			publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
+		}
 		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn)
 	} else if !legacyDevice && !m.config.EnableDecryption && devDesc.IsLoRaRAW {
 		// Unencrypted LoRaRAW frame: same wire framing minus encryption and CMAC.
@@ -281,9 +297,46 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	m.updateDeviceFault(device.Model, device.UUID)
 	log.Infof("handleSerialPayload: done for address=%s model=%s", address, device.Model)
 
-	if m.mqttClient != nil && device.AddressUUID != nil && len(collected) > 0 {
-		m.mqttClient.PublishValues(*device.AddressUUID, device.Name, collected)
+	if m.mqttClient != nil {
+		m.mqttClient.PublishRaw(publishRawHex)
+		if device.AddressUUID != nil && len(collected) > 0 {
+			m.mqttClient.PublishValues(*device.AddressUUID, device.Name, collected)
+		}
 	}
+}
+
+// buildUnencryptedRawFrame takes a decrypted LoRaRAW frame (as produced by
+// decryptLoRaRAWPkt — i.e. addr+opts+nonce+len+padded_payload+cmac, WITHOUT
+// rssi/snr) and the original on-the-wire bytes (which DO have rssi/snr as the
+// last 2 bytes), and returns the frame rebuilt to match the pre-encryption
+// wire layout that existed before the source enabled encryption:
+//
+//	[addr:4][opts:1][nonce:1][len:1][payload:len][rssi:1][snr:1]
+//
+// Notes:
+//   - The AES padding after `payload` is stripped using the `len` field so the
+//     published hex length is independent of the AES block size.
+//   - The 4-byte CMAC is intentionally NOT included: it only exists to
+//     authenticate the encrypted transport and is meaningless to downstream
+//     MQTT consumers, which expect the legacy unencrypted layout.
+//
+// Returns false when the inputs are too short to reconstruct the frame safely.
+func buildUnencryptedRawFrame(decoded, original []byte) ([]byte, bool) {
+	if len(original) < 2 {
+		return nil, false
+	}
+	if len(decoded) < utils.LORARAW_PAYLOAD_START {
+		return nil, false
+	}
+	innerLen := utils.GetLoRaRAWInnerPayloadLength(decoded)
+	if len(decoded) < utils.LORARAW_PAYLOAD_START+innerLen {
+		return nil, false
+	}
+	out := make([]byte, 0, utils.LORARAW_PAYLOAD_START+innerLen+2)
+	out = append(out, decoded[:utils.LORARAW_PAYLOAD_START+innerLen]...)
+	// RSSI/SNR from the original wire frame (CMAC is intentionally dropped).
+	out = append(out, original[len(original)-2:]...)
+	return out, true
 }
 
 func (m *Module) handleLegacyDevice(device *model.Device, devDesc *codec.LoRaDeviceDescription, dataHex string, dataBytes []byte, successFn codec.UpdateDevicePointFunc) {
