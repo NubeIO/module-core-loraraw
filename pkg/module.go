@@ -18,6 +18,7 @@ type Module struct {
 	writeQueue             chan []byte
 	writeQueueDone         chan struct{}
 	writeQueueInit         sync.Once
+	mqttClient             *MQTTClient
 }
 
 func (m *Module) Init(dbHelper nmodule.DBHelper, moduleName string) error {

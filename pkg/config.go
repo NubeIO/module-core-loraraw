@@ -17,6 +17,12 @@ type Config struct {
 	DefaultKey           string        `yaml:"default_key" type:"secret"`
 	EnableDecryption     bool          `yaml:"enable_decryption"`
 	WriteQueueMaxRetries int           `yaml:"write_queue_max_retries"`
+	MQTTEnable           bool          `yaml:"mqtt_enable"`
+	MQTTBroker           string        `yaml:"mqtt_broker"`
+	MQTTClientID         string        `yaml:"mqtt_client_id"`
+	MQTTUsername         string        `yaml:"mqtt_username"`
+	MQTTPassword         string        `yaml:"mqtt_password" type:"secret"`
+	MQTTTopicPrefix      string        `yaml:"mqtt_topic_prefix"`
 	timeOffAirDefault    time.Duration `yaml:"time_off_air_default"`
 }
 
@@ -29,6 +35,12 @@ func (m *Module) DefaultConfig() *Config {
 		DefaultKey:           DefaultDeviceKey,
 		EnableDecryption:     false,
 		WriteQueueMaxRetries: 5,
+		MQTTEnable:           true,
+		MQTTBroker:           "tcp://127.0.0.1:1883",
+		MQTTClientID:         "module-core-loraraw",
+		MQTTUsername:         "",
+		MQTTPassword:         "",
+		MQTTTopicPrefix:      MQTTTopicPrefix,
 		timeOffAirDefault:    5 * time.Second,
 	}
 }
