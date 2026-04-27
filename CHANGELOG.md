@@ -1,6 +1,10 @@
 # CHANGELOG
 
-## [v1.2.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.2.2) (2026-03-18)
+## [v1.3.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.0-rc.1) (2026-04-24)
+
+- Add MQTT support for publishing raw & decoded uplink data
+
+## [v1.2.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.2.2) (2026-04-23)
 
 - Support both **ZipHydroTap** devices
 
@@ -14,7 +18,7 @@
            enable_decryption: true
            ```
         - Otherwise, don't need to change anything
-  - **Min version: `driver-lora >= v1.0.1-rc.6` & `driver-lora <= v2.0.0-rc.1`**
+  - **Min version: `driver-lora >= v1.0.1-rc.6` & `driver-lora < v2.0.0-rc.1`**
 - **Note**: network without `/data/socat/loRa1` doesn't need the `lora-driver`
 
 ## [v1.1.2-rc.9](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.9) (2026-03-04)
