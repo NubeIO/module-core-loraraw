@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [v1.3.0](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.0) (2026-05-14)
+
+- Remove dependency of EnableDecryption
+- **Breaking**:
+    - If we have the serial port **`/data/socat/loRa1`** at the network level
+    - **Min version: `driver-lora >= v1.0.1-rc.5` & `driver-lora < v2.0.0-rc.1`**
+- **Note**: network without `/data/socat/loRa1` doesn't need the `lora-driver`
+
 ## [v1.3.0-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.0-rc.1) (2026-04-24)
 
 - Add MQTT support for publishing raw & decoded uplink data
@@ -12,13 +20,8 @@
 
 - Support both **Legacy** and **Rubix** LoRaRAW devices
 - **Breaking**:
-    - If we have the serial port **`/data/socat/loRa1`** at the network level (mainly for UART, Rubix devices, & a few ZipHydroTap devices)
-        - We need to change the module configuration:
-           ```yaml
-           enable_decryption: true
-           ```
-        - Otherwise, don't need to change anything
-  - **Min version: `driver-lora >= v1.0.1-rc.6` & `driver-lora < v2.0.0-rc.1`**
+    - If we have the serial port **`/data/socat/loRa1`** at the network level
+    - **Min version: `driver-lora >= v1.0.1-rc.5` & `driver-lora < v2.0.0-rc.1`**
 - **Note**: network without `/data/socat/loRa1` doesn't need the `lora-driver`
 
 ## [v1.1.2-rc.9](https://github.com/NubeIO/module-core-loraraw/tree/v1.1.2-rc.9) (2026-03-04)
