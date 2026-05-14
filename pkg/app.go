@@ -167,42 +167,20 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	log.Infof("handleSerialPayload: decoded address=%s", address)
 
 	device := m.getDeviceByLoRaAddress(address)
-	log.Infof("handleSerialPayload: initial device lookup: found=%v, enableDecryption=%v",
-		device != nil, m.config.EnableDecryption)
+	log.Infof("handleSerialPayload: initial device lookup: found=%v", device != nil)
 
-	if device == nil && m.config.EnableDecryption {
-		log.Infof("handleSerialPayload: attempting legacy decryption fallback for unknown address=%s", address)
-		// maybe it's a legacy device (droplet, microedge, ziphydrotap)
-		keyBytes, err := hex.DecodeString(m.config.DefaultKey)
-		if err != nil {
-			log.Errorf("error decoding default key: %s", err)
-			return
-		}
-		dataBytesOrig, _ := hex.DecodeString(dataHex)
-		dataLegacy, err := decryptLegacy(dataBytesOrig, keyBytes)
-		if err == nil {
-			log.Infof("handleSerialPayload: legacy decrypt succeeded, decryptedLen=%d", len(dataLegacy))
-			address, err = codec.DecodeAddressBytes(dataLegacy)
-			if err != nil {
-				log.Errorf("failed to decode LoRa address from legacy bytes (length=%d): %s", len(dataLegacy), err)
-			}
-			address = strings.ToUpper(address)
+	dataBytesOrig, _ := hex.DecodeString(dataHex)
+
+	// Auto-detect legacy-encrypted frame: unknown address on the wire, but
+	// after decrypting with the default key the address resolves differently.
+	if device == nil {
+		if res, ok := m.tryLegacyDecrypt(address, dataBytesOrig); ok {
+			address = res.address
 			device = m.getDeviceByLoRaAddress(address)
 			legacyDevice = true
-			dataHex = hex.EncodeToString(dataLegacy)
-			// Publish a raw frame that looks the way the wire looked before
-			// the source started encrypting: decrypted body + original
-			// rssi/snr trailer.
-			if len(dataBytesOrig) >= 2 {
-				pubBytes := append([]byte{}, dataLegacy...)
-				pubBytes = append(pubBytes, dataBytesOrig[len(dataBytesOrig)-2:]...)
-				publishRawHex = strings.ToUpper(hex.EncodeToString(pubBytes))
-			} else {
-				publishRawHex = strings.ToUpper(dataHex)
-			}
-			log.Infof("handleSerialPayload: legacy fallback resolved address=%s, deviceFound=%v", address, device != nil)
-		} else {
-			log.Infof("handleSerialPayload: legacy decrypt failed: %s", err)
+			dataHex = res.dataHex
+			publishRawHex = res.publishRawHex
+			log.Infof("handleSerialPayload: legacy fallback decrypted address=%s (deviceFound=%v)", address, device != nil)
 		}
 	}
 
@@ -240,56 +218,46 @@ func (m *Module) handleSerialPayload(dataHex string) {
 		return m.updateDevicePointSuccess(name, value, dev, dd)
 	}
 
-	if !legacyDevice && m.config.EnableDecryption {
-		log.Infof("handleSerialPayload: taking LoRaRAW decrypt path for address=%s", address)
-		keyBytes, err := m.getEncryptionKey(device)
-		if err != nil {
-			log.Errorf("error decoding default key: %s", err)
-			return
-		}
-		dataBytes, _ := hex.DecodeString(dataHex)
-		decodedDataBytes, err := decryptLoRaRAWPkt(dataBytes, keyBytes)
-		if err != nil {
-			log.Errorf("error decrypting data: (address: %s) %s", address, err)
-			return
-		}
-		log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d, dispatching to LoRaRAW handler", len(decodedDataBytes))
-		// Rebuild the frame as it would have appeared unencrypted on the wire:
-		// [addr:4][opts:1][nonce:1][len:1][inner payload:len][cmac:4][rssi:1][snr:1]
-		// This gives downstream MQTT consumers a stable, decodable frame that
-		// does not depend on holding the encryption key.
-		if pub, ok := buildUnencryptedRawFrame(decodedDataBytes, dataBytes); ok {
-			publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
-		}
-		m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn)
-	} else if !legacyDevice && !m.config.EnableDecryption && devDesc.IsLoRaRAW {
-		// Unencrypted LoRaRAW frame: same wire framing minus encryption and CMAC.
-		// Layout: [addr:4][opts:1][nonce:1][len:1][payload:len][rssi:1][snr:1]
-		log.Infof("handleSerialPayload: taking unencrypted LoRaRAW path for address=%s", address)
-		dataBytes, _ := hex.DecodeString(dataHex)
-		if len(dataBytes) < utils.LORARAW_PAYLOAD_START+2 {
-			log.Errorf("unencrypted LoRaRAW frame too short: length %d, need at least %d",
-				len(dataBytes), utils.LORARAW_PAYLOAD_START+2)
-			return
-		}
-		innerLen := utils.GetLoRaRAWInnerPayloadLength(dataBytes)
-		// Need: header(7) + payload(innerLen) + rssi/snr(2) bytes.
-		if len(dataBytes) < utils.LORARAW_PAYLOAD_START+innerLen+2 {
-			log.Errorf("unencrypted LoRaRAW frame truncated: need %d bytes, have %d",
-				utils.LORARAW_PAYLOAD_START+innerLen+2, len(dataBytes))
-			return
-		}
-		payload := utils.StripLoRaRAWPayload(dataBytes)
-		log.Infof("handleSerialPayload: unencrypted LoRaRAW ok, innerLen=%d, dispatching to decoder", innerLen)
-		if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
-			successFn, m.updateDevicePointError, m.updateDeviceMetaTags); err != nil {
-			log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
-		}
-	} else {
-		log.Infof("handleSerialPayload: taking legacy handler path (legacyDevice=%v, enableDecryption=%v)",
-			legacyDevice, m.config.EnableDecryption)
+	if legacyDevice {
+		log.Infof("handleSerialPayload: taking legacy decrypted handler path for address=%s", address)
 		dataBytes, _ := hex.DecodeString(dataHex)
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes, successFn)
+	} else if devDesc.IsLoRaRAW {
+		// Auto-detect: an unencrypted LoRaRAW frame has an exact length of
+		// header + innerLen + 2 (rssi/snr). Anything else is treated as
+		// encrypted and verified via CMAC inside aesutils.Decrypt.
+		dataBytes := dataBytesOrig
+		if isUnencryptedLoRaRAW(dataBytes) {
+			log.Infof("handleSerialPayload: detected unencrypted LoRaRAW for address=%s", address)
+			payload := utils.StripLoRaRAWPayload(dataBytes)
+			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
+				successFn, m.updateDevicePointError, m.updateDeviceMetaTags); err != nil {
+				log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
+			}
+		} else {
+			log.Infof("handleSerialPayload: attempting LoRaRAW decrypt for address=%s", address)
+			keyBytes, err := m.getEncryptionKey(device)
+			if err != nil {
+				log.Errorf("error decoding device key: %s", err)
+				return
+			}
+			decodedDataBytes, derr := decryptLoRaRAWPkt(dataBytes, keyBytes)
+			if derr != nil {
+				// CMAC mismatch or otherwise not encrypted with this key.
+				log.Errorf("error decrypting data (address: %s): %s", address, derr)
+				return
+			}
+			log.Infof("handleSerialPayload: LoRaRAW decrypt ok, decodedLen=%d", len(decodedDataBytes))
+			// Rebuild the frame as it would have appeared unencrypted on the wire
+			// so downstream MQTT consumers don't need the key.
+			if pub, ok := buildUnencryptedRawFrame(decodedDataBytes, dataBytes); ok {
+				publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
+			}
+			m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn)
+		}
+	} else {
+		log.Infof("handleSerialPayload: taking legacy plaintext handler path for address=%s", address)
+		m.handleLegacyDevice(device, devDesc, dataHex, dataBytesOrig, successFn)
 	}
 
 	_ = successFn(codec.RssiField, float64(rssi), device, devDesc)
@@ -303,6 +271,63 @@ func (m *Module) handleSerialPayload(dataHex string) {
 			m.mqttClient.PublishValues(*device.AddressUUID, device.Name, collected)
 		}
 	}
+}
+
+// legacyDecryptResult holds the rewritten frame produced by tryLegacyDecrypt.
+type legacyDecryptResult struct {
+	address       string
+	dataHex       string
+	publishRawHex string
+}
+
+// tryLegacyDecrypt attempts to decrypt the frame with the default legacy key
+// and reports success only when the address actually changes after decryption
+// (i.e. the bytes really were legacy-encrypted). It returns the rewritten
+// address, dataHex and publishRawHex on success.
+func (m *Module) tryLegacyDecrypt(address string, dataBytesOrig []byte) (legacyDecryptResult, bool) {
+	keyBytes, err := hex.DecodeString(m.config.DefaultKey)
+	if err != nil {
+		log.Errorf("tryLegacyDecrypt: error decoding default key: %s", err)
+		return legacyDecryptResult{}, false
+	}
+	dataLegacy, err := decryptLegacy(dataBytesOrig, keyBytes)
+	if err != nil {
+		log.Infof("tryLegacyDecrypt: decrypt failed: %s", err)
+		return legacyDecryptResult{}, false
+	}
+	addr2, err := codec.DecodeAddressBytes(dataLegacy)
+	if err != nil {
+		log.Infof("tryLegacyDecrypt: address decode failed: %s", err)
+		return legacyDecryptResult{}, false
+	}
+	addr2 = strings.ToUpper(addr2)
+	if addr2 == address {
+		// Address unchanged → bytes were already plaintext (or not encrypted
+		// with this key). Nothing to do.
+		log.Infof("tryLegacyDecrypt: address unchanged (%s), skipping", addr2)
+		return legacyDecryptResult{}, false
+	}
+	dataHex := hex.EncodeToString(dataLegacy)
+	publishRawHex := strings.ToUpper(dataHex)
+	if len(dataBytesOrig) >= 2 {
+		pubBytes := append([]byte{}, dataLegacy...)
+		pubBytes = append(pubBytes, dataBytesOrig[len(dataBytesOrig)-2:]...)
+		publishRawHex = strings.ToUpper(hex.EncodeToString(pubBytes))
+	}
+	return legacyDecryptResult{address: addr2, dataHex: dataHex, publishRawHex: publishRawHex}, true
+}
+
+// isUnencryptedLoRaRAW returns true when the frame length exactly matches the
+// plaintext LoRaRAW layout: header + inner payload + rssi/snr (2 bytes).
+// Encrypted frames are always longer because the inner payload is AES-padded
+// to a 16-byte block and followed by a 4-byte CMAC, so an exact length match
+// is a reliable, key-independent indicator that the frame is unencrypted.
+func isUnencryptedLoRaRAW(dataBytes []byte) bool {
+	if len(dataBytes) < utils.LORARAW_PAYLOAD_START+2 {
+		return false
+	}
+	innerLen := utils.GetLoRaRAWInnerPayloadLength(dataBytes)
+	return len(dataBytes) == utils.LORARAW_PAYLOAD_START+innerLen+2
 }
 
 // buildUnencryptedRawFrame takes a decrypted LoRaRAW frame (as produced by
