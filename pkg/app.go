@@ -362,13 +362,18 @@ func (m *Module) tryLegacyDecrypt(address string, dataBytesOrig []byte) (legacyD
 		log.Infof("tryLegacyDecrypt: address unchanged (%s), skipping", addr2)
 		return legacyDecryptResult{}, false
 	}
-	dataHex := hex.EncodeToString(dataLegacy)
-	publishRawHex := strings.ToUpper(dataHex)
+	// Re-append the original wire's rssi/snr trailer (last 2 bytes) to the
+	// decrypted plaintext so the rewritten frame mirrors a legacy plaintext
+	// wire layout: [decrypted_payload][rssi:1][snr:1]. Without this,
+	// codec.DecodeRSSI / DecodeSNR downstream would read the last 2 bytes
+	// of the plaintext payload (sensor data) as rssi/snr, producing
+	// nonsense values like rssi=-255, snr=0.25.
+	pubBytes := append([]byte{}, dataLegacy...)
 	if len(dataBytesOrig) >= 2 {
-		pubBytes := append([]byte{}, dataLegacy...)
 		pubBytes = append(pubBytes, dataBytesOrig[len(dataBytesOrig)-2:]...)
-		publishRawHex = strings.ToUpper(hex.EncodeToString(pubBytes))
 	}
+	dataHex := hex.EncodeToString(pubBytes)
+	publishRawHex := strings.ToUpper(dataHex)
 	return legacyDecryptResult{address: addr2, dataHex: dataHex, publishRawHex: publishRawHex}, true
 }
 
