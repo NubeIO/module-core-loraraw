@@ -114,6 +114,12 @@ func runDispatchTests(tests []TestStruct, mockDevice *model.Device, t *testing.T
 			if !res.OK {
 				t.Fatalf("dispatchFrame returned not-OK")
 			}
+			// Mirror handleSerialPayload: rssi/snr are emitted as ordinary
+			// points after dispatchFrame returns. Injecting them here lets
+			// fixtures assert them alongside sensor points and keeps the
+			// test view of "what got published" identical to production.
+			got[codec.RssiField] = float64(res.RSSI)
+			got[codec.SnrField] = float64(res.SNR)
 			t.Logf("dispatch: address=%s model=%s legacy=%v rssi=%d snr=%.2f publishRawHex=%s",
 				res.Address, res.Device.Model, res.LegacyDevice, res.RSSI, res.SNR, res.PublishRawHex)
 
@@ -199,6 +205,11 @@ func TestEncryptedDropletPayload(t *testing.T) {
 		// 2026-05-14. Wire address 355055BD decrypts (default key) to device
 		// address C3B2B971 -> THLM model "dr3". Regression for the auto-detect
 		// legacy fallback path in handleSerialPayload.
+		//
+		// Also locks in the rssi/snr fix: the original wire bytes end in
+		// 0x44, 0x27. tryLegacyDecrypt must re-append these to the decrypted
+		// dataHex so DecodeRSSI/DecodeSNR see the real radio metadata
+		// (rssi=-68, snr=9.75) instead of the last 2 plaintext sensor bytes.
 		{"DropletLegacyAutoDetect",
 			"355055BD6FE9265D44A4B9B1D20BCA234427",
 			[]TestPoint{
@@ -208,6 +219,8 @@ func TestEncryptedDropletPayload(t *testing.T) {
 				{"voltage", 4.480000},
 				{"light", 2.000000},
 				{"motion", 0.000000},
+				{"rssi", -68},
+				{"snr", 9.75},
 			},
 			[]*model.DeviceMetaTag{},
 		},
@@ -590,6 +603,42 @@ func TestUnencryptedTHLPayload(t *testing.T) {
 			MetaTags: []*model.DeviceMetaTag{},
 		},
 	}, mockDr2, t)
+}
+
+func TestUnencryptedMicroEdgeV2Payload(t *testing.T) {
+	test = t
+
+	// dr3 @ 3DB20FF3 (dev_dcf24b293849476d)
+	addrDr3 := "69ACF3A2"
+	mockDr3 := &model.Device{
+		Name: "MicroEdgeV2",
+		CommonDevice: model.CommonDevice{
+			Model:       "MicroEdgeV2",
+			AddressUUID: &addrDr3,
+		},
+	}
+	runDispatchTests([]TestStruct{
+		{
+			Name: "MicroEdgeV2-WithTrailer",
+			// Wire layout (18 bytes):
+			//   [addr:4][pulse:4][voltage:1][ai1:2][ai2:2][ai3:2][flags:1][rssi:1][snr:1]
+			// Trailing 2 bytes (5B 27) are appended by the SX127x driver
+			// pipeline (_serial_lora_format):
+			//   rssi byte 0x5B = 91   -> DecodeRSSI: -91
+			//   snr  byte 0x27 = 39   -> DecodeSNR : 39/4 = 9.75
+			Data: "69ACF3A20002EA9DB803FF03FF03FF015B27",
+			Values: []TestPoint{
+				{"pulse", 191133},
+				{"voltage", 3.68},
+				{"ai_1", 1023},
+				{"ai_2", 1023},
+				{"ai_3", 1023},
+				{"rssi", -91},
+				{"snr", 9.75},
+			},
+			MetaTags: []*model.DeviceMetaTag{},
+		},
+	}, mockDr3, t)
 }
 
 // TestUnencryptedZHTPayload replays a real PLAINTEXT (unencrypted) LoRaRAW
