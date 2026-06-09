@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.2) (2026-06-09)
+
+- Preserve writeable configuration for points during device edits
+
 ## [v1.3.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.1) (2026-05-27)
 
 - Fix RSSI/SNR handling in legacy decryption and update tests
