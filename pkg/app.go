@@ -638,7 +638,15 @@ func (m *Module) updateDevicePointsAddress(body *model.Device) error {
 	}
 	for _, pt := range dev.Points {
 		pt.AddressUUID = body.AddressUUID
-		pt.EnableWriteable = boolean.NewFalse()
+		// Preserve the writeable configuration based on the point's WriteMode
+		// (e.g. UART points configured via getUARTPointConfig) instead of
+		// forcing every point to read-only on a device edit.
+		if utils.IsWriteable(pt.WriteMode) {
+			pt.EnableWriteable = boolean.NewTrue()
+			pt.WritePollRequired = boolean.NewTrue()
+		} else {
+			pt = utils.ResetWriteableProperties(pt)
+		}
 		_, err = m.grpcMarshaller.UpdatePoint(pt.UUID, pt)
 		if err != nil {
 			log.Errorf("issue on UpdatePoint updateDevicePointsAddress(): %s", err)
