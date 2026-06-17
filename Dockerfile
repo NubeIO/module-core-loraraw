@@ -1,5 +1,8 @@
-# Use Ubuntu 20.04 as the base image
-FROM ubuntu:20.04 AS builder
+# Use Ubuntu 22.04 as the base image
+FROM ubuntu:22.04 AS builder
+
+# Prevent interactive prompts during package installation (e.g. tzdata)
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Go and necessary dependencies for cross-compilation
 RUN apt-get update
