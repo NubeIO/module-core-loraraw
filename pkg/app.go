@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"bytes"
+	"crypto/aes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -278,37 +279,43 @@ func (m *Module) dispatchFrame(
 		dataBytes, _ := hex.DecodeString(dataHex)
 		m.handleLegacyDevice(device, devDesc, dataHex, dataBytes, successFn, errorFn, metaFn)
 	} else if devDesc.IsLoRaRAW {
-		// Auto-detect: an unencrypted LoRaRAW frame has an exact length of
-		// header + innerLen + 2 (rssi/snr). Anything else is treated as
-		// encrypted and verified via CMAC inside aesutils.Decrypt.
+		// Encryption is decided by the CMAC, not by frame length. The old
+		// length-only heuristic (isUnencryptedLoRaRAW) gave a ~1-in-256 false
+		// positive: a ciphertext byte at the length offset could equal the
+		// expected inner length, making an encrypted frame look like plaintext,
+		// which then decoded the raw ciphertext into garbage points. Instead we
+		// attempt decryption first and trust the CMAC: a valid CMAC is proof the
+		// frame is encrypted with this key; random plaintext cannot fake it.
 		dataBytes := dataBytesOrig
-		if isUnencryptedLoRaRAW(dataBytes) {
-			log.Infof("dispatchFrame: detected unencrypted LoRaRAW for address=%s", address)
-			payload := utils.StripLoRaRAWPayload(dataBytes)
-			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
-				successFn, errorFn, metaFn); err != nil {
-				log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
-			}
-		} else {
-			log.Infof("dispatchFrame: attempting LoRaRAW decrypt for address=%s", address)
-			keyBytes, err := m.getEncryptionKey(device)
-			if err != nil {
-				log.Errorf("error decoding device key: %s", err)
-				return DispatchResult{}
-			}
-			decodedDataBytes, derr := decryptLoRaRAWPkt(dataBytes, keyBytes)
-			if derr != nil {
-				// CMAC mismatch or otherwise not encrypted with this key.
-				log.Errorf("error decrypting data (address: %s): %s", address, derr)
-				return DispatchResult{}
-			}
-			log.Infof("dispatchFrame: LoRaRAW decrypt ok, decodedLen=%d", len(decodedDataBytes))
+		keyBytes, err := m.getEncryptionKey(device)
+		if err != nil {
+			log.Errorf("error decoding device key: %s", err)
+			return DispatchResult{}
+		}
+
+		if decodedDataBytes, derr := tryDecryptLoRaRAWPkt(dataBytes, keyBytes); derr == nil {
+			// 1. Decrypted and CMAC verified → genuinely encrypted frame.
+			log.Infof("dispatchFrame: LoRaRAW decrypt ok (CMAC valid) address=%s decodedLen=%d", address, len(decodedDataBytes))
 			// Rebuild the frame as it would have appeared unencrypted on the
 			// wire so downstream MQTT consumers don't need the key.
 			if pub, ok := buildUnencryptedRawFrame(decodedDataBytes, dataBytes); ok {
 				publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
 			}
 			m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn, errorFn, metaFn, writtenSuccessFn, writtenErrorFn)
+		} else if isUnencryptedLoRaRAW(dataBytes) {
+			// 2. CMAC did not verify, but the length matches the plaintext
+			//    layout exactly → genuinely unencrypted frame.
+			log.Infof("dispatchFrame: genuine unencrypted LoRaRAW for address=%s", address)
+			payload := utils.StripLoRaRAWPayload(dataBytes)
+			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
+				successFn, errorFn, metaFn); err != nil {
+				log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
+			}
+		} else {
+			// 3. Neither verifiable-encrypted nor a valid plaintext shape →
+			//    corrupt or wrong key. Drop rather than publish garbage points.
+			log.Errorf("dispatchFrame: LoRaRAW frame not decryptable and not valid plaintext (address=%s): %s", address, derr)
+			return DispatchResult{}
 		}
 	} else {
 		log.Infof("dispatchFrame: taking legacy plaintext handler path for address=%s", address)
@@ -505,6 +512,22 @@ func createAck(address, key []byte, nonce int) []byte {
 	}
 	fullData = append(fullData, unCmac...)
 	return fullData
+}
+
+// tryDecryptLoRaRAWPkt is a panic-safe wrapper around decryptLoRaRAWPkt used to
+// probe whether a frame is encrypted. aesutils.Decrypt CBC-decrypts the region
+// [header : len-cmac] of dataBytes[:len-2] (rssi/snr stripped), and
+// cipher.CryptBlocks PANICS if that region is not a whole number of AES blocks.
+// We therefore reject frames whose inner length isn't block-aligned before
+// attempting decryption, turning a would-be panic into a clean error so the
+// caller can fall back to the plaintext path.
+func tryDecryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
+	// inner = bytes that get CBC-decrypted = (frame - rssi/snr) - header - cmac
+	inner := len(dataBytes) - 2 - aesutils.LoraRawHeaderLen - aesutils.LoraRawCmacLen
+	if inner <= 0 || inner%aes.BlockSize != 0 {
+		return nil, errors.New("not an encrypted LoRaRAW frame (inner length not block-aligned)")
+	}
+	return decryptLoRaRAWPkt(dataBytes, byteKey)
 }
 
 func decryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
