@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.3) (2026-06-29)
+
+- Fix encrypted LoRaRAW frames intermittently decoded as plaintext (CMAC-based detection)
+
 ## [v1.3.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.2) (2026-06-09)
 
 - Preserve writeable configuration for points during device edits
