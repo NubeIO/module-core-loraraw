@@ -44,6 +44,14 @@ type LoRaDeviceDescription struct {
 	EncodeRequestMessage EncodeRequestMessageFunc
 	GetPointNames        func() []string
 	IsLoRaRAW            bool
+	// AllowUnencrypted permits the plaintext LoRaRAW decode path for this
+	// model. Default false: the model is treated as encryption-only, so any
+	// frame that fails CMAC is dropped rather than re-interpreted as plaintext.
+	// This closes the corrupted-ciphertext → false-plaintext → garbage-points
+	// path for encrypting models (Rubix, UART) on weak RF links. Set true only
+	// for models with genuine unencrypted deployments (e.g. ZipHydroTap), whose
+	// decoders apply their own strict structured length validation.
+	AllowUnencrypted bool
 }
 
 var NilLoRaDeviceDescription = LoRaDeviceDescription{

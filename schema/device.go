@@ -3,14 +3,15 @@ package schema
 import "github.com/NubeIO/lib-schema-go/schema"
 
 const (
-	DeviceModelTHLM         = "THLM"
-	DeviceModelTHL          = "THL"
-	DeviceModelTH           = "TH"
-	DeviceModelMicroEdgeV1  = "MicroEdgeV1"
-	DeviceModelMicroEdgeV2  = "MicroEdgeV2"
-	DeviceModelZiptHydroTap = "ZipHydroTap"
-	DeviceModelRubix        = "Rubix"
-	DeviceModelUART         = "UART"
+	DeviceModelTHLM           = "THLM"
+	DeviceModelTHL            = "THL"
+	DeviceModelTH             = "TH"
+	DeviceModelMicroEdgeV1    = "MicroEdgeV1"
+	DeviceModelMicroEdgeV2    = "MicroEdgeV2"
+	DeviceModelZiptHydroTap   = "ZipHydroTap"
+	DeviceModelRubix          = "Rubix"
+	DeviceModelUART           = "UART"
+	DeviceModelRubixEncrypted = "RubixEncrypted"
 )
 
 type DeviceKey struct {
@@ -32,7 +33,7 @@ type DeviceSchema struct {
 }
 
 func GetDeviceSchema() *DeviceSchema {
-	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap, DeviceModelRubix, DeviceModelUART}
+	models := []string{DeviceModelTHLM, DeviceModelTHL, DeviceModelTH, DeviceModelMicroEdgeV1, DeviceModelMicroEdgeV2, DeviceModelZiptHydroTap, DeviceModelRubix, DeviceModelUART, DeviceModelRubixEncrypted}
 	m := &DeviceSchema{}
 	m.AddressUUID.Min = 8
 	m.AddressUUID.Max = 8

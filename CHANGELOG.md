@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.4) (2026-07-27)
+
+- Add encryption-only `RubixEncrypted` model and drop corrupted LoRaRAW frames instead of decoding them as plaintext garbage points
+
 ## [v1.3.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.3) (2026-06-29)
 
 - Fix encrypted LoRaRAW frames intermittently decoded as plaintext (CMAC-based detection)

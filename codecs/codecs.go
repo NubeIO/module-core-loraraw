@@ -61,6 +61,12 @@ var LoRaDeviceDescriptions = []codec.LoRaDeviceDescription{
 		DecodeUplink:  legacyDecoders.DecodeZHT,
 		GetPointNames: legacyDecoders.GetZHTPointNames,
 		IsLoRaRAW:     true,
+		// ZHT has genuine unencrypted deployments; allow the plaintext path.
+		// Its strict CheckPayloadLengthZHT (packet-version × payload-type ×
+		// exact length) plus the not-encryption-shaped guard in dispatchFrame
+		// keep corrupt frames out. UART and RubixEncrypted leave this false:
+		// they are encryption-only, so a CMAC failure is always dropped.
+		AllowUnencrypted: true,
 	},
 	{
 		DeviceName:           "Rubix",
@@ -71,10 +77,36 @@ var LoRaDeviceDescriptions = []codec.LoRaDeviceDescription{
 		EncodeRequestMessage: rubixDataEncoding.EncodeRequestMessage,
 		GetPointNames:        rubixDataEncoding.GetRubixPointNames,
 		IsLoRaRAW:            true,
+		// Rubix covers mixed field populations, including genuinely plaintext
+		// devices (e.g. Dorma door nodes). Keep the plaintext path open; the
+		// not-encryption-shaped guard in dispatchFrame still rejects corrupted
+		// ciphertext. Devices known to encrypt should use the
+		// RubixEncrypted model instead, which is encryption-only.
+		AllowUnencrypted: true,
 	},
 	{
+		// Encryption-only: UART firmware always encrypts (AES-CBC + CMAC), so
+		// any frame that fails CMAC is corruption and is dropped — never
+		// re-interpreted as plaintext.
 		DeviceName:           "UART",
 		Model:                schema.DeviceModelUART,
+		CheckLength:          rubixDataEncoding.CheckPayloadLengthRubix,
+		DecodeUplink:         rubixDataEncoding.DecodeRubixUplink,
+		DecodeResponse:       rubixDataEncoding.DecodeRubixResponse,
+		EncodeRequestMessage: rubixDataEncoding.EncodeRequestMessage,
+		GetPointNames:        rubixDataEncoding.GetRubixPointNames,
+		IsLoRaRAW:            true,
+	},
+	{
+		// Encryption-only Rubix (e.g. optical power meter). Same wire format
+		// and codec as Rubix, but for devices whose firmware always encrypts
+		// (AES-CBC + CMAC): a CMAC failure is corruption and is dropped. This
+		// is what stops weak-RF corrupted frames from being decoded as
+		// plaintext into garbage points. Encrypting devices previously
+		// provisioned as model "Rubix" should be re-provisioned as
+		// "RubixEncrypted" to get this guarantee.
+		DeviceName:           "RubixEncrypted",
+		Model:                schema.DeviceModelRubixEncrypted,
 		CheckLength:          rubixDataEncoding.CheckPayloadLengthRubix,
 		DecodeUplink:         rubixDataEncoding.DecodeRubixUplink,
 		DecodeResponse:       rubixDataEncoding.DecodeRubixResponse,
