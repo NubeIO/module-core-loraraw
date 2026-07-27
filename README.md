@@ -4,6 +4,33 @@
 go build -o module-core-loraraw
 ```
 
+### Device models & encryption policy
+
+Encryption is verified per frame with AES-CMAC: a frame that decrypts with a
+valid CMAC is processed as encrypted. What happens when the CMAC does **not**
+verify depends on the device model:
+
+| Model                | Policy                          | Corrupted frame (CMAC fails)    | Plaintext frame                  |
+|----------------------|---------------------------------|---------------------------------|----------------------------------|
+| **RubixEncrypted**   | encryption-only                 | dropped                         | dropped                          |
+| **UART**             | encryption-only                 | dropped                         | dropped                          |
+| **Rubix**            | plaintext allowed + shape guard | dropped if block-aligned        | decodes (e.g. Dorma door nodes)  |
+| **ZipHydroTap**      | plaintext allowed + shape guard | dropped if block-aligned        | decodes                          |
+| MicroEdge / Droplet  | legacy path (no LoRaRAW crypto) | —                               | decodes                          |
+
+- **Encryption-only** (RubixEncrypted, UART): the firmware of these products always
+  encrypts, so a CMAC failure can only be corruption (e.g. a weak RF link) and
+  the frame is dropped — it is never re-interpreted as plaintext. This
+  prevents corrupted ciphertext from being decoded into garbage points
+  (`unknown-*`, out-of-range values).
+- **Shape guard** (Rubix, ZipHydroTap): a plaintext frame is accepted only when
+  it is *not* shaped like a ciphertext — i.e. its inner region is not a whole
+  number of AES blocks. A block-aligned frame that fails CMAC is treated as
+  corrupted ciphertext and dropped.
+- `RubixEncrypted` uses the same codec and wire format as `Rubix`. Optical power
+  meters previously provisioned as model `Rubix` should be re-provisioned as
+  `RubixEncrypted` to get the encryption-only guarantee.
+
 ### MQTT
 
 When `mqtt_enable: true` (default), the module connects to the broker

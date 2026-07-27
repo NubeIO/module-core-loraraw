@@ -716,10 +716,11 @@ func TestUnencryptedZHTPayload(t *testing.T) {
 
 // TestUnencryptedRubixPayload replays a real PLAINTEXT (unencrypted) LoRaRAW
 // frame captured on 2026-05-15 from a Rubix device "Dorma-1" with address
-// ACC0D08A (dev_36140a4d1e774982). Same plaintext-LoRaRAW path as
-// TestUnencryptedZHTPayload but with the Rubix codec, which decodes the
-// inner payload as a tag-length-value (TLV) stream and emits a mix of
-// bool / char / uint_32 typed points.
+// ACC0D08A (dev_36140a4d1e774982). Rubix keeps AllowUnencrypted=true because
+// field populations like the Dorma door nodes genuinely transmit plaintext —
+// this test locks in that they continue to decode. Devices known to encrypt
+// (optical power meters) should be provisioned as model "RubixEncrypted" instead,
+// which is encryption-only (see TestPlaintextRubixEncryptedDropped).
 //
 // Expected values are taken verbatim from the live MQTT publish:
 //
@@ -730,7 +731,7 @@ func TestUnencryptedRubixPayload(t *testing.T) {
 	mockDevice := &model.Device{
 		Name: "Dorma-1",
 		CommonDevice: model.CommonDevice{
-			Model:       "Rubix",
+			Model:       schema.DeviceModelRubix,
 			AddressUUID: &addr,
 		},
 	}
@@ -751,4 +752,43 @@ func TestUnencryptedRubixPayload(t *testing.T) {
 	}
 
 	runDispatchTests(tests, mockDevice, t)
+}
+
+// TestPlaintextRubixEncryptedDropped asserts the encryption-only policy for the
+// RubixEncrypted model: optical power meter firmware always encrypts (AES-CBC +
+// CMAC), so a plaintext-layout frame arriving for a RubixEncrypted device can only
+// be corruption or misconfiguration and must be dropped, never decoded.
+// (Same frame bytes as the Dorma fixture above, which DO decode under model
+// Rubix — the model is the only difference.)
+func TestPlaintextRubixEncryptedDropped(t *testing.T) {
+	test = t
+	addr := "ACC0D08A"
+	mockDevice := &model.Device{
+		Name: "RubixEncrypted-Plaintext",
+		CommonDevice: model.CommonDevice{
+			Model:       schema.DeviceModelRubixEncrypted,
+			AddressUUID: &addr,
+		},
+	}
+	m := &Module{config: &Config{DefaultKey: testDefaultKey}}
+
+	got := map[string]float64{}
+	capture := func(name string, value float64, _ *model.Device, _ *codec.LoRaDeviceDescription) error {
+		got[name] = value
+		return nil
+	}
+
+	res := m.dispatchFrame(
+		"ACC0D08A00371D01019D300A601CC04980B301A603CC089813302A685CC0D88000C0F0003000",
+		newMockGetDevice(mockDevice, addr),
+		capture, noopPointErr, noopMetaTags,
+		noopWrittenOK, noopWrittenErr,
+	)
+
+	if res.OK {
+		t.Errorf("plaintext frame for RubixEncrypted device was accepted (OK=true); expected drop (encryption-only model)")
+	}
+	if len(got) != 0 {
+		t.Errorf("plaintext frame for RubixEncrypted device produced %d point(s), expected 0: %v", len(got), got)
+	}
 }

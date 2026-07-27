@@ -286,6 +286,18 @@ func (m *Module) dispatchFrame(
 		// which then decoded the raw ciphertext into garbage points. Instead we
 		// attempt decryption first and trust the CMAC: a valid CMAC is proof the
 		// frame is encrypted with this key; random plaintext cannot fake it.
+		//
+		// The plaintext fallback (case 2) is itself the residual ~1-in-256 leak:
+		// a corrupted encrypted frame fails CMAC, and if its (now garbage)
+		// length byte happens to satisfy isUnencryptedLoRaRAW, the ciphertext is
+		// decoded as plaintext into garbage points. On a weak RF link this
+		// recurs and pollutes the device with junk points. We close it two ways:
+		//   - Encryption-only models (Rubix, UART: AllowUnencrypted=false) never
+		//     take the plaintext path — any CMAC failure is dropped.
+		//   - Models that do allow plaintext (ZHT) take it only when the frame
+		//     is NOT shaped like a ciphertext (isEncryptionShaped): a frame
+		//     whose inner region is a whole number of AES blocks but fails CMAC
+		//     is a corrupted/forged ciphertext, not plaintext.
 		dataBytes := dataBytesOrig
 		keyBytes, err := m.getEncryptionKey(device)
 		if err != nil {
@@ -302,9 +314,12 @@ func (m *Module) dispatchFrame(
 				publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
 			}
 			m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn, errorFn, metaFn, writtenSuccessFn, writtenErrorFn)
-		} else if isUnencryptedLoRaRAW(dataBytes) {
-			// 2. CMAC did not verify, but the length matches the plaintext
-			//    layout exactly → genuinely unencrypted frame.
+		} else if devDesc.AllowUnencrypted && !isEncryptionShaped(dataBytes) && isUnencryptedLoRaRAW(dataBytes) {
+			// 2. The model allows plaintext, the frame is not shaped like a
+			//    valid ciphertext (its inner region is not a whole number of AES
+			//    blocks), and its length matches the plaintext layout exactly →
+			//    genuinely unencrypted frame. Downstream model decoders (ZHT)
+			//    still apply their own length/structure validation.
 			log.Infof("dispatchFrame: genuine unencrypted LoRaRAW for address=%s", address)
 			payload := utils.StripLoRaRAWPayload(dataBytes)
 			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
@@ -312,9 +327,12 @@ func (m *Module) dispatchFrame(
 				log.Errorf("error decoding unencrypted LoRaRAW uplink: %v", err)
 			}
 		} else {
-			// 3. Neither verifiable-encrypted nor a valid plaintext shape →
-			//    corrupt or wrong key. Drop rather than publish garbage points.
-			log.Errorf("dispatchFrame: LoRaRAW frame not decryptable and not valid plaintext (address=%s): %s", address, derr)
+			// 3. CMAC did not verify and the frame is not accepted as plaintext:
+			//    either the model is encryption-only (Rubix, UART), or the frame
+			//    is shaped like a ciphertext (block-aligned inner → corrupted /
+			//    forged encrypted frame), or it is not a valid plaintext shape.
+			//    Drop rather than decode ciphertext into garbage points.
+			log.Errorf("dispatchFrame: LoRaRAW frame not decryptable and not accepted as plaintext (address=%s, allowUnencrypted=%v, encShaped=%v): %s", address, devDesc.AllowUnencrypted, isEncryptionShaped(dataBytes), derr)
 			return DispatchResult{}
 		}
 	} else {
@@ -522,12 +540,24 @@ func createAck(address, key []byte, nonce int) []byte {
 // attempting decryption, turning a would-be panic into a clean error so the
 // caller can fall back to the plaintext path.
 func tryDecryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
-	// inner = bytes that get CBC-decrypted = (frame - rssi/snr) - header - cmac
-	inner := len(dataBytes) - 2 - aesutils.LoraRawHeaderLen - aesutils.LoraRawCmacLen
-	if inner <= 0 || inner%aes.BlockSize != 0 {
+	if !isEncryptionShaped(dataBytes) {
 		return nil, errors.New("not an encrypted LoRaRAW frame (inner length not block-aligned)")
 	}
 	return decryptLoRaRAWPkt(dataBytes, byteKey)
+}
+
+// isEncryptionShaped reports whether dataBytes could be a valid LoRaRAW
+// ciphertext: after stripping rssi/snr (2), the region between the plaintext
+// address header and the trailing CMAC must be a whole number of AES blocks
+// (aesutils.Decrypt's cipher.CryptBlocks requires this and would otherwise
+// panic). A frame that is encryption-shaped but fails CMAC is a corrupted or
+// wrongly-keyed ciphertext, NOT plaintext — the dispatcher uses this to refuse
+// the plaintext fallback for such frames. Genuine plaintext frames have
+// arbitrary payload lengths that are almost never block-aligned this way.
+func isEncryptionShaped(dataBytes []byte) bool {
+	// inner = bytes that get CBC-decrypted = (frame - rssi/snr) - header - cmac
+	inner := len(dataBytes) - 2 - aesutils.LoraRawHeaderLen - aesutils.LoraRawCmacLen
+	return inner > 0 && inner%aes.BlockSize == 0
 }
 
 func decryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
