@@ -28,6 +28,10 @@ const (
 	MDK_BATTERY_VOLTAGE  MetaDataKey = 12
 	MDK_PUSH_FREQUENCY   MetaDataKey = 13
 	MDK_ANALOG_IN        MetaDataKey = 16
+	MDK_UO               MetaDataKey = 17
+	MDK_UI               MetaDataKey = 18
+	MDK_DO               MetaDataKey = 19
+	MDK_DI               MetaDataKey = 20
 	MDK_FIRMWARE_VERSION MetaDataKey = 61
 	MDK_HARDWARE_VERSION MetaDataKey = 62
 	MDK_UINT_8           MetaDataKey = 30
@@ -64,6 +68,7 @@ var serialMap = map[MetaDataKey]MetaData{
 	MDK_CO2:              {FIXEDPOINT, 0, 400, 0, 0},
 	MDK_BATTERY_VOLTAGE:  {FIXEDPOINT, 0, 6, 1, 0},
 	MDK_PUSH_FREQUENCY:   {FIXEDPOINT, 0, 2000, 0, 0},
+	MDK_ANALOG_IN:        {FIXEDPOINT, 0, 1, 3, 0},
 	MDK_FIRMWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
 	MDK_HARDWARE_VERSION: {FIXEDPOINT, 0, 255, 0, 0},
 	MDK_UINT_8:           {DATAPOINT, 0, 0, 0, 1},
@@ -95,6 +100,10 @@ const (
 	BatteryVoltageField = "battery-voltage"
 	PushFrequencyField  = "push-frequency"
 	AnalogInField       = "ai-raw"
+	UOField             = "uo"
+	UIField             = "ui"
+	DOField             = "do"
+	DIField             = "di"
 	FwVersionField      = "firmware-version"
 	HwVersionField      = "hardware-version"
 	BoolField           = "bool"
@@ -144,6 +153,14 @@ func (m MetaDataKey) String() string {
 		return PushFrequencyField
 	case MDK_ANALOG_IN:
 		return AnalogInField
+	case MDK_UO:
+		return UOField
+	case MDK_UI:
+		return UIField
+	case MDK_DO:
+		return DOField
+	case MDK_DI:
+		return DIField
 	case MDK_FIRMWARE_VERSION:
 		return FwVersionField
 	case MDK_HARDWARE_VERSION:
