@@ -59,6 +59,23 @@ func TestResolveDesiredRateRejectsOutOfRange(t *testing.T) {
 	}
 }
 
+// The inclusive boundaries of the valid range (1..15000) must be accepted,
+// not just rejected just outside them.
+func TestResolveDesiredRateAcceptsBoundaries(t *testing.T) {
+	for _, v := range []float64{1, 15000} {
+		dev := &model.Device{Points: []*model.Point{
+			pushRatePoint(nil, ratePtr(v)),
+		}}
+		got, ok := resolveDesiredRate(dev, pushRateIoNumber)
+		if !ok {
+			t.Fatalf("rate %v should have been accepted as within range", v)
+		}
+		if got != v {
+			t.Fatalf("rate = %v, want %v", got, v)
+		}
+	}
+}
+
 // The response body must carry the response flag and echo the request's MID.
 func TestBuildConfigResponsePayload(t *testing.T) {
 	body, err := buildConfigResponsePayload(0x5A, 900)
@@ -108,5 +125,62 @@ func TestDequeueByIoNumberLeavesOtherPoints(t *testing.T) {
 	}
 	if got := mgr.DequeueByIoNumber("dev-1", "UVP-2"); got == nil {
 		t.Fatal("UVP-2 should still be queued")
+	}
+}
+
+// Regression test for a review finding: ProcessPointWriteQueue used to remove
+// its finished item with a blind pop-front (DequeueWriteQueue), which assumed
+// the front of the slice was still the item it took. DequeueByIoNumber breaks
+// that assumption because it can remove an item mid-slice while the worker is
+// off doing external work (encode/encrypt/transmit/sleep) on a different
+// item. This reproduces that interleaving directly against the queue
+// internals and asserts the worker's removal is identity-based, so it never
+// discards an unrelated, never-transmitted point.
+func TestWorkerRemovalSurvivesConcurrentDequeueByIoNumber(t *testing.T) {
+	mgr := NewPointWriteQueueManager(1, 0, nil, nil, nil)
+
+	// Insert the queue directly instead of going through EnqueuePoint: that
+	// path spins up a background ProcessPointWriteQueue goroutine which,
+	// finding the queue non-empty, would try to process the point left
+	// behind at the end of this test using the nil getDevice/getEncryptionKey
+	// funcs above and panic. Driving the queue by hand keeps this test
+	// deterministic and focused on the removal-ordering invariant.
+	queue := NewPointWriteQueue(1, 0)
+	mgr.mutex.Lock()
+	mgr.queues["dev-1"] = queue
+	mgr.mutex.Unlock()
+
+	queue.EnqueueWriteQueue(&model.Point{IoNumber: "UVP-1", DeviceUUID: "dev-1"}) // A: push-rate write
+	queue.EnqueueWriteQueue(&model.Point{IoNumber: "UVP-2", DeviceUUID: "dev-1"}) // B: unrelated write
+
+	// Simulate ProcessPointWriteQueue taking the front item (A) and
+	// releasing the lock to do external work, exactly as
+	// `pendingPointWrite := pwq.writeQueue[0]; pwq.mutex.Unlock()` does.
+	queue.mutex.Lock()
+	pendingPointWrite := queue.writeQueue[0]
+	queue.mutex.Unlock()
+	if pendingPointWrite.Point.IoNumber != "UVP-1" {
+		t.Fatalf("test setup broken: expected UVP-1 at the front, got %s", pendingPointWrite.Point.IoNumber)
+	}
+
+	// While the worker holds A, a config response arrives for the push rate
+	// and settles it via DequeueByIoNumber.
+	settled := mgr.DequeueByIoNumber("dev-1", "UVP-1")
+	if settled == nil || settled.IoNumber != "UVP-1" {
+		t.Fatalf("expected DequeueByIoNumber to settle UVP-1, got %v", settled)
+	}
+
+	// The worker now finishes its own item and removes exactly what it
+	// processed, mirroring ProcessPointWriteQueue's removal sites.
+	queue.removePendingWrite(pendingPointWrite)
+
+	// B must still be queued.
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	if len(queue.writeQueue) != 1 {
+		t.Fatalf("expected 1 point left in queue, got %d", len(queue.writeQueue))
+	}
+	if queue.writeQueue[0].Point.IoNumber != "UVP-2" {
+		t.Fatalf("expected UVP-2 to survive, got %q", queue.writeQueue[0].Point.IoNumber)
 	}
 }
