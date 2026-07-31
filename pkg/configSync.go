@@ -1,17 +1,16 @@
 package pkg
 
 import (
-	"errors"
 	"strconv"
 
-	"github.com/NubeIO/lib-utils-go/nstring"
-	"github.com/NubeIO/module-core-loraraw/aesutils"
-	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs/rubixDataEncoding"
-	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
+
+// Configuration sync is one user of the LoRaRAW request/response exchange, not
+// the exchange itself - see loraRawRequest.go for the mechanism. Everything in
+// this file is specific to the push rate.
 
 // pushRateIoNumber is the point the device uses for its push rate (tdc_s).
 // Future config items start at UVP-40 to avoid colliding with telemetry slots.
@@ -52,86 +51,18 @@ func resolveDesiredRate(device *model.Device, ioNumber string) (float64, bool) {
 	return 0, false
 }
 
-// buildConfigResponsePayload encodes a §2.2 response body:
-//
-//	[SETTINGS_BYTE with response flag] [RDE message ID] [POINT_ID][DATA_TYPE_ID][value]
-func buildConfigResponsePayload(msgID uint8, rate float64) ([]byte, error) {
+// resolvePushRatePoint packages the resolved rate as the point the generic
+// request handler will encode. MDK_UINT_16 rather than MDK_PUSH_FREQUENCY:
+// that key's 0..2000 range is narrower than the 1..15000 the firmware accepts.
+func resolvePushRatePoint(device *model.Device) (*model.Point, bool) {
+	rate, ok := resolveDesiredRate(device, pushRateIoNumber)
+	if !ok {
+		return nil, false
+	}
 	value := rate
-	point := &model.Point{
+	return &model.Point{
 		IoNumber:   pushRateIoNumber,
 		DataType:   strconv.Itoa(int(rubixDataEncoding.MDK_UINT_16)),
 		WriteValue: &value,
-	}
-	body, err := rubixDataEncoding.EncodeRequestMessage([]*model.Point{point})
-	if err != nil {
-		return nil, err
-	}
-	if len(body) < 1 {
-		return nil, errors.New("encoder produced an empty response body")
-	}
-
-	// EncodeRequestMessage emits [settings][data...]. Splice in the response
-	// flag and the RDE message ID, which must sit at index 1.
-	sd := rubixDataEncoding.NewSerialDataWithBuffer([]byte{body[0]})
-	rubixDataEncoding.SetResponseData(sd, true)
-	rubixDataEncoding.SetMessageId(sd, msgID)
-
-	out := make([]byte, 0, len(body)+1)
-	out = append(out, sd.Buffer...) // [settings][mid]
-	out = append(out, body[1:]...)  // data packets
-	return out, nil
-}
-
-// handleConfigRequest answers a device's §2.2 config request. It replies
-// synchronously via WriteToLoRaRaw — never through the write queue, whose
-// time-off-air sleep would miss the device's ~1s RX window.
-func (m *Module) handleConfigRequest(
-	device *model.Device,
-	_ *codec.LoRaDeviceDescription,
-	payload []byte,
-	dataBytes []byte,
-	keyBytes []byte,
-) {
-	if len(dataBytes) <= utils.LORARAW_NONCE_POSITION {
-		log.Errorf("configSync: frame too short for a request: length %d, need at least %d",
-			len(dataBytes), utils.LORARAW_NONCE_POSITION+1)
-		return
-	}
-	msgID := dataBytes[utils.LORARAW_NONCE_POSITION]
-
-	requested, err := rubixDataEncoding.DecodeConfigRequest(payload)
-	if err != nil {
-		log.Errorf("configSync: cannot decode request: %s", err)
-		return
-	}
-	log.Infof("configSync: device %s requested %v (mid=%d)", device.UUID, requested, msgID)
-
-	rate, ok := resolveDesiredRate(device, pushRateIoNumber)
-	if !ok {
-		log.Warnf("configSync: no usable push rate for device %s, not responding", device.UUID)
-		return
-	}
-
-	body, err := buildConfigResponsePayload(msgID, rate)
-	if err != nil {
-		log.Errorf("configSync: cannot encode response: %s", err)
-		return
-	}
-
-	frame, err := aesutils.Encrypt(
-		nstring.DerefString(device.AddressUUID),
-		body,
-		keyBytes,
-		utils.LORARAW_OPTS_RESPONSE,
-		msgID,
-	)
-	if err != nil {
-		log.Errorf("configSync: cannot encrypt response: %s", err)
-		return
-	}
-	if err := m.WriteToLoRaRaw(frame); err != nil {
-		log.Errorf("configSync: cannot send response: %s", err)
-		return
-	}
-	log.Infof("configSync: answered device %s with push rate %v (mid=%d)", device.UUID, rate, msgID)
+	}, true
 }

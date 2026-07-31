@@ -476,7 +476,7 @@ func CheckPayloadLengthRubix(_ string) bool {
 	return true
 }
 
-// DecodeConfigRequest parses a LORA RAW PROTOCOL §2.2 request body:
+// DecodeRequestPayload parses a LORA RAW PROTOCOL §2.2 request body:
 //
 //	[SETTINGS_BYTE] [RDE message ID] [POINT_ID] [POINT_ID] ...
 //
@@ -485,7 +485,10 @@ func CheckPayloadLengthRubix(_ string) bool {
 // points as IoNumber strings (e.g. "UVP-1"). Unknown or unexpected POINT_IDs
 // are not an error: the device and gateway version independently, so any
 // PositionDataType decodes to some name via generateFieldName.
-func DecodeConfigRequest(payload []byte) ([]string, error) {
+//
+// Nothing here is specific to configuration - a request names points, whatever
+// those points happen to mean.
+func DecodeRequestPayload(payload []byte) ([]string, error) {
 	if len(payload) < 1 {
 		return nil, errors.New("config request payload is empty")
 	}
