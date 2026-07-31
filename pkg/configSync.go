@@ -82,20 +82,6 @@ func buildConfigResponsePayload(msgID uint8, rate float64) ([]byte, error) {
 	return out, nil
 }
 
-// clearPendingPushRateWrite settles any queued write for the push rate point
-// now that the value has been delivered as a config response. Without this the
-// write exhausts its retries and the point stays write-pending in the GUI
-// forever. A no-op when nothing is queued.
-func (m *Module) clearPendingPushRateWrite(device *model.Device) {
-	point := m.pointWriteQueueManager.DequeueByIoNumber(device.UUID, pushRateIoNumber)
-	if point == nil {
-		return
-	}
-	if _, err := m.updateWrittenPointSuccess(point); err != nil {
-		log.Errorf("configSync: cannot mark %s written: %s", pushRateIoNumber, err)
-	}
-}
-
 // handleConfigRequest answers a device's §2.2 config request. It replies
 // synchronously via WriteToLoRaRaw — never through the write queue, whose
 // time-off-air sleep would miss the device's ~1s RX window.
@@ -148,6 +134,4 @@ func (m *Module) handleConfigRequest(
 		return
 	}
 	log.Infof("configSync: answered device %s with push rate %v (mid=%d)", device.UUID, rate, msgID)
-
-	m.clearPendingPushRateWrite(device)
 }
