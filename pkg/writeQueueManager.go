@@ -245,27 +245,3 @@ func (m *PointWriteQueueManager) prepareMessage(queue *PointWriteQueue, item *Pe
 	queue.SetMessage(item, messageID, completePacket)
 	return nil
 }
-
-// DequeueByIoNumber removes the first queued write for ioNumber on the given
-// device and returns it, or nil when there is nothing queued. Safe to call
-// repeatedly — see the no-caching note in the config sync design.
-func (m *PointWriteQueueManager) DequeueByIoNumber(deviceUUID, ioNumber string) *model.Point {
-	m.mutex.Lock()
-	queue, exists := m.queues[deviceUUID]
-	m.mutex.Unlock()
-	if !exists {
-		return nil
-	}
-
-	queue.mutex.Lock()
-	defer queue.mutex.Unlock()
-
-	for i, item := range queue.writeQueue {
-		if item == nil || item.Point == nil || item.Point.IoNumber != ioNumber {
-			continue
-		}
-		queue.writeQueue = append(queue.writeQueue[:i], queue.writeQueue[i+1:]...)
-		return item.Point
-	}
-	return nil
-}

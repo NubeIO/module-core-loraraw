@@ -115,24 +115,6 @@ func (pwq *PointWriteQueue) DequeueUsingMessageId(messageId uint8) *model.Point 
 	return pendingPointWrite.Point
 }
 
-// removePendingWrite removes item from the queue by pointer identity, if it
-// is still present. Unlike dequeue(nil) (blind pop-front), this is safe to
-// call after another goroutine has mutated the slice mid-position — e.g.
-// DequeueByIoNumber removing a different, unrelated entry while this item
-// was being processed. If item has already been removed by such a path, this
-// is a no-op rather than discarding whatever now sits at the front.
-func (pwq *PointWriteQueue) removePendingWrite(item *PendingPointWrite) {
-	pwq.mutex.Lock()
-	defer pwq.mutex.Unlock()
-
-	for i, queued := range pwq.writeQueue {
-		if queued == item {
-			pwq.writeQueue = append(pwq.writeQueue[:i], pwq.writeQueue[i+1:]...)
-			return
-		}
-	}
-}
-
 // dequeue removes the head. With a messageId it only removes the head when the
 // id matches (that is the ack path) and marks the item as acked.
 func (pwq *PointWriteQueue) dequeue(messageId *uint8) *PendingPointWrite {
