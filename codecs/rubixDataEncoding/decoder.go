@@ -398,14 +398,6 @@ func decodePointRubix(serialData *SerialData, metaDataKey MetaDataKey, hasPos bo
 		fallthrough
 	case MDK_ANALOG_IN:
 		fallthrough
-	case MDK_UO:
-		fallthrough
-	case MDK_UI:
-		fallthrough
-	case MDK_DO:
-		fallthrough
-	case MDK_DI:
-		fallthrough
 	case MDK_FIRMWARE_VERSION:
 		fallthrough
 	case MDK_HARDWARE_VERSION:

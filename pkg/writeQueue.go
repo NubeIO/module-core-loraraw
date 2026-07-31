@@ -72,24 +72,6 @@ func (pwq *PointWriteQueue) DequeueUsingMessageId(messageId uint8) *model.Point 
 	return pendingPointWrite.Point
 }
 
-// removePendingWrite removes item from the queue by pointer identity, if it
-// is still present. Unlike dequeue(nil) (blind pop-front), this is safe to
-// call after another goroutine has mutated the slice mid-position — e.g.
-// DequeueByIoNumber removing a different, unrelated entry while this item
-// was being processed. If item has already been removed by such a path, this
-// is a no-op rather than discarding whatever now sits at the front.
-func (pwq *PointWriteQueue) removePendingWrite(item *PendingPointWrite) {
-	pwq.mutex.Lock()
-	defer pwq.mutex.Unlock()
-
-	for i, queued := range pwq.writeQueue {
-		if queued == item {
-			pwq.writeQueue = append(pwq.writeQueue[:i], pwq.writeQueue[i+1:]...)
-			return
-		}
-	}
-}
-
 func (pwq *PointWriteQueue) dequeue(messageId *uint8) *PendingPointWrite {
 	if len(pwq.writeQueue) == 0 {
 		return nil
@@ -137,7 +119,7 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			if err != nil {
 				log.Errorf("error getting device: %s", err.Error())
 				// Removing the point from the queue as queued point may be device already removed
-				pwq.removePendingWrite(pendingPointWrite)
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
@@ -145,7 +127,7 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			if err != nil {
 				log.Errorf("error extracting encryption key: %s", err.Error())
 				// Removing the point from the queue as queued point may have wrong encryption key
-				pwq.removePendingWrite(pendingPointWrite)
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
@@ -167,7 +149,7 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			if err != nil {
 				log.Errorf("error encrypting data: %s", err.Error())
 				// Removing the point from the queue as queued point may be invalid
-				pwq.removePendingWrite(pendingPointWrite)
+				pwq.DequeueWriteQueue()
 				continue
 			}
 
@@ -189,7 +171,7 @@ func (pwq *PointWriteQueue) ProcessPointWriteQueue(
 			//  Update with proper time-off-air when driver-lora is merged
 			time.Sleep(pwq.timeOffAirDefault)
 		} else {
-			pwq.removePendingWrite(pendingPointWrite)
+			pwq.DequeueWriteQueue()
 		}
 	}
 }
