@@ -13,10 +13,10 @@ func buildRequestPayload(msgID uint8, positions []uint8) []byte {
 	return sd.Buffer
 }
 
-func TestDecodeConfigRequestSinglePoint(t *testing.T) {
+func TestDecodeRequestPayloadSinglePoint(t *testing.T) {
 	// UVP-1 => type UVP in the high 3 bits, index 0 in the low 5.
 	uvp1 := uint8(PositionDataType_UVP)<<5 | 0
-	got, err := DecodeConfigRequest(buildRequestPayload(0x42, []uint8{uvp1}))
+	got, err := DecodeRequestPayload(buildRequestPayload(0x42, []uint8{uvp1}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -25,14 +25,14 @@ func TestDecodeConfigRequestSinglePoint(t *testing.T) {
 	}
 }
 
-func TestDecodeConfigRequestMultiplePoints(t *testing.T) {
+func TestDecodeRequestPayloadMultiplePoints(t *testing.T) {
 	uvp1 := uint8(PositionDataType_UVP)<<5 | 0
 	// UVP-40 => pointIdx 39 is >=32, so per getPosition/generateFieldName it is
 	// encoded as PositionDataType_UVP2 with ID 39-32=7 (id+32 => 40). The ID
 	// field is only 5 bits (0-31), so PositionDataType_UVP<<5|39 would collide
 	// with the type bits and decode to the wrong point.
 	uvp40 := uint8(PositionDataType_UVP2)<<5 | 7
-	got, err := DecodeConfigRequest(buildRequestPayload(0x07, []uint8{uvp1, uvp40}))
+	got, err := DecodeRequestPayload(buildRequestPayload(0x07, []uint8{uvp1, uvp40}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -42,28 +42,28 @@ func TestDecodeConfigRequestMultiplePoints(t *testing.T) {
 }
 
 // A payload without the request flag is a data packet, not a request.
-func TestDecodeConfigRequestRejectsNonRequest(t *testing.T) {
-	if _, err := DecodeConfigRequest([]byte{0x00, 0x20}); err == nil {
+func TestDecodeRequestPayloadRejectsNonRequest(t *testing.T) {
+	if _, err := DecodeRequestPayload([]byte{0x00, 0x20}); err == nil {
 		t.Fatal("expected an error when the request flag is clear")
 	}
 }
 
-func TestDecodeConfigRequestRejectsTruncated(t *testing.T) {
+func TestDecodeRequestPayloadRejectsTruncated(t *testing.T) {
 	// Request flag set but the message ID byte never arrived.
-	if _, err := DecodeConfigRequest([]byte{0x02}); err == nil {
+	if _, err := DecodeRequestPayload([]byte{0x02}); err == nil {
 		t.Fatal("expected an error on a truncated request")
 	}
 }
 
-func TestDecodeConfigRequestRejectsEmpty(t *testing.T) {
-	if _, err := DecodeConfigRequest(nil); err == nil {
+func TestDecodeRequestPayloadRejectsEmpty(t *testing.T) {
+	if _, err := DecodeRequestPayload(nil); err == nil {
 		t.Fatal("expected an error on an empty payload")
 	}
 }
 
 // No POINT_IDs after the header is well-formed but empty; it must not panic.
-func TestDecodeConfigRequestEmptyPointList(t *testing.T) {
-	got, err := DecodeConfigRequest(buildRequestPayload(0x01, nil))
+func TestDecodeRequestPayloadEmptyPointList(t *testing.T) {
+	got, err := DecodeRequestPayload(buildRequestPayload(0x01, nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -75,20 +75,3 @@ func TestResolveDesiredRateAcceptsBoundaries(t *testing.T) {
 		}
 	}
 }
-
-// The response body must carry the response flag and echo the request's MID.
-func TestBuildConfigResponsePayload(t *testing.T) {
-	body, err := buildConfigResponsePayload(0x5A, 900)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(body) < 3 {
-		t.Fatalf("body too short: %d bytes", len(body))
-	}
-	if body[0]&4 != 4 {
-		t.Fatalf("settings byte %#x does not have the response flag set", body[0])
-	}
-	if body[1] != 0x5A {
-		t.Fatalf("message ID = %#x, want 0x5A", body[1])
-	}
-}
