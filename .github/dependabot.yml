@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Keep GitHub Actions up to date (security patches for CI supply chain)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions-minor:
+        update-types: ["minor", "patch"]
+
+  # Keep Go module dependencies up to date
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "deps"
+    groups:
+      go-minor:
+        update-types: ["minor", "patch"]
