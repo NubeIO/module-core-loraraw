@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -148,6 +149,16 @@ func (m *Module) updateDeviceWrittenPoint(pointIDStr string, value float64, err 
 		_, _ = m.updateWrittenPointSuccess(point)
 	}
 	return nil
+}
+
+// onWriteExhausted is called by the write scheduler once a point's write has
+// used up all its attempts without a device RESPONSE.
+func (m *Module) onWriteExhausted(point *model.Point) {
+	if point.UUID == "" { // synthetic points (e.g. UART ping) are not stored
+		return
+	}
+	err := fmt.Errorf("no response from device after %d write attempts", m.config.WriteQueueMaxRetries)
+	_, _ = m.updateWrittenPointError(point, err)
 }
 
 func selectPointByIoNumber(ioNumber string, device *model.Device) *model.Point {

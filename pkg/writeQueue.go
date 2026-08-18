@@ -2,13 +2,7 @@ package pkg
 
 import (
 	"sync"
-	"time"
 
-	"github.com/NubeIO/lib-utils-go/nstring"
-	"github.com/NubeIO/module-core-loraraw/aesutils"
-	"github.com/NubeIO/module-core-loraraw/codec"
-	"github.com/NubeIO/module-core-loraraw/codecs"
-	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/model"
 	log "github.com/sirupsen/logrus"
 )
@@ -19,38 +13,87 @@ type PendingPointWrite struct {
 	MessageType bool
 	Point       *model.Point
 	RetryCount  int
+
+	// done is closed exactly once when the item leaves the queue (acked,
+	// exhausted or dropped). The scheduler waits on it after transmitting.
+	done     chan struct{}
+	doneOnce sync.Once
+	acked    bool
+}
+
+func (p *PendingPointWrite) markDone(acked bool) {
+	p.doneOnce.Do(func() {
+		p.acked = acked
+		close(p.done)
+	})
 }
 
 // --------------------------------------------
-// SINGLE QUEUE — handles one device’s writes
+// SINGLE QUEUE — holds one device's pending writes in order.
+// Transmission is driven by PointWriteQueueManager's scheduler.
 // --------------------------------------------
 
 type PointWriteQueue struct {
-	writeQueue        []*PendingPointWrite
-	mutex             sync.Mutex
-	cond              *sync.Cond
-	maxRetry          int
-	timeOffAirDefault time.Duration
+	writeQueue []*PendingPointWrite
+	mutex      sync.Mutex
 }
 
-func NewPointWriteQueue(maxRetry int, defaultTimeOffAir time.Duration) *PointWriteQueue {
-	queue := &PointWriteQueue{
-		writeQueue:        make([]*PendingPointWrite, 0),
-		maxRetry:          maxRetry,
-		timeOffAirDefault: defaultTimeOffAir,
+func NewPointWriteQueue() *PointWriteQueue {
+	return &PointWriteQueue{
+		writeQueue: make([]*PendingPointWrite, 0),
 	}
-	queue.cond = sync.NewCond(&queue.mutex)
-	return queue
 }
 
-func (pwq *PointWriteQueue) EnqueueWriteQueue(point *model.Point) {
+func (pwq *PointWriteQueue) EnqueueWriteQueue(point *model.Point) *PendingPointWrite {
 	pwq.mutex.Lock()
 	defer pwq.mutex.Unlock()
 
-	ppWrite := &PendingPointWrite{Point: point}
-
+	ppWrite := &PendingPointWrite{Point: point, done: make(chan struct{})}
 	pwq.writeQueue = append(pwq.writeQueue, ppWrite)
-	pwq.cond.Signal() // Signal waiting goroutines that new data is available
+	return ppWrite
+}
+
+// Peek returns the head item without removing it, or nil when empty.
+func (pwq *PointWriteQueue) Peek() *PendingPointWrite {
+	pwq.mutex.Lock()
+	defer pwq.mutex.Unlock()
+
+	if len(pwq.writeQueue) == 0 {
+		return nil
+	}
+	return pwq.writeQueue[0]
+}
+
+// SetMessage stores the encoded frame on the item under the queue lock so the
+// RX side never observes a half-initialised MessageId.
+func (pwq *PointWriteQueue) SetMessage(item *PendingPointWrite, messageId uint8, message []byte) {
+	pwq.mutex.Lock()
+	defer pwq.mutex.Unlock()
+
+	item.MessageId = messageId
+	item.Message = message
+}
+
+// IncRetry bumps the attempt counter and returns the new value.
+func (pwq *PointWriteQueue) IncRetry(item *PendingPointWrite) int {
+	pwq.mutex.Lock()
+	defer pwq.mutex.Unlock()
+
+	item.RetryCount++
+	return item.RetryCount
+}
+
+// RemoveItem removes the given item if it is still the head of the queue.
+func (pwq *PointWriteQueue) RemoveItem(item *PendingPointWrite) bool {
+	pwq.mutex.Lock()
+	defer pwq.mutex.Unlock()
+
+	if len(pwq.writeQueue) == 0 || pwq.writeQueue[0] != item {
+		return false
+	}
+	pwq.writeQueue = pwq.writeQueue[1:]
+	item.markDone(false)
+	return true
 }
 
 func (pwq *PointWriteQueue) DequeueWriteQueue() {
@@ -72,25 +115,26 @@ func (pwq *PointWriteQueue) DequeueUsingMessageId(messageId uint8) *model.Point 
 	return pendingPointWrite.Point
 }
 
+// dequeue removes the head. With a messageId it only removes the head when the
+// id matches (that is the ack path) and marks the item as acked.
 func (pwq *PointWriteQueue) dequeue(messageId *uint8) *PendingPointWrite {
 	if len(pwq.writeQueue) == 0 {
 		return nil
 	}
 
-	var dequeuedItem *PendingPointWrite
-
+	head := pwq.writeQueue[0]
 	if messageId == nil {
-		dequeuedItem = pwq.writeQueue[0]
 		pwq.writeQueue = pwq.writeQueue[1:]
-	} else {
-		queueItem := pwq.writeQueue[0]
-		if queueItem.MessageId == *messageId {
-			dequeuedItem = pwq.writeQueue[0]
-			pwq.writeQueue = pwq.writeQueue[1:]
-		}
+		head.markDone(false)
+		return head
 	}
 
-	return dequeuedItem
+	if head.Message == nil || head.MessageId != *messageId {
+		return nil
+	}
+	pwq.writeQueue = pwq.writeQueue[1:]
+	head.markDone(true)
+	return head
 }
 
 func (pwq *PointWriteQueue) Size() int {
@@ -98,80 +142,4 @@ func (pwq *PointWriteQueue) Size() int {
 	defer pwq.mutex.Unlock()
 
 	return len(pwq.writeQueue)
-}
-
-func (pwq *PointWriteQueue) ProcessPointWriteQueue(
-	getDevice func(string) (*model.Device, error),
-	getEncryptionKey func(*model.Device) ([]byte, error),
-	writeToLoRaRaw func([]byte) error,
-) {
-	for {
-		pwq.mutex.Lock()
-		for len(pwq.writeQueue) == 0 {
-			pwq.cond.Wait() // Wait until there's data in the queue
-		}
-
-		pendingPointWrite := pwq.writeQueue[0]
-		pwq.mutex.Unlock()
-
-		if pendingPointWrite.Message == nil {
-			device, err := getDevice(pendingPointWrite.Point.DeviceUUID)
-			if err != nil {
-				log.Errorf("error getting device: %s", err.Error())
-				// Removing the point from the queue as queued point may be device already removed
-				pwq.DequeueWriteQueue()
-				continue
-			}
-
-			encryptionKey, err := getEncryptionKey(device)
-			if err != nil {
-				log.Errorf("error extracting encryption key: %s", err.Error())
-				// Removing the point from the queue as queued point may have wrong encryption key
-				pwq.DequeueWriteQueue()
-				continue
-			}
-
-			// TEMPORARY ARRAY UNTIL WE HANDLE MULTI POINT WRITE
-			points := []*model.Point{pendingPointWrite.Point}
-			deviceDescription := codec.GetDeviceDescription(device, codecs.LoRaDeviceDescriptions)
-
-			payload, err := deviceDescription.EncodeRequestMessage(points)
-
-			messageID := utils.GenerateRandomId()
-			completePacket, err := aesutils.Encrypt(
-				nstring.DerefString(pendingPointWrite.Point.AddressUUID), // Note this is the device loraraw unique address
-				payload,
-				encryptionKey,
-				utils.LORARAW_OPTS_REQUEST,
-				messageID,
-			)
-
-			if err != nil {
-				log.Errorf("error encrypting data: %s", err.Error())
-				// Removing the point from the queue as queued point may be invalid
-				pwq.DequeueWriteQueue()
-				continue
-			}
-
-			pendingPointWrite.MessageId = messageID
-			pendingPointWrite.Message = completePacket
-
-		}
-
-		if pendingPointWrite.RetryCount < pwq.maxRetry {
-			err := writeToLoRaRaw(pendingPointWrite.Message)
-			if err != nil {
-				log.Errorf("error writing to LoRa serial port: %v\n", err)
-				time.Sleep(time.Second * 2)
-				continue
-			}
-			pendingPointWrite.RetryCount++
-
-			// TODO: this is a fake time-off-air.
-			//  Update with proper time-off-air when driver-lora is merged
-			time.Sleep(pwq.timeOffAirDefault)
-		} else {
-			pwq.DequeueWriteQueue()
-		}
-	}
 }

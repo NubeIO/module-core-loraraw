@@ -22,12 +22,16 @@ func (m *Module) Enable() error {
 	}
 
 	m.initWriteQueue()
+	if m.pointWriteQueueManager != nil {
+		m.pointWriteQueueManager.Stop()
+	}
 	m.pointWriteQueueManager = NewPointWriteQueueManager(
 		m.config.WriteQueueMaxRetries,
-		m.config.timeOffAirDefault,
+		m.config.WriteResponseTimeout,
 		m.getDevice,
 		m.getEncryptionKey,
-		m.WriteToLoRaRaw)
+		m.WriteToLoRaRaw,
+		m.onWriteExhausted)
 
 	if m.config.MQTTEnable && m.mqttClient == nil {
 		m.mqttClient = NewMQTTClient(
@@ -73,6 +77,9 @@ func (m *Module) Disable() error {
 	defer m.mutex.Unlock()
 	log.Info("plugin is disabling...")
 	m.interruptChan <- struct{}{}
+	if m.pointWriteQueueManager != nil {
+		m.pointWriteQueueManager.Stop()
+	}
 	if m.writeQueue != nil {
 		m.writeQueueDone <- struct{}{}
 		close(m.writeQueueDone)

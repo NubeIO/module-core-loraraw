@@ -68,6 +68,9 @@ func (m *Module) SerialClose() error {
 func (m *Module) WriteToLoRaRaw(data []byte) error {
 	m.initWriteQueue() // Make sure the queue is initialized
 
+	if Port == nil {
+		return errors.New("serial port not connected")
+	}
 	select {
 	case m.writeQueue <- data:
 		return nil

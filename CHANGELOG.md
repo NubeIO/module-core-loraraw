@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [v1.3.5-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.5-rc.2) (2026-08-18)
+
+- Serialise LoRaRAW writes through a single scheduler: one frame on air at a time, wait for the device RESPONSE (or `write_response_timeout`, default 5s) before the next device's frame, round-robin across devices — concurrent writes to several devices no longer clobber each other's acks on the half-duplex radio
+- Mark a point `api-write-failed` with a message once all write attempts get no response, instead of dropping it silently
+- Count serial write errors as attempts and report the port as disconnected instead of pretending the frame was sent
+- Replace the never-configurable `time_off_air_default` with `write_response_timeout`
+
 ## [v1.3.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.4) (2026-07-27)
 
 - Add encryption-only `RubixEncrypted` model and drop corrupted LoRaRAW frames instead of decoding them as plaintext garbage points
