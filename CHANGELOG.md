@@ -6,6 +6,7 @@
 - Mark a point `api-write-failed` with a message once all write attempts get no response, instead of dropping it silently
 - Count serial write errors as attempts and report the port as disconnected instead of pretending the frame was sent
 - Replace the never-configurable `time_off_air_default` with `write_response_timeout`
+- Fix writes failing with `write queue full` after a plugin disable/enable cycle (serial drainer now restarts on enable)
 
 ## [v1.3.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.4) (2026-07-27)
 

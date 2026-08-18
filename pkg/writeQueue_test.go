@@ -301,3 +301,29 @@ func TestScheduler_UnknownDeviceIsDropped(t *testing.T) {
 		t.Fatalf("dropped (not exhausted) write must not be reported as exhausted")
 	}
 }
+
+func TestSerialWriteQueue_RestartsAfterStop(t *testing.T) {
+	m := &Module{}
+
+	m.initWriteQueue()
+	first := m.getWriteQueue()
+	if first == nil {
+		t.Fatalf("initWriteQueue should create the send channel")
+	}
+	if m.getWriteQueue() != first {
+		t.Fatalf("second init must reuse the running queue")
+	}
+
+	m.stopWriteQueue()
+	if m.getWriteQueue() != nil {
+		t.Fatalf("stopWriteQueue should drop the send channel")
+	}
+	m.stopWriteQueue() // idempotent
+
+	m.initWriteQueue()
+	second := m.getWriteQueue()
+	if second == nil || second == first {
+		t.Fatalf("init after stop must create a fresh queue")
+	}
+	m.stopWriteQueue()
+}

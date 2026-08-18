@@ -80,12 +80,7 @@ func (m *Module) Disable() error {
 	if m.pointWriteQueueManager != nil {
 		m.pointWriteQueueManager.Stop()
 	}
-	if m.writeQueue != nil {
-		m.writeQueueDone <- struct{}{}
-		close(m.writeQueueDone)
-		close(m.writeQueue)
-		m.writeQueue = nil
-	}
+	m.stopWriteQueue()
 
 	if m.mqttClient != nil {
 		m.mqttClient.Disconnect()
