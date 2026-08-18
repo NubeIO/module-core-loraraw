@@ -17,7 +17,7 @@ type Module struct {
 	pointWriteQueueManager *PointWriteQueueManager
 	writeQueue             chan []byte
 	writeQueueDone         chan struct{}
-	writeQueueInit         sync.Once
+	writeQueueMutex        sync.Mutex
 	mqttClient             *MQTTClient
 }
 

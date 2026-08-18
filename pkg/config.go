@@ -22,7 +22,9 @@ type Config struct {
 	MQTTUsername         string        `yaml:"mqtt_username"`
 	MQTTPassword         string        `yaml:"mqtt_password" type:"secret"`
 	MQTTTopicPrefix      string        `yaml:"mqtt_topic_prefix"`
-	timeOffAirDefault    time.Duration `yaml:"time_off_air_default"`
+	// WriteResponseTimeout is how long the radio is held idle after each write
+	// transmission waiting for the device's RESPONSE before the next frame goes.
+	WriteResponseTimeout time.Duration `yaml:"write_response_timeout"`
 }
 
 const DefaultDeviceKey = "0301021604050f07e6095a0b0c12630f"
@@ -39,7 +41,7 @@ func (m *Module) DefaultConfig() *Config {
 		MQTTUsername:         "",
 		MQTTPassword:         "",
 		MQTTTopicPrefix:      MQTTTopicPrefix,
-		timeOffAirDefault:    5 * time.Second,
+		WriteResponseTimeout: 5 * time.Second,
 	}
 }
 
@@ -53,6 +55,13 @@ func (m *Module) ValidateAndSetConfig(config []byte) ([]byte, error) {
 	}
 	logger.SetLogger(logLevel)
 	newConfig.LogLevel = strings.ToUpper(logLevel.String())
+
+	if newConfig.WriteResponseTimeout <= 0 {
+		newConfig.WriteResponseTimeout = 5 * time.Second
+	}
+	if newConfig.WriteQueueMaxRetries <= 0 {
+		newConfig.WriteQueueMaxRetries = 1
+	}
 
 	keyBytes, err := hex.DecodeString(newConfig.DefaultKey)
 	if err != nil {

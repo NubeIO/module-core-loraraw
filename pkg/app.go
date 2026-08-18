@@ -742,27 +742,56 @@ func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
 	return key, nil
 }
 
+// initWriteQueue starts the serial drainer if it is not running. It is safe to
+// call after stopWriteQueue, so an Enable following a Disable gets a fresh queue.
 func (m *Module) initWriteQueue() {
-	m.writeQueueInit.Do(func() {
-		m.writeQueue = make(chan []byte, 100)
-		m.writeQueueDone = make(chan struct{})
+	m.writeQueueMutex.Lock()
+	defer m.writeQueueMutex.Unlock()
 
-		go m.processWriteQueue()
-	})
+	if m.writeQueue != nil {
+		return
+	}
+	m.writeQueue = make(chan []byte, 100)
+	m.writeQueueDone = make(chan struct{})
+
+	go m.processWriteQueue(m.writeQueue, m.writeQueueDone)
 }
 
-func (m *Module) processWriteQueue() {
+// stopWriteQueue stops the serial drainer. The send channel is never closed:
+// a concurrent WriteToLoRaRaw may still be holding it, and sending on a
+// closed channel panics. Dropping the reference is enough.
+func (m *Module) stopWriteQueue() {
+	m.writeQueueMutex.Lock()
+	defer m.writeQueueMutex.Unlock()
+
+	if m.writeQueue == nil {
+		return
+	}
+	close(m.writeQueueDone)
+	m.writeQueue = nil
+	m.writeQueueDone = nil
+}
+
+// getWriteQueue returns the current send channel, or nil when stopped.
+func (m *Module) getWriteQueue() chan []byte {
+	m.writeQueueMutex.Lock()
+	defer m.writeQueueMutex.Unlock()
+
+	return m.writeQueue
+}
+
+func (m *Module) processWriteQueue(queue <-chan []byte, done <-chan struct{}) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Errorf("Recovered panic in processWriteQueue: %v", r)
 			// Restart goroutine
-			go m.processWriteQueue()
+			go m.processWriteQueue(queue, done)
 		}
 	}()
 
 	for {
 		select {
-		case data := <-m.writeQueue:
+		case data := <-queue:
 			if Port == nil {
 				log.Error("Serial port not connected")
 				continue
@@ -776,7 +805,7 @@ func (m *Module) processWriteQueue() {
 			// Wait a while after sending for the LoRa module to process
 			time.Sleep(50 * time.Millisecond)
 
-		case <-m.writeQueueDone:
+		case <-done:
 			return
 		}
 	}
