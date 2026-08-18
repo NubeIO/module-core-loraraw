@@ -7,6 +7,8 @@
 - Count serial write errors as attempts and report the port as disconnected instead of pretending the frame was sent
 - Replace the never-configurable `time_off_air_default` with `write_response_timeout`
 - Fix writes failing with `write queue full` after a plugin disable/enable cycle (serial drainer now restarts on enable)
+- Fix Rubix decoding of `ai-raw` (type 16): its serial map entry was lost in the codec refactor, so every field after it in a frame decoded as garbage
+- Fix `rubixDataEncoding` decoder tests not compiling since the codec refactor
 
 ## [v1.3.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.4) (2026-07-27)
 
