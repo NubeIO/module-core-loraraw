@@ -41,6 +41,14 @@ func InitRouter() {
 	route.Handle(nhttp.PATCH, "/api/devices/:uuid", UpdateDevice)
 	route.Handle(nhttp.DELETE, "/api/devices/:uuid", DeleteDevice)
 
+	// Per-device key lifecycle (doc 08). Key material only ever leaves via
+	// the BeginProvision response, which the operator needs to load the device.
+	route.Handle(nhttp.GET, "/api/devices/:uuid/key", GetDeviceKeyStatus)
+	route.Handle(nhttp.POST, "/api/devices/:uuid/key/provision", BeginDeviceProvision)
+	route.Handle(nhttp.POST, "/api/devices/:uuid/key/confirm", ConfirmDeviceProvision)
+	route.Handle(nhttp.POST, "/api/devices/:uuid/key/abort", AbortDeviceProvision)
+	route.Handle(nhttp.POST, "/api/devices/:uuid/key/retire", RetireDeviceKey)
+
 	route.Handle(nhttp.POST, "/api/points", CreatePoint)
 	route.Handle(nhttp.PATCH, "/api/points/:uuid", UpdatePoint)
 	route.Handle(nhttp.PATCH, "/api/points/:uuid/write", PointWrite)
@@ -235,4 +243,49 @@ func enqueueUartPingWithRetry(m *nmodule.Module, device *model.Device) {
 	}
 
 	log.Errorf("enqueueUartPing failed after %d attempts for device %s: insufficient points", uartPingMaxRetries, device.UUID)
+}
+
+// --- Per-device key lifecycle handlers ---
+
+func GetDeviceKeyStatus(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	st, err := (*m).(*Module).GetProvisionStatus(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(st)
+}
+
+// BeginDeviceProvision generates a new key and stages it. The response carries
+// the key so the operator can load it into the device; the device keeps using
+// its current key until ConfirmDeviceProvision is called.
+func BeginDeviceProvision(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	res, err := (*m).(*Module).BeginProvision(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(res)
+}
+
+func ConfirmDeviceProvision(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	st, err := (*m).(*Module).ConfirmProvision(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(st)
+}
+
+func AbortDeviceProvision(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	st, err := (*m).(*Module).AbortProvision(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(st)
+}
+
+func RetireDeviceKey(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	st, err := (*m).(*Module).RetireDevice(r.PathParams["uuid"])
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(st)
 }
