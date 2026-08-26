@@ -119,7 +119,11 @@ func UpdateDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(r.PathParams["uuid"], device)
+	uuid := r.PathParams["uuid"]
+	if err := (*m).(*Module).rejectDuplicateDeviceKey(uuid, device.Manufacture); err != nil {
+		return nil, err
+	}
+	dev, err := (*m).(*Module).grpcMarshaller.UpdateDevice(uuid, device)
 	if err != nil {
 		return nil, err
 	}
