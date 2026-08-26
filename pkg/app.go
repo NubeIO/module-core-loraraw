@@ -17,6 +17,7 @@ import (
 	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs"
+	"github.com/NubeIO/module-core-loraraw/keymgmt"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
@@ -171,8 +172,26 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	}
 }
 
+// logKeyMismatch prints which key CE tried when a frame failed to decrypt.
+//
+// WARNING - UNSAFE-DEBUG: prints raw key material so an operator can compare it
+// against the key stored on the device without digging through other log lines.
+// Emitted at ERROR level, so unlike the DEBUG-only trace it is visible even in
+// production. MUST be removed before shipping (doc 07 section 7.5); grep
+// "UNSAFE-DEBUG" to find every such site.
+func logKeyMismatch(address string, res keymgmt.Resolution) {
+	const hint = "compare with the key on the device (STM32: AT+AES? | ESP32: param_get 0x0220, dash-separated)"
+	if res.PendingKey != nil {
+		log.Errorf("UNSAFE-DEBUG key mismatch: address=%s mode=%s state=%s ceKey=%X cePendingKey=%X — %s",
+			address, res.Mode, res.State, []byte(res.Key), []byte(res.PendingKey), hint)
+		return
+	}
+	log.Errorf("UNSAFE-DEBUG key mismatch: address=%s mode=%s state=%s ceKey=%X — %s",
+		address, res.Mode, res.State, []byte(res.Key), hint)
+}
+
 // DispatchResult is the outcome of dispatchFrame. OK reports whether the
-// frame produced a usable decode (false ⇒ the caller should skip MQTT
+// frame produced a usable decode (false => the caller should skip MQTT
 // publish, RSSI/SNR points, fault clearing, etc.).
 type DispatchResult struct {
 	Address       string
@@ -195,10 +214,10 @@ type DispatchResult struct {
 //     re-looks-up with the decrypted address.
 //  3. Decodes RSSI/SNR from the (possibly rewritten) frame.
 //  4. Dispatches to the correct decoder branch:
-//     - legacy-encrypted device  → handleLegacyDevice on the decrypted frame
-//     - LoRaRAW + plaintext      → strip + DecodeUplink directly
-//     - LoRaRAW + encrypted      → decryptLoRaRAWPkt + buildUnencryptedRawFrame + handleLoRaRAWDevice
-//     - legacy plaintext device  → handleLegacyDevice on the raw frame
+//     - legacy-encrypted device  -> handleLegacyDevice on the decrypted frame
+//     - LoRaRAW + plaintext      -> strip + DecodeUplink directly
+//     - LoRaRAW + encrypted      -> decryptLoRaRAWPkt + buildUnencryptedRawFrame + handleLoRaRAWDevice
+//     - legacy plaintext device  -> handleLegacyDevice on the raw frame
 //
 // All side effects beyond point emission (MQTT publish, fault clearing,
 // rssi/snr point writes) are intentionally left to the caller so the same
@@ -299,14 +318,42 @@ func (m *Module) dispatchFrame(
 		//     whose inner region is a whole number of AES blocks but fails CMAC
 		//     is a corrupted/forged ciphertext, not plaintext.
 		dataBytes := dataBytesOrig
-		keyBytes, err := m.getEncryptionKey(device)
+		res, err := m.resolveDeviceKey(device)
 		if err != nil {
 			log.Errorf("error decoding device key: %s", err)
 			return DispatchResult{}
 		}
+		keyBytes := []byte(res.Key)
 
-		if decodedDataBytes, derr := tryDecryptLoRaRAWPkt(dataBytes, keyBytes); derr == nil {
-			// 1. Decrypted and CMAC verified → genuinely encrypted frame.
+		// WARNING - UNSAFE-DEBUG: prints raw key material. Only emitted at DEBUG log
+		// level, for bench work where the device's key must be compared against
+		// what CE resolved. MUST be off in production (set log_level to INFO or
+		// higher) — see doc 07 section 7.5. Grep "UNSAFE-DEBUG" to find every such site.
+		if res.PendingKey != nil {
+			log.Debugf("UNSAFE-DEBUG decrypt: address=%s mode=%s state=%s key=%X pendingKey=%X",
+				address, res.Mode, res.State, keyBytes, []byte(res.PendingKey))
+		} else {
+			log.Debugf("UNSAFE-DEBUG decrypt: address=%s mode=%s state=%s key=%X",
+				address, res.Mode, res.State, keyBytes)
+		}
+
+		decodedDataBytes, derr := tryDecryptLoRaRAWPkt(dataBytes, keyBytes)
+
+		// Provisioning window: the device may already have taken the key we
+		// staged for it, in which case the live key no longer decrypts. Try the
+		// pending key before giving up. This is NOT a downgrade — both keys
+		// belong to this device — and the window closes as soon as the key is
+		// confirmed (doc 08 section 8.2).
+		if derr != nil && res.PendingKey != nil {
+			if pendingDecoded, perr := tryDecryptLoRaRAWPkt(dataBytes, []byte(res.PendingKey)); perr == nil {
+				log.Infof("dispatchFrame: address=%s decrypted under the PENDING key — device has taken the new key", address)
+				decodedDataBytes, derr = pendingDecoded, nil
+				keyBytes = []byte(res.PendingKey)
+			}
+		}
+
+		if derr == nil {
+			// 1. Decrypted and CMAC verified -> genuinely encrypted frame.
 			log.Infof("dispatchFrame: LoRaRAW decrypt ok (CMAC valid) address=%s decodedLen=%d", address, len(decodedDataBytes))
 			// Rebuild the frame as it would have appeared unencrypted on the
 			// wire so downstream MQTT consumers don't need the key.
@@ -314,12 +361,27 @@ func (m *Module) dispatchFrame(
 				publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
 			}
 			m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn, errorFn, metaFn, writtenSuccessFn, writtenErrorFn)
+		} else if res.EncryptionRequired() {
+			// 2a. The device has its own key, so encryption is REQUIRED for it:
+			//     a plaintext frame is never acceptable, whatever its model
+			//     allows in general. This closes the downgrade hole (G3) — before
+			//     this, anyone who knew the device's cleartext address could send
+			//     a well-formed plaintext frame to a provisioned device and have
+			//     it accepted, bypassing encryption entirely.
+			//
+			//     A device that was factory-reset lands here too (it is back on
+			//     the shared key while CE still expects its own): fail closed and
+			//     say so, rather than silently downgrading it (doc 09 section 9.3).
+			log.Errorf("dispatchFrame: address=%s requires encryption (mode=%s) but the frame did not decrypt — dropping. If the device was factory-reset it must be re-provisioned.", address, res.Mode)
+			logKeyMismatch(address, res)
+			return DispatchResult{}
 		} else if devDesc.AllowUnencrypted && !isEncryptionShaped(dataBytes) && isUnencryptedLoRaRAW(dataBytes) {
-			// 2. The model allows plaintext, the frame is not shaped like a
-			//    valid ciphertext (its inner region is not a whole number of AES
-			//    blocks), and its length matches the plaintext layout exactly →
-			//    genuinely unencrypted frame. Downstream model decoders (ZHT)
-			//    still apply their own length/structure validation.
+			// 2b. The model allows plaintext, the device does not require
+			//    encryption, the frame is not shaped like a valid ciphertext (its
+			//    inner region is not a whole number of AES blocks), and its length
+			//    matches the plaintext layout exactly -> genuinely unencrypted
+			//    frame. Downstream model decoders (ZHT) still apply their own
+			//    length/structure validation.
 			log.Infof("dispatchFrame: genuine unencrypted LoRaRAW for address=%s", address)
 			payload := utils.StripLoRaRAWPayload(dataBytes)
 			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
@@ -329,10 +391,11 @@ func (m *Module) dispatchFrame(
 		} else {
 			// 3. CMAC did not verify and the frame is not accepted as plaintext:
 			//    either the model is encryption-only (Rubix, UART), or the frame
-			//    is shaped like a ciphertext (block-aligned inner → corrupted /
+			//    is shaped like a ciphertext (block-aligned inner -> corrupted /
 			//    forged encrypted frame), or it is not a valid plaintext shape.
 			//    Drop rather than decode ciphertext into garbage points.
 			log.Errorf("dispatchFrame: LoRaRAW frame not decryptable and not accepted as plaintext (address=%s, allowUnencrypted=%v, encShaped=%v): %s", address, devDesc.AllowUnencrypted, isEncryptionShaped(dataBytes), derr)
+			logKeyMismatch(address, res)
 			return DispatchResult{}
 		}
 	} else {
@@ -382,7 +445,7 @@ func (m *Module) tryLegacyDecrypt(address string, dataBytesOrig []byte) (legacyD
 	}
 	addr2 = strings.ToUpper(addr2)
 	if addr2 == address {
-		// Address unchanged → bytes were already plaintext (or not encrypted
+		// Address unchanged -> bytes were already plaintext (or not encrypted
 		// with this key). Nothing to do.
 		log.Infof("tryLegacyDecrypt: address unchanged (%s), skipping", addr2)
 		return legacyDecryptResult{}, false
@@ -728,18 +791,24 @@ func (m *Module) getDevice(uuid string) (*model.Device, error) {
 	return device, nil
 }
 
-func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
-	hexKey := m.config.DefaultKey
-	if device.Manufacture != "" {
-		hexKey = device.Manufacture // Manufacture property from device model holds hex key
-	}
+// resolveDeviceKey reports the key, encryption mode and provisioning state for
+// a device. Key selection is delegated to keymgmt so key handling lives in one
+// place (doc 10 section 10.3).
+//
+// S1 note: mode and state are resolved but not yet acted on — enforcing
+// encryption_required is S4. Behaviour here is unchanged from before S1.
+func (m *Module) resolveDeviceKey(device *model.Device) (keymgmt.Resolution, error) {
+	return keymgmt.NewResolver(m.config.DefaultKey).Resolve(device)
+}
 
-	key, err := hex.DecodeString(hexKey)
+// getEncryptionKey returns just the key bytes. Kept as the narrow adapter used
+// by the RX path and the write queue, which do not (yet) care about mode.
+func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
+	res, err := m.resolveDeviceKey(device)
 	if err != nil {
 		return nil, err
 	}
-
-	return key, nil
+	return res.Key, nil
 }
 
 // initWriteQueue starts the serial drainer if it is not running. It is safe to
