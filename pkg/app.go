@@ -17,6 +17,7 @@ import (
 	"github.com/NubeIO/module-core-loraraw/aesutils"
 	"github.com/NubeIO/module-core-loraraw/codec"
 	"github.com/NubeIO/module-core-loraraw/codecs"
+	"github.com/NubeIO/module-core-loraraw/keymgmt"
 	"github.com/NubeIO/module-core-loraraw/schema"
 	"github.com/NubeIO/module-core-loraraw/utils"
 	"github.com/NubeIO/nubeio-rubix-lib-models-go/datatype"
@@ -61,6 +62,9 @@ func (m *Module) addDevice(body *model.Device, withPoints bool) (device *model.D
 		log.Errorf(errMsg)
 		return nil, errors.New(errMsg)
 	}
+	if err := m.rejectDuplicateDeviceKey("", body.Manufacture); err != nil {
+		return nil, err
+	}
 	device, err = m.grpcMarshaller.CreateDevice(body)
 	if err != nil {
 		return nil, err
@@ -73,6 +77,33 @@ func (m *Module) addDevice(body *model.Device, withPoints bool) (device *model.D
 		}
 	}
 	return device, nil
+}
+
+// rejectDuplicateDeviceKey refuses a Device Key that another device is already
+// using. Per-device keying only contains a compromise if the keys are actually
+// distinct, so the same key on two devices is a configuration error worth
+// stopping at the point of entry rather than discovering later from dropped
+// frames.
+//
+// selfUUID is the device being edited (empty when creating), so a device
+// keeping its own key is not treated as clashing with itself.
+func (m *Module) rejectDuplicateDeviceKey(selfUUID, manufacture string) error {
+	if manufacture == "" || m.grpcMarshaller == nil {
+		return nil
+	}
+	devices, err := m.grpcMarshaller.GetDevices(nil)
+	if err != nil {
+		// Do not block configuration because a lookup failed; the mismatch
+		// diagnostics on the RX path still surface reuse if it slips through.
+		log.Warnf("could not check for duplicate device keys: %v", err)
+		return nil
+	}
+	if owner, dup := keymgmt.FindDuplicateKeyOwner(devices, selfUUID, manufacture); dup {
+		errMsg := fmt.Sprintf("this device key is already used by device %s; each device must have its own key", owner)
+		log.Errorf(errMsg)
+		return errors.New(errMsg)
+	}
+	return nil
 }
 
 func (m *Module) addPoint(body *model.Point) (point *model.Point, err error) {
@@ -171,8 +202,83 @@ func (m *Module) handleSerialPayload(dataHex string) {
 	}
 }
 
+// logKeyMismatch reports what CE tried, and probes which key the device is
+// actually using, when a frame fails to decrypt.
+//
+// The device's key is NEVER on the wire - a frame carries only ciphertext and a
+// CMAC, so there is nothing to "read back". What we can do is try the keys we
+// know and see which one verifies: that identifies the device's key by
+// elimination, which is what an operator actually needs.
+//
+// WARNING - UNSAFE-DEBUG: prints raw key material, at ERROR level so it shows
+// even in production. Bench/commissioning aid only - remove before shipping
+// (doc 07 section 7.5). Grep "UNSAFE-DEBUG" to find every such site.
+func (m *Module) logKeyMismatch(address string, res keymgmt.Resolution, dataBytes []byte) {
+	log.Errorf("UNSAFE-DEBUG key mismatch: address=%s mode=%s ceKey=%X - the device's key is NOT in the frame (ciphertext only), so CE probes known keys below",
+		address, res.Mode, []byte(res.Key))
+
+	// Probe 1: the fleet-wide shared key. By far the most common cause - the
+	// device was factory-reset, or never had its key entered.
+	sharedHex := ""
+	if m.config != nil {
+		sharedHex = m.config.DefaultKey
+	}
+	if sharedHex != "" {
+		if shared, err := hex.DecodeString(strings.TrimSpace(sharedHex)); err == nil {
+			if _, derr := tryDecryptLoRaRAWPkt(dataBytes, shared); derr == nil {
+				log.Errorf("UNSAFE-DEBUG probe: address=%s DECRYPTS WITH THE SHARED KEY (%X) - the device is on the shared/default key. Either it was factory-reset, or its own key was never loaded. Fix: load the CE key onto the device, or clear the Device Key box.",
+					address, shared)
+				return
+			}
+		}
+	}
+
+	// Probe 2: a key another device is using. Reusing one key across devices
+	// defeats the whole point, and is easy to do by pasting the same value -
+	// or a doc example - into several Device Key boxes.
+	if other := m.findDeviceKeyThatDecrypts(address, dataBytes); other != "" {
+		log.Errorf("UNSAFE-DEBUG probe: address=%s DECRYPTS WITH THE KEY OF DEVICE %s - the same key is entered on more than one device, which is not per-device keying. Give each device its own key.",
+			address, other)
+		return
+	}
+
+	log.Errorf("UNSAFE-DEBUG probe: address=%s does not decrypt with the CE key, the shared key, or any other device's key - the device holds a key CE has never seen. Read it from the device (STM32: AT+AES? | ESP32: param_get 0x0220, dash-separated) and enter it in the Device Key box.",
+		address)
+}
+
+// findDeviceKeyThatDecrypts looks for another device whose key decrypts this
+// frame, i.e. the same key was entered on more than one device. Returns that
+// device's address, or "".
+func (m *Module) findDeviceKeyThatDecrypts(address string, dataBytes []byte) string {
+	// This is a diagnostic aid, not part of the data path: never let it panic
+	// or fail a frame. The marshaller is absent in unit tests.
+	if m == nil || m.grpcMarshaller == nil {
+		return ""
+	}
+	devices, err := m.grpcMarshaller.GetDevices(nil)
+	if err != nil {
+		return ""
+	}
+	for _, d := range devices {
+		if d == nil || d.Manufacture == "" || d.AddressUUID == nil {
+			continue
+		}
+		if strings.EqualFold(*d.AddressUUID, address) {
+			continue
+		}
+		key, err := hex.DecodeString(strings.ReplaceAll(strings.TrimSpace(d.Manufacture), "-", ""))
+		if err != nil || len(key) != keymgmt.KeyLen {
+			continue
+		}
+		if _, derr := tryDecryptLoRaRAWPkt(dataBytes, key); derr == nil {
+			return *d.AddressUUID
+		}
+	}
+	return ""
+}
+
 // DispatchResult is the outcome of dispatchFrame. OK reports whether the
-// frame produced a usable decode (false ⇒ the caller should skip MQTT
+// frame produced a usable decode (false => the caller should skip MQTT
 // publish, RSSI/SNR points, fault clearing, etc.).
 type DispatchResult struct {
 	Address       string
@@ -293,17 +399,18 @@ func (m *Module) dispatchFrame(
 		// decoded as plaintext into garbage points. On a weak RF link this
 		// recurs and pollutes the device with junk points. We close it two ways:
 		//   - Encryption-only models (Rubix, UART: AllowUnencrypted=false) never
-		//     take the plaintext path — any CMAC failure is dropped.
+		//     take the plaintext path - any CMAC failure is dropped.
 		//   - Models that do allow plaintext (ZHT) take it only when the frame
 		//     is NOT shaped like a ciphertext (isEncryptionShaped): a frame
 		//     whose inner region is a whole number of AES blocks but fails CMAC
 		//     is a corrupted/forged ciphertext, not plaintext.
 		dataBytes := dataBytesOrig
-		keyBytes, err := m.getEncryptionKey(device)
+		res, err := m.resolveDeviceKey(device)
 		if err != nil {
 			log.Errorf("error decoding device key: %s", err)
 			return DispatchResult{}
 		}
+		keyBytes := []byte(res.Key)
 
 		if decodedDataBytes, derr := tryDecryptLoRaRAWPkt(dataBytes, keyBytes); derr == nil {
 			// 1. Decrypted and CMAC verified → genuinely encrypted frame.
@@ -314,12 +421,28 @@ func (m *Module) dispatchFrame(
 				publishRawHex = strings.ToUpper(hex.EncodeToString(pub))
 			}
 			m.handleLoRaRAWDevice(device, devDesc, dataHex, decodedDataBytes, keyBytes, successFn, errorFn, metaFn, writtenSuccessFn, writtenErrorFn)
+		} else if res.EncryptionRequired() {
+			// 2a. The device has its own key, so encryption is REQUIRED: a
+			//     plaintext frame is never acceptable for it, whatever its model
+			//     allows in general. Closes the downgrade hole (G3) - otherwise
+			//     anyone who knew the device's cleartext address could send a
+			//     well-formed plaintext frame and have it accepted.
+			//
+			//     A factory-reset device lands here too (back on the shared key
+			//     while CE still expects its own): fail closed and say so rather
+			//     than silently downgrading it (doc 09 section 9.3).
+			log.Errorf("dispatchFrame: address=%s requires encryption (mode=%s) but the frame did not decrypt - dropping. If the device was factory-reset, re-enter its key on both sides.", address, res.Mode)
+			m.logKeyMismatch(address, res, dataBytes)
+			return DispatchResult{}
 		} else if devDesc.AllowUnencrypted && !isEncryptionShaped(dataBytes) && isUnencryptedLoRaRAW(dataBytes) {
 			// 2. The model allows plaintext, the frame is not shaped like a
 			//    valid ciphertext (its inner region is not a whole number of AES
 			//    blocks), and its length matches the plaintext layout exactly →
 			//    genuinely unencrypted frame. Downstream model decoders (ZHT)
 			//    still apply their own length/structure validation.
+			//
+			//    A device that has its own key never reaches here: the guard
+			//    below rejects plaintext for it, closing the downgrade hole (G3).
 			log.Infof("dispatchFrame: genuine unencrypted LoRaRAW for address=%s", address)
 			payload := utils.StripLoRaRAWPayload(dataBytes)
 			if err := devDesc.DecodeUplink(dataHex, payload, devDesc, device,
@@ -333,6 +456,7 @@ func (m *Module) dispatchFrame(
 			//    forged encrypted frame), or it is not a valid plaintext shape.
 			//    Drop rather than decode ciphertext into garbage points.
 			log.Errorf("dispatchFrame: LoRaRAW frame not decryptable and not accepted as plaintext (address=%s, allowUnencrypted=%v, encShaped=%v): %s", address, devDesc.AllowUnencrypted, isEncryptionShaped(dataBytes), derr)
+			m.logKeyMismatch(address, res, dataBytes)
 			return DispatchResult{}
 		}
 	} else {
@@ -416,7 +540,7 @@ func isUnencryptedLoRaRAW(dataBytes []byte) bool {
 }
 
 // buildUnencryptedRawFrame takes a decrypted LoRaRAW frame (as produced by
-// decryptLoRaRAWPkt — i.e. addr+opts+nonce+len+padded_payload+cmac, WITHOUT
+// decryptLoRaRAWPkt - i.e. addr+opts+nonce+len+padded_payload+cmac, WITHOUT
 // rssi/snr) and the original on-the-wire bytes (which DO have rssi/snr as the
 // last 2 bytes), and returns the frame rebuilt to match the pre-encryption
 // wire layout that existed before the source enabled encryption:
@@ -551,7 +675,7 @@ func tryDecryptLoRaRAWPkt(dataBytes []byte, byteKey []byte) ([]byte, error) {
 // address header and the trailing CMAC must be a whole number of AES blocks
 // (aesutils.Decrypt's cipher.CryptBlocks requires this and would otherwise
 // panic). A frame that is encryption-shaped but fails CMAC is a corrupted or
-// wrongly-keyed ciphertext, NOT plaintext — the dispatcher uses this to refuse
+// wrongly-keyed ciphertext, NOT plaintext - the dispatcher uses this to refuse
 // the plaintext fallback for such frames. Genuine plaintext frames have
 // arbitrary payload lengths that are almost never block-aligned this way.
 func isEncryptionShaped(dataBytes []byte) bool {
@@ -728,18 +852,20 @@ func (m *Module) getDevice(uuid string) (*model.Device, error) {
 	return device, nil
 }
 
-func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
-	hexKey := m.config.DefaultKey
-	if device.Manufacture != "" {
-		hexKey = device.Manufacture // Manufacture property from device model holds hex key
-	}
+// resolveDeviceKey reports the key and encryption mode for a device. Key
+// selection lives in keymgmt so key handling is in one place (doc 10 section 10.3).
+func (m *Module) resolveDeviceKey(device *model.Device) (keymgmt.Resolution, error) {
+	return keymgmt.NewResolver(m.config.DefaultKey).Resolve(device)
+}
 
-	key, err := hex.DecodeString(hexKey)
+// getEncryptionKey returns just the key bytes - the narrow adapter used by the
+// write queue, which does not care about mode.
+func (m *Module) getEncryptionKey(device *model.Device) ([]byte, error) {
+	res, err := m.resolveDeviceKey(device)
 	if err != nil {
 		return nil, err
 	}
-
-	return key, nil
+	return res.Key, nil
 }
 
 // initWriteQueue starts the serial drainer if it is not running. It is safe to
