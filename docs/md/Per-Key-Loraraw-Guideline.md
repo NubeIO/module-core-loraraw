@@ -137,6 +137,19 @@ AT+SAVE
 +SAVE: OK
 ```
 
+Actual output from a real run (note the flash-write lines around the save):
+
+```text
+>>> AT+AES=02F0BC331A1A4348C09D2B71A2E4E564
++AES: OK
++AT: OK
+>>> AT+SAVE
+[FLASH] Writing config to addr 0x0803C800
+[FLASH] Config saved successfully with CRC 0x8C1E7C4F
++SAVE: OK
++AT: OK
+```
+
 > **Two rules, or the key will not stick:**
 >
 > 1. **`AT+SAVE` is mandatory.** `AT+AES=` only writes RAM. Skip the save and the
@@ -174,7 +187,15 @@ for i, base in enumerate([0, 0x800, 0x1000, 0x1800]):
 EOF
 ```
 
-The **last** page that prints a key is the one in use - it must match step 1.
+Actual output (this board had been re-keyed twice, so two pages hold records):
+
+```text
+page0 key = EBAF6AD648D78403E458F0FE8A91E063
+page1 key = 02F0BC331A1A4348C09D2B71A2E4E564
+```
+
+The **last** page that prints a key is the one in use - here `page1`,
+`02F0BC33...E564`. It must match step 1.
 
 Skip to [section 3](#3-run-rubix-ce-and-enter-the-key).
 
@@ -219,9 +240,19 @@ Then:
 FGA-UART> param_set 0x0220 A3-F9-1C-77-E2-B4-08-5D-66-19-CC-30-FA-47-D2-E8
 ```
 
-> If you paste plain hex (no dashes) you get:
-> `Data length of param 0x0220 (11 bytes) is NOT within the allowed range`.
-> Add the dashes and try again. There is no separate save step.
+The real error, if you forget the dashes, looks exactly like this (from an
+actual console session):
+
+```text
+FGA-UART> param_set 0x0220 726DCC1E692E6D287704BEEE3CC41095
+E (99302) Srvc_Param: Data length of param 0x0220 (11 bytes) is NOT within the allowed range
++ PUC       : 0x0220
++ Data type : blob (16 bytes)
++ Old value : 03-01-02-16-04-05-0F-07-E6-09-5A-0B-0C-12-63-0F
+```
+
+`11 bytes` is the giveaway - the console misread 32 plain characters as 11
+bytes. Add the dashes and it accepts them. There is no separate save step.
 
 - [ ] `param_set` accepted (no length error)
 
@@ -338,6 +369,45 @@ Replace `5CC0D947` with your device address.
 | `LoRaRAW decrypt ok (CMAC valid) address=...` | **PASS** - both ends agree on the key |
 | `frame not decryptable and not accepted as plaintext ... incorrect CMAC or Key` | **FAIL** - keys differ, see troubleshooting |
 | nothing for that address | device is not transmitting - check power, antenna, range |
+
+**A real PASS looks like this** - one Optical Power Meter frame from `5CC0D947`,
+copied from an actual run:
+
+```text
+handleSerialPayload: enter, networkUUID=net_ad16a71b33f24360,
+    dataHex=5CC0D947FC524A515FD4227327F6588AA1416DB7F061131F4EC1DE66F6E59AADE0382D4FAD19352F6F05
+uplink: 5CC0D947FC524A51...E0382D4FAD19352F6F05
+dispatchFrame: decoded address=5CC0D947
+dispatchFrame: address=5CC0D947 rssi=-111 snr=1.25 legacyDevice=false
+dispatchFrame: LoRaRAW decrypt ok (CMAC valid) address=5CC0D947 decodedLen=40
+handleSerialPayload: done for address=5CC0D947 model=RubixEncrypted
+mqtt: publishing decoded values ... address=5CC0D947 device=5CC0D947 points=6
+payload={"device_address_uuid":"5CC0D947","device_name":"5CC0D947",
+         "payload":{"UVP-1":60,"UVP-2":3.700000047683716,"UVP-3":0,
+                    "UVP-6":0,"rssi":-111,"snr":1.25}}
+```
+
+Reading it: the address `5CC0D947` is read first, the frame decrypts and passes
+the CMAC check (`decrypt ok`), and the four sensor values come out
+(`UVP-1..UVP-6`) plus signal quality. That is a fully working device.
+
+> The lines `failed to find point with address_uuid ... io_number: UVP-1` that
+> may appear are **not** an encryption problem - decryption already succeeded.
+> The module is just creating points that did not exist yet on first contact.
+> They stop after the first frame.
+
+**A real FAIL looks like this** - the same device with a mismatched key:
+
+```text
+dispatchFrame: decoded address=5CC0D947
+dispatchFrame: address=5CC0D947 rssi=-108 snr=4.25 legacyDevice=false
+dispatchFrame: matched device model=RubixEncrypted uuid=dev_e69a2c... isLoRaRAW=true
+dispatchFrame: LoRaRAW frame not decryptable and not accepted as plaintext
+    (address=5CC0D947, allowUnencrypted=false, encShaped=true): incorrect CMAC or Key
+```
+
+The address is still read (it is in the clear), but the frame does not decrypt -
+the key in Rubix CE does not match the key in the device. Go to troubleshooting.
 
 - [ ] Log shows `decrypt ok (CMAC valid)`
 
