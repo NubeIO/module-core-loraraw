@@ -84,9 +84,14 @@ def build(name):
     # pandoc resolves and embeds them, wherever the .docx itself is written.
     os.makedirs(OUT_DIR, exist_ok=True)
     docx = os.path.join(OUT_DIR, name + ".docx")
+    # resource-path resolves both image styles: the rendered diagrams pandoc
+    # sees as images/<name>-N.png (relative to DOCS), and screenshots the source
+    # references as ../images/foo.png (relative to MD_DIR). Listing both dirs
+    # lets pandoc find and embed each.
+    resource_path = os.pathsep.join([DOCS, MD_DIR, IMG_DIR])
     r = subprocess.run(
         ["pandoc", "-f", "gfm", "-t", "docx",
-         "--resource-path", DOCS,
+         "--resource-path", resource_path,
          "--toc", "--toc-depth=2",
          "-o", docx, "-"],
         input=processed, capture_output=True, text=True,
