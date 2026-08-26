@@ -8,9 +8,9 @@ the block for an image reference, then runs pandoc to produce the .docx.
 
 Layout (relative to this script, which lives in docs/):
 
-    docs/md/<name>.md      source Markdown          (input)
+    docs/md/<name>.md         source Markdown        (input)
     docs/images/<name>-N.png  rendered diagrams      (generated)
-    docs/<name>.docx       final document           (output)
+    docs/docs/<name>.docx     final document         (output)
 
 Usage:
 
@@ -28,6 +28,7 @@ import sys
 DOCS = os.path.dirname(os.path.abspath(__file__))
 MD_DIR = os.path.join(DOCS, "md")
 IMG_DIR = os.path.join(DOCS, "images")
+OUT_DIR = os.path.join(DOCS, "docs")
 
 MERMAID_RE = re.compile(r"```mermaid\n(.*?)```", re.S)
 
@@ -78,9 +79,11 @@ def build(name):
 
     processed = MERMAID_RE.sub(repl, text)
 
-    # Hand the rewritten Markdown to pandoc on stdin. resource-path lets it find
-    # the images relative to docs/.
-    docx = os.path.join(DOCS, name + ".docx")
+    # Hand the rewritten Markdown to pandoc on stdin. The image references are
+    # relative to docs/ (images/<name>-N.png); resource-path points there so
+    # pandoc resolves and embeds them, wherever the .docx itself is written.
+    os.makedirs(OUT_DIR, exist_ok=True)
+    docx = os.path.join(OUT_DIR, name + ".docx")
     r = subprocess.run(
         ["pandoc", "-f", "gfm", "-t", "docx",
          "--resource-path", DOCS,
