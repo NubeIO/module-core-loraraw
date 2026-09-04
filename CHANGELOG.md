@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.5) (2026-09-04)
+
+- Public release (UART parallel write)
+
 ## [v1.3.5-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.5-rc.2) (2026-08-18)
 
 - Serialise LoRaRAW writes through a single scheduler: one frame on air at a time, wait for the device RESPONSE (or `write_response_timeout`, default 5s) before the next device's frame, round-robin across devices — concurrent writes to several devices no longer clobber each other's acks on the half-duplex radio
