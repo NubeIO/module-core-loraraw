@@ -88,9 +88,16 @@ func (m *PointWriteQueueManager) getOrCreateQueue(deviceUUID string) *PointWrite
 }
 
 func (m *PointWriteQueueManager) EnqueuePoint(point *model.Point) {
+	m.EnqueuePointTracked(point)
+}
+
+// EnqueuePointTracked enqueues the point and returns the pending item so the
+// caller can wait on Done() and inspect Acked() (used by the device ping API).
+func (m *PointWriteQueueManager) EnqueuePointTracked(point *model.Point) *PendingPointWrite {
 	queue := m.getOrCreateQueue(point.DeviceUUID)
-	queue.EnqueueWriteQueue(point)
+	item := queue.EnqueueWriteQueue(point)
 	m.wake()
+	return item
 }
 
 func (m *PointWriteQueueManager) wake() {

@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -38,6 +39,7 @@ func InitRouter() {
 	route.Handle(nhttp.DELETE, "/api/networks/:uuid", DeleteNetwork)
 
 	route.Handle(nhttp.POST, "/api/devices", CreateDevice)
+	route.Handle(nhttp.POST, "/api/devices/:uuid/ping", PingDevice)
 	route.Handle(nhttp.PATCH, "/api/devices/:uuid", UpdateDevice)
 	route.Handle(nhttp.DELETE, "/api/devices/:uuid", DeleteDevice)
 
@@ -193,22 +195,66 @@ func enqueueUartPing(m *nmodule.Module, device *model.Device) {
 	}
 }
 
+// newUartPingPoint builds the synthetic (not DB-backed) ping write for a UART
+// device: position 4, bool, value 1. The firmware ignores the value but replies
+// to the request, which proves the device is reachable over LoRa.
+func newUartPingPoint(device *model.Device) *model.Point {
+	return &model.Point{
+		IoNumber:    "UVP-4",
+		AddressID:   nils.NewInt(4),
+		DataType:    strconv.Itoa(int(rubixDataEncoding.MDK_BOOL)),
+		DeviceUUID:  device.UUID,
+		AddressUUID: device.AddressUUID,
+		WriteValue:  nils.NewFloat64(1),
+	}
+}
+
+// PingDevice enqueues one ping write for a UART device and waits for the
+// outcome, so a button in CE/the app can show whether the device answered.
+func PingDevice(m *nmodule.Module, r *router.Request) ([]byte, error) {
+	module := (*m).(*Module)
+	device, err := module.grpcMarshaller.GetDevice(r.PathParams["uuid"], &nmodule.Opts{})
+	if err != nil {
+		return nil, err
+	}
+	if device.Model != schema.DeviceModelUART {
+		return nil, errors.New("ping is only supported for UART devices")
+	}
+	manager := module.pointWriteQueueManager
+	if manager == nil {
+		return nil, errors.New("plugin is not enabled")
+	}
+
+	item := manager.EnqueuePointTracked(newUartPingPoint(device))
+
+	// Worst case the scheduler spends maxRetry response timeouts on this item,
+	// plus slack for writes queued ahead of it.
+	timeout := time.Duration(module.config.WriteQueueMaxRetries)*module.config.WriteResponseTimeout + 5*time.Second
+	result := struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}{}
+	select {
+	case <-item.Done():
+		if item.Acked() {
+			result.Success = true
+			result.Message = "device responded"
+		} else {
+			result.Message = "no response from device"
+		}
+	case <-time.After(timeout):
+		result.Message = "timed out waiting for the write queue"
+	}
+	return json.Marshal(result)
+}
+
 func enqueueUartPingWithRetry(m *nmodule.Module, device *model.Device) {
 	module := (*m).(*Module)
 
 	for attempt := 1; attempt <= uartPingMaxRetries; attempt++ {
 		log.Infof("enqueueUartPing attempt %d/%d for device %s", attempt, uartPingMaxRetries, device.UUID)
 
-		// Create and enqueue the ping point
-		point := &model.Point{
-			IoNumber:    "UVP-4",
-			AddressID:   nils.NewInt(4),
-			DataType:    strconv.Itoa(int(rubixDataEncoding.MDK_BOOL)),
-			DeviceUUID:  device.UUID,
-			AddressUUID: device.AddressUUID,
-			WriteValue:  nils.NewFloat64(1),
-		}
-		module.pointWriteQueueManager.EnqueuePoint(point)
+		module.pointWriteQueueManager.EnqueuePoint(newUartPingPoint(device))
 
 		// Wait for the poll interval before checking
 		time.Sleep(uartPingRetryInterval)

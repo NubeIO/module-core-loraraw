@@ -28,6 +28,17 @@ func (p *PendingPointWrite) markDone(acked bool) {
 	})
 }
 
+// Done is closed once the item leaves the queue (acked, exhausted or dropped).
+func (p *PendingPointWrite) Done() <-chan struct{} {
+	return p.done
+}
+
+// Acked reports whether the device responded. Only meaningful after Done is
+// closed.
+func (p *PendingPointWrite) Acked() bool {
+	return p.acked
+}
+
 // --------------------------------------------
 // SINGLE QUEUE — holds one device's pending writes in order.
 // Transmission is driven by PointWriteQueueManager's scheduler.
