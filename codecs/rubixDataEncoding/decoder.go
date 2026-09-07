@@ -475,3 +475,37 @@ func GetRubixPointNames() []string {
 func CheckPayloadLengthRubix(_ string) bool {
 	return true
 }
+
+// DecodeRequestPayload parses a LORA RAW PROTOCOL §2.2 request body:
+//
+//	[SETTINGS_BYTE] [RDE message ID] [POINT_ID] [POINT_ID] ...
+//
+// A request names what is being asked for and carries no DATA_TYPE_ID and no
+// values, which is why it cannot go through DecodeRubix. Returns the requested
+// points as IoNumber strings (e.g. "UVP-1"). Unknown or unexpected POINT_IDs
+// are not an error: the device and gateway version independently, so any
+// PositionDataType decodes to some name via generateFieldName.
+//
+// Nothing here is specific to configuration - a request names points, whatever
+// those points happen to mean.
+func DecodeRequestPayload(payload []byte) ([]string, error) {
+	if len(payload) < 1 {
+		return nil, errors.New("config request payload is empty")
+	}
+	serialData := NewSerialDataWithBuffer(payload)
+	if !HasRequestData(serialData) {
+		return nil, errors.New("config request payload does not have the request flag set")
+	}
+	if len(payload) < 2 {
+		return nil, errors.New("config request payload is truncated: missing message ID byte")
+	}
+	UpdateBitPositionsForHeaderByte(serialData)
+
+	names := make([]string, 0, len(payload)-2)
+	for serialData.ReadBitPos+8 <= len(serialData.Buffer)*8 {
+		positionVector, shiftPos, bytesRequired := getVector(serialData, 8, serialData.ReadBitPos)
+		positionByte := uint8(vectorToBits(positionVector, 8, shiftPos, bytesRequired))
+		names = append(names, generateFieldName(MDK_UINT_16, parsePosition(positionByte)))
+	}
+	return names, nil
+}
