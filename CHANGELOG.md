@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [v1.3.6-rc.1](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.1) (2026-09-07)
+
+- Answer inbound LoRaRAW requests (`opt=3`): a device names the points it wants and the gateway replies with their values. The reply is sent directly instead of through the write queue, so it lands inside the device's ~1s RX window
+- Serve the push rate (`UVP-1`) as the first request-able point, resolved from the operator's pending write first and the device's last reported value second, and ignored outside the 1..15000s the firmware accepts
+- Decode the full v1.1.x `SETTINGS_BYTE` — request bit, response bit and message ID — which is what makes a POINT_ID-only request payload parseable. No-op for frames with both flags clear, so existing uplinks decode identically
+- Add device ping API for UART reachability checks (#100)
+
 ## [v1.3.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.5) (2026-09-04)
 
 - Public release (UART parallel write)
