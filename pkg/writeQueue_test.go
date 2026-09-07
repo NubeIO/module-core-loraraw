@@ -327,3 +327,30 @@ func TestSerialWriteQueue_RestartsAfterStop(t *testing.T) {
 	}
 	m.stopWriteQueue()
 }
+
+func TestScheduler_TrackedEnqueueReportsOutcome(t *testing.T) {
+	f := newSchedFixture(t, 2, 100*time.Millisecond, "AAAAAAA1", "BBBBBBB2")
+	f.setAck("AAAAAAA1", true)
+	f.setAck("BBBBBBB2", false)
+
+	acked := f.mgr.EnqueuePointTracked(f.point("AAAAAAA1", "ping-ok", 1))
+	ignored := f.mgr.EnqueuePointTracked(f.point("BBBBBBB2", "ping-dead", 1))
+
+	select {
+	case <-acked.Done():
+		if !acked.Acked() {
+			t.Fatalf("acked write must report Acked()==true")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("acked write should complete quickly")
+	}
+
+	select {
+	case <-ignored.Done():
+		if ignored.Acked() {
+			t.Fatalf("unanswered write must report Acked()==false")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatalf("unanswered write should finish after retries exhaust")
+	}
+}
