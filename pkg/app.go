@@ -482,6 +482,10 @@ func (m *Module) handleLoRaRAWDevice(device *model.Device, devDesc *codec.LoRaDe
 		}
 		msgId := dataBytes[utils.LORARAW_NONCE_POSITION]
 		_ = devDesc.DecodeResponse(dataHex, payload, msgId, devDesc, device, writtenSuccessFn, writtenErrorFn, metaFn)
+	case utils.LORARAW_OPTS_REQUEST:
+		// A device asking us for point values (§2.2). Answered inline, not via
+		// the write queue — the device's RX window is ~1s.
+		m.handleInboundRequest(device, devDesc, payload, dataBytes, keyBytes)
 	default:
 		log.Warnf("unhandled LoRaRAW option: %d", opts)
 	}
