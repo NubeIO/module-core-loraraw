@@ -89,14 +89,14 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 
 		// Digital virtual points: central prohibition flags (HVAC objects 0x1400-0x1406, 0x140E).
 		// Value 0=OFF, 1=ON, 255=invalid/unsupported, so the type is UINT_8 (30) not BOOL.
-		"dvp-1": {"Prohibit All Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-2": {"Prohibit Timer Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-3": {"Prohibit Setting Temperature", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-4": {"Prohibit Operation Mode", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-5": {"Prohibit Operation Start/Stop", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-6": {"Prohibit Operation Start", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-7": {"Prohibit Filter Sign Reset", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
-		"dvp-8": {"Prohibition Of Operation", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-1": {"Central Prohibition of All Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-2": {"Central Prohibition of Timer Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-3": {"Central Prohibition of Setting Temperature Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-4": {"Central Prohibition of Operation Mode", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-5": {"Central Prohibition of Operation Start Stop", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-6": {"Central Prohibition of Operation Start", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-7": {"Central Prohibition of Filter Sign Reset", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-8": {"Prohibition of Operation", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 	}
 
 	return configs[pointID]

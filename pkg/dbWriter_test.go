@@ -28,8 +28,8 @@ func TestSetNewPointFieldsUARTKeepsUVPMapping(t *testing.T) {
 func TestSetNewPointFieldsUARTMapsDVPByType(t *testing.T) {
 	p := &model.Point{}
 	setNewPointFieldsUART(&model.Device{}, p, "DVP-1")
-	if p.Name != "Prohibit All Operation" {
-		t.Fatalf("DVP-1 name %q, want Prohibit All Operation", p.Name)
+	if p.Name != "Central Prohibition of All Operation" {
+		t.Fatalf("DVP-1 name %q, want Central Prohibition of All Operation", p.Name)
 	}
 	if p.DataType != "30" {
 		t.Fatalf("DVP-1 data type %q, want 30 (UINT_8)", p.DataType)
@@ -46,8 +46,8 @@ func TestSetNewPointFieldsUARTMapsDVPByType(t *testing.T) {
 
 	ro := &model.Point{}
 	setNewPointFieldsUART(&model.Device{}, ro, "dvp-8")
-	if ro.Name != "Prohibition Of Operation" {
-		t.Fatalf("dvp-8 name %q, want Prohibition Of Operation", ro.Name)
+	if ro.Name != "Prohibition of Operation" {
+		t.Fatalf("dvp-8 name %q, want Prohibition of Operation", ro.Name)
 	}
 	if ro.WriteMode != datatype.ReadOnly {
 		t.Fatalf("dvp-8 write mode %q, want %q", ro.WriteMode, datatype.ReadOnly)
