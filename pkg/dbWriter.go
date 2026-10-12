@@ -36,6 +36,10 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 		"1":  {"Communication Status", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
 		"2":  {"Unit Type", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"3":  {"Has Economy", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		// Firmware version packed as major*100 + minor*10 + patch (v1.0.2 -> 102); the device sends it in full updates only.
+		"5":  {"Firmware Version", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		// Release candidate of that firmware: 0 for a final release, N for a "-rc.N" build. Read together with point 5.
+		"6":  {"Release Candidate", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"10": {"Has Mode Cool", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"11": {"Has Mode Dry", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"12": {"Has Mode Fan", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
@@ -86,6 +90,17 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 		"57": {"Error State", "32", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
 		"58": {"Error Code", "32", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
 		"59": {"Set Economy", "38", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+
+		// Digital virtual points: central prohibition flags (HVAC objects 0x1400-0x1406, 0x140E).
+		// Value 0=OFF, 1=ON, 255=invalid/unsupported, so the type is UINT_8 (30) not BOOL.
+		"dvp-1": {"Central Prohibition of All Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-2": {"Central Prohibition of Timer Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-3": {"Central Prohibition of Setting Temperature Operation", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-4": {"Central Prohibition of Operation Mode", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-5": {"Central Prohibition of Operation Start Stop", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-6": {"Central Prohibition of Operation Start", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-7": {"Central Prohibition of Filter Sign Reset", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"dvp-8": {"Prohibition of Operation", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 	}
 
 	return configs[pointID]
@@ -189,12 +204,19 @@ func (m *Module) addPointFromName(deviceBody *model.Device, pointIDStr string, d
 }
 
 func setNewPointFieldsUART(deviceBody *model.Device, pointBody *model.Point, pointIDStr string) {
-	// pointIDStr will usually look like "<type>-<id>", e.g. "uvp-1" or "uvp-57".
-	// We use the numeric part as the key into the UART config map.
+	// pointIDStr will usually look like "<type>-<id>", e.g. "UVP-1", "uvp-57" or "DVP-3".
+	// UVP points keep their legacy numeric key ("57"). Any other point type is
+	// keyed with a lowercase type prefix ("dvp-3") so that, for example, DVP-1
+	// does not pick up the config of UVP-1 (Communication Status).
 	configKey := pointIDStr
 	parts := strings.Split(pointIDStr, "-")
 	if len(parts) == 2 {
-		configKey = parts[1]
+		pointType := strings.ToLower(parts[0])
+		if pointType == "uvp" {
+			configKey = parts[1]
+		} else {
+			configKey = pointType + "-" + parts[1]
+		}
 	}
 
 	uartPointConfig := getUARTPointConfig(configKey)
