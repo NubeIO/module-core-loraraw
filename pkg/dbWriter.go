@@ -36,6 +36,10 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 		"1":  {"Communication Status", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
 		"2":  {"Unit Type", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"3":  {"Has Economy", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		// Firmware version packed as major*100 + minor*10 + patch (v1.0.2 -> 102); the device sends it in full updates only.
+		"5":  {"Firmware Version", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		// Release candidate of that firmware: 0 for a final release, N for a "-rc.N" build. Read together with point 5.
+		"6":  {"Release Candidate", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"10": {"Has Mode Cool", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"11": {"Has Mode Dry", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"12": {"Has Mode Fan", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
