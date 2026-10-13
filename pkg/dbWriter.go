@@ -41,7 +41,7 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 		// Release candidate of that firmware: 0 for a final release, N for a "-rc.N" build. Read together with point 5.
 		"6":  {"Release Candidate", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		// Setting level the adapter uses for user writes: 1 = Lv.2 admin (default, operates through central prohibition), 0 = Lv.1 user.
-		"8":  {"Admin Setting Level", "38", datatype.WriteAlways, boolean.NewFalse(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		"8":  {"Admin Setting Level", "38", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 		"10": {"Has Mode Cool", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"11": {"Has Mode Dry", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		"12": {"Has Mode Fan", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},

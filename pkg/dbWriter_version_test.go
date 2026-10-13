@@ -41,4 +41,11 @@ func TestUARTPointConfigAdminSettingLevel(t *testing.T) {
 	if cfg.WriteMode != datatype.WriteAlways {
 		t.Fatalf("point 8: write mode %q, want write-always", cfg.WriteMode)
 	}
+	// A level change is an operator action, so it must leave a history trail.
+	if cfg.HistoryEnable == nil || !*cfg.HistoryEnable {
+		t.Fatal("point 8: history must be enabled")
+	}
+	if cfg.HistoryType != datatype.HistoryTypeCovAndInterval {
+		t.Fatalf("point 8: history type %q, want %q", cfg.HistoryType, datatype.HistoryTypeCovAndInterval)
+	}
 }
