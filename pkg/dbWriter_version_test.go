@@ -25,3 +25,27 @@ func TestUARTPointConfigFirmwareVersionPair(t *testing.T) {
 		}
 	}
 }
+
+// UVP-8 is the adapter's setting level, writable from Rubix as a boolean.
+func TestUARTPointConfigAdminSettingLevel(t *testing.T) {
+	cfg := getUARTPointConfig("8")
+	if cfg == nil {
+		t.Fatal("point 8: no config")
+	}
+	if cfg.Name != "Admin Setting Level" {
+		t.Fatalf("point 8: name %q, want Admin Setting Level", cfg.Name)
+	}
+	if cfg.DataType != "38" {
+		t.Fatalf("point 8: data type %q, want 38 (BOOL)", cfg.DataType)
+	}
+	if cfg.WriteMode != datatype.WriteAlways {
+		t.Fatalf("point 8: write mode %q, want write-always", cfg.WriteMode)
+	}
+	// A level change is an operator action, so it must leave a history trail.
+	if cfg.HistoryEnable == nil || !*cfg.HistoryEnable {
+		t.Fatal("point 8: history must be enabled")
+	}
+	if cfg.HistoryType != datatype.HistoryTypeCovAndInterval {
+		t.Fatalf("point 8: history type %q, want %q", cfg.HistoryType, datatype.HistoryTypeCovAndInterval)
+	}
+}
