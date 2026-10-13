@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.6-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.3) (2026-10-13)
+
+- Name UART `UVP-8` "Admin Setting Level": the command level the Fujitsu adapter uses for writes (1 = Lv.2 admin, settings go through while a central prohibition flag is on; 0 = Lv.1 user, the unit rejects settings a prohibition flag covers). BOOL, write-always, COV + 15 min history (#103)
+
 ## [v1.3.6-rc.2](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.2) (2026-10-13)
 
 - Add UART `DVP-1..DVP-8` points for the HVAC central prohibition flags (objects `0x1400-0x1406`, `0x140E`) as `UINT_8` (0=OFF, 1=ON, 255=invalid); `DVP-1..7` are writable, `DVP-8` is read-only, named after the HVAC protocol spec
