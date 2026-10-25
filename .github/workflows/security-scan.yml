@@ -1,0 +1,285 @@
+name: CI · Security Gates
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    - cron: '0 0 * * 0'   # Weekly Sunday midnight — catches new CVEs in unchanged code
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write   # SARIF upload to GitHub Security tab
+  actions: read            # Required by CodeQL
+
+# Cancel in-progress runs on the same branch when a new push arrives
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TRIVY_CACHE_DIR: ~/.cache/trivy   # Shared Trivy DB cache path
+
+jobs:
+
+  # ============================================================
+  # PHASE 1 — Build gate (all security jobs depend on this)
+  # ============================================================
+
+  build:
+    name: "Build & Test"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        run: go build ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Test with race detector
+        run: go test -race -timeout 120s -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+          retention-days: 7
+
+  # ============================================================
+  # PHASE 2 — Security gates (run in parallel after build passes)
+  # ============================================================
+
+  secrets:
+    name: "g1 · Gitleaks — Secrets"
+    runs-on: ubuntu-latest
+    # Runs independently — secrets scan does not need a Go build
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Full git history scan, not just latest commit
+
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Exits 1 on any detected secret — blocks the pipeline
+
+  gosec:
+    name: "g2 · gosec — Go SAST"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+      - name: Run gosec
+        # Blocks pipeline on HIGH or CRITICAL findings (no '|| true').
+        # SARIF is still uploaded so findings appear in the Security tab
+        # even when the job fails (handled by 'if: always()' below).
+        run: gosec -fmt sarif -out gosec.sarif -severity high ./...
+
+      - name: Upload to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()   # Upload even when gosec exits non-zero
+        with:
+          sarif_file: gosec.sarif
+          category: gosec
+
+  govulncheck:
+    name: "g3 · govulncheck — Go Vuln DB"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run govulncheck
+        # Checks actual call graphs — only fails if your code CALLS a
+        # vulnerable function, not just imports a vulnerable package.
+        run: govulncheck ./...
+
+  codeql:
+    name: "g4 · CodeQL — Semantic SAST"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: go
+          # Queries: security-extended adds OWASP Top 10 + CWE coverage
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: codeql-go
+
+  trivy-deps:
+    name: "g5 · Trivy — Dependency CVEs (go.sum)"
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TRIVY_CACHE_DIR }}
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: trivy-db-
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-deps.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1   # Blocks on CRITICAL or HIGH findings
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Upload to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-deps.sarif
+          category: trivy-deps
+
+  # ============================================================
+  # PHASE 3 — Container scan + SBOM (after all Phase 2 gates)
+  # ============================================================
+
+  trivy-container:
+    name: "g6 · Trivy — Container Image CVEs + SBOM"
+    runs-on: ubuntu-latest
+    needs: [secrets, gosec, govulncheck, codeql, trivy-deps]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t module-core-loraraw:${{ github.sha }} .
+
+      - name: Cache Trivy DB
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.TRIVY_CACHE_DIR }}
+          key: trivy-db-${{ github.run_id }}
+          restore-keys: trivy-db-
+
+      - name: Trivy container scan
+        uses: aquasecurity/trivy-action@v0.28.0
+        with:
+          image-ref: module-core-loraraw:${{ github.sha }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH
+          exit-code: 1   # Blocks on CRITICAL or HIGH findings
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Upload to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-container
+
+      - name: Generate SBOM (CycloneDX)
+        uses: aquasecurity/trivy-action@v0.28.0
+        with:
+          image-ref: module-core-loraraw:${{ github.sha }}
+          format: cyclonedx
+          output: sbom.cyclonedx.json
+          cache-dir: ${{ env.TRIVY_CACHE_DIR }}
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cyclonedx.json
+          retention-days: 90   # Long retention — SBOM is a compliance artifact
+
+  # ============================================================
+  # PHASE 4 — Summary (always runs, single pass/fail view)
+  # ============================================================
+
+  security-summary:
+    name: "Security Gate Summary"
+    runs-on: ubuntu-latest
+    needs: [secrets, gosec, govulncheck, codeql, trivy-deps, trivy-container]
+    if: always()
+    steps:
+      - name: Check gate results
+        run: |
+          echo "================================================"
+          echo "  DevSecOps Gate Results"
+          echo "================================================"
+          echo "g1 Gitleaks (Secrets):        ${{ needs.secrets.result }}"
+          echo "g2 gosec (Go SAST):           ${{ needs.gosec.result }}"
+          echo "g3 govulncheck (Go Vuln DB):  ${{ needs.govulncheck.result }}"
+          echo "g4 CodeQL (Semantic SAST):    ${{ needs.codeql.result }}"
+          echo "g5 Trivy deps (go.sum CVEs):  ${{ needs.trivy-deps.result }}"
+          echo "g6 Trivy container + SBOM:    ${{ needs.trivy-container.result }}"
+          echo "================================================"
+
+          failed=false
+          for result in \
+            "${{ needs.secrets.result }}" \
+            "${{ needs.gosec.result }}" \
+            "${{ needs.govulncheck.result }}" \
+            "${{ needs.codeql.result }}" \
+            "${{ needs.trivy-deps.result }}" \
+            "${{ needs.trivy-container.result }}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              failed=true
+            fi
+          done
+
+          if [[ "$failed" == "true" ]]; then
+            echo "One or more security gates failed."
+            exit 1
+          fi
+
+          echo "All security gates passed."
