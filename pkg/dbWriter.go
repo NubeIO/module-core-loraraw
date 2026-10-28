@@ -33,13 +33,13 @@ type uartPointConfig struct {
 
 func getUARTPointConfig(pointID string) *uartPointConfig {
 	configs := map[string]*uartPointConfig{
-		"1":  {"Communication Status", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
-		"2":  {"Unit Type", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
-		"3":  {"Has Economy", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"1": {"Communication Status", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(60), float.New(0.01)},
+		"2": {"Unit Type", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"3": {"Has Economy", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		// Firmware version packed as major*100 + minor*10 + patch (v1.0.2 -> 102); the device sends it in full updates only.
-		"5":  {"Firmware Version", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"5": {"Firmware Version", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		// Release candidate of that firmware: 0 for a final release, N for a "-rc.N" build. Read together with point 5.
-		"6":  {"Release Candidate", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
+		"6": {"Release Candidate", "30", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
 		// Setting level the adapter uses for user writes: 1 = Lv.2 admin (default, operates through central prohibition), 0 = Lv.1 user.
 		"8":  {"Admin Setting Level", "38", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 		"10": {"Has Mode Cool", "38", datatype.ReadOnly, boolean.NewFalse(), datatype.HistoryTypeInterval, integer.New(15), float.New(0.01)},
@@ -103,6 +103,11 @@ func getUARTPointConfig(pointID string) *uartPointConfig {
 		"dvp-6": {"Central Prohibition of Operation Start", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 		"dvp-7": {"Central Prohibition of Filter Sign Reset", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 		"dvp-8": {"Prohibition of Operation", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		// Filter sign of the indoor unit (HVAC object 0x1141, read-only): 1 = filter needs cleaning, 0 = clear, 255 = invalid/unsupported.
+		"dvp-9": {"Filter Sign", "30", datatype.ReadOnly, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
+		// Filter sign reset (HVAC object 0x1142, write-only on the unit): write 1 to clear the sign. The adapter reports
+		// the point back as 0 once the command is sent, so it behaves as a momentary button and can be written again.
+		"dvp-10": {"Filter Sign Reset", "30", datatype.WriteAlways, boolean.NewTrue(), datatype.HistoryTypeCovAndInterval, integer.New(15), float.New(0.01)},
 	}
 
 	return configs[pointID]

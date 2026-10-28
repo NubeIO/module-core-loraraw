@@ -57,14 +57,42 @@ func TestSetNewPointFieldsUARTMapsDVPByType(t *testing.T) {
 	}
 }
 
+// Filter sign (0x1141) is a read-only status; filter sign reset (0x1142) is a
+// writable momentary command. Both are UINT_8 like the other DVP points.
+func TestSetNewPointFieldsUARTFilterSignPoints(t *testing.T) {
+	sign := &model.Point{}
+	setNewPointFieldsUART(&model.Device{}, sign, "DVP-9")
+	if sign.Name != "Filter Sign" {
+		t.Fatalf("DVP-9 name %q, want Filter Sign", sign.Name)
+	}
+	if sign.DataType != "30" {
+		t.Fatalf("DVP-9 data type %q, want 30 (UINT_8)", sign.DataType)
+	}
+	if sign.WriteMode != datatype.ReadOnly || sign.EnableWriteable == nil || *sign.EnableWriteable {
+		t.Fatalf("DVP-9 must be read-only")
+	}
+
+	reset := &model.Point{}
+	setNewPointFieldsUART(&model.Device{}, reset, "dvp-10")
+	if reset.Name != "Filter Sign Reset" {
+		t.Fatalf("dvp-10 name %q, want Filter Sign Reset", reset.Name)
+	}
+	if reset.WriteMode != datatype.WriteAlways || reset.EnableWriteable == nil || !*reset.EnableWriteable {
+		t.Fatalf("dvp-10 must be writeable")
+	}
+	if reset.AddressID != nil {
+		t.Fatalf("dvp-10 address id %d must not reuse the UVP numeric address space", *reset.AddressID)
+	}
+}
+
 // A DVP id without a table entry falls back to the generic defaults.
 func TestSetNewPointFieldsUARTUnknownDVPFallsBack(t *testing.T) {
 	p := &model.Point{}
-	setNewPointFieldsUART(&model.Device{}, p, "DVP-9")
+	setNewPointFieldsUART(&model.Device{}, p, "DVP-11")
 	if p.Name == "" || p.Name == "Communication Status" {
-		t.Fatalf("DVP-9 name %q, want generic fallback name", p.Name)
+		t.Fatalf("DVP-11 name %q, want generic fallback name", p.Name)
 	}
 	if p.WriteMode != datatype.ReadOnly {
-		t.Fatalf("DVP-9 write mode %q, want read-only fallback", p.WriteMode)
+		t.Fatalf("DVP-11 write mode %q, want read-only fallback", p.WriteMode)
 	}
 }
