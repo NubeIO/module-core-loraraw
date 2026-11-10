@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.6-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.4) (2026-10-29)
+
+- Add UART `DVP-9` Filter Sign (HVAC object `0x1141`, read-only: 0 clear, 1 filter needs cleaning, 255 invalid) and `DVP-10` Filter Sign Reset (object `0x1142`, write 1 to clear; the adapter reports it back as 0 so it works as a momentary button). Needs adapter firmware v1.0.3-rc.1 or later (#105)
+
 ## [v1.3.6-rc.3](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.3) (2026-10-13)
 
 - Name UART `UVP-8` "Admin Setting Level": the command level the Fujitsu adapter uses for writes (1 = Lv.2 admin, settings go through while a central prohibition flag is on; 0 = Lv.1 user, the unit rejects settings a prohibition flag covers). BOOL, write-always, COV + 15 min history (#103)
