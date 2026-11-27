@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [v1.3.6-rc.5](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.5) (2026-11-27)
+
+- Reopen the serial port after a serial connection error. The module logged "attempting to reconnect" and then waited on the dead port forever, so a `driver-lora` restart (which recreates its PTY) stopped all LoRa data until Rubix OS was restarted
+
 ## [v1.3.6-rc.4](https://github.com/NubeIO/module-core-loraraw/tree/v1.3.6-rc.4) (2026-10-29)
 
 - Add UART `DVP-9` Filter Sign (HVAC object `0x1141`, read-only: 0 clear, 1 filter needs cleaning, 255 invalid) and `DVP-10` Filter Sign Reset (object `0x1142`, write 1 to clear; the adapter reports it back as 0 so it works as a momentary button). Needs adapter firmware v1.0.3-rc.1 or later (#105)

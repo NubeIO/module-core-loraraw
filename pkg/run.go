@@ -38,20 +38,26 @@ func (m *Module) run() {
 		serialCloseChan := make(chan error, 1)
 		go sc.Loop(serialPayloadChan, serialCloseChan)
 
+	readLoop:
 		for {
 			select {
 			case <-m.interruptChan:
 				log.Info("interrupt received on run")
 				return
 			case err := <-serialCloseChan:
-				errMsg := fmt.Sprintf("serial connection error: %v", err.Error())
+				errMsg := fmt.Sprintf("serial connection error: %v", err)
 				log.Error(errMsg)
 				_ = m.grpcMarshaller.UpdateNetworkFault(m.networkUUID, &model.CommonFault{
 					InFault: true,
 					Message: errMsg,
 				})
 				log.Info("serial connection attempting to reconnect...")
-				continue
+				// back to the outer loop, which opens the port again: a plain `continue` here
+				// only waited on the dead port forever (e.g. after driver-lora restarts and
+				// recreates its PTY)
+				_ = m.SerialClose()
+				time.Sleep(m.config.ReIterationTime)
+				break readLoop
 			case data := <-serialPayloadChan:
 				m.handleSerialPayload(data)
 			}
